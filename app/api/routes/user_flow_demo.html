@@ -1,0 +1,681 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>사용자 흐름 테스트</title>
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: "Segoe UI", "Noto Sans KR", sans-serif;
+        background: linear-gradient(180deg, #f8fafc 0%, #eef4f8 100%);
+        color: #162031;
+      }
+      main { max-width: 1180px; margin: 0 auto; padding: 24px 16px 40px; }
+      h1, h2, h3, p { margin: 0; }
+      p { color: #566579; line-height: 1.6; }
+      .hero, .card {
+        background: rgba(255, 255, 255, 0.94);
+        border: 1px solid #d8e2ec;
+        border-radius: 20px;
+        box-shadow: 0 14px 34px rgba(15, 23, 42, 0.05);
+      }
+      .hero { padding: 22px; }
+      .layout { display: grid; grid-template-columns: 380px 1fr; gap: 16px; margin-top: 18px; }
+      .left { display: grid; gap: 16px; align-content: start; }
+      .card { padding: 16px; }
+      .head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 12px;
+      }
+      .pill {
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: #e8f7f4;
+        color: #0f766e;
+        font-size: 12px;
+        font-weight: 700;
+      }
+      .stack, .stages, .agenda, .questions { display: grid; gap: 12px; }
+      .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+      label { display: grid; gap: 6px; font-size: 13px; font-weight: 700; }
+      input, textarea, select, button { font: inherit; }
+      input, textarea, select {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid #c8d4e2;
+        border-radius: 12px;
+        background: #fff;
+      }
+      textarea { min-height: 138px; resize: vertical; line-height: 1.6; }
+      button {
+        border: 0;
+        border-radius: 12px;
+        padding: 11px 14px;
+        cursor: pointer;
+        font-weight: 700;
+      }
+      .primary { background: #0f766e; color: #fff; }
+      .secondary { background: #e9eff7; color: #162031; }
+      .ghost { background: #fff7ed; color: #b45309; }
+      .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+      .flow {
+        padding-left: 18px;
+        margin: 0;
+        display: grid;
+        gap: 8px;
+        color: #425466;
+      }
+      .muted { font-size: 12px; color: #66758b; line-height: 1.6; }
+      .info, .box, .stage, .summary, .question, .event, .day {
+        border: 1px solid #dbe4ee;
+        border-radius: 16px;
+        background: #fbfdff;
+      }
+      .info {
+        padding: 13px;
+        margin-bottom: 12px;
+        background: #eef6ff;
+        color: #1d4ed8;
+      }
+      .info.error { background: #fef2f2; color: #b91c1c; }
+      .summary {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 10px;
+        padding: 12px;
+        margin-bottom: 12px;
+      }
+      .summary div {
+        padding: 10px;
+        border-radius: 12px;
+        background: #fff;
+      }
+      .summary strong {
+        display: block;
+        margin-bottom: 6px;
+        font-size: 12px;
+        color: #66758b;
+        text-transform: uppercase;
+      }
+      .summary span { font-size: 20px; font-weight: 800; }
+      .stage { padding: 12px; }
+      .stage.done {
+        border-color: rgba(15, 118, 110, 0.25);
+        background: rgba(15, 118, 110, 0.06);
+      }
+      .stage strong { display: block; margin-bottom: 4px; }
+      .box { padding: 14px; }
+      .draft-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin-top: 10px;
+      }
+      .full { grid-column: 1 / -1; }
+      .draft-item {
+        padding: 10px;
+        border: 1px solid #e3eaf3;
+        border-radius: 12px;
+        background: #fff;
+      }
+      .draft-item strong {
+        display: block;
+        margin-bottom: 6px;
+        font-size: 12px;
+        color: #66758b;
+      }
+      .question { padding: 12px; background: #fff; }
+      .question small { color: #64748b; line-height: 1.5; }
+      .day { overflow: hidden; background: #fff; }
+      .day-head {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 12px 14px;
+        background: #f8fafc;
+        border-bottom: 1px solid #e2e8f0;
+      }
+      .events { display: grid; gap: 10px; padding: 14px; }
+      .event {
+        padding: 12px;
+        border-left: 4px solid transparent;
+        background: #fbfdff;
+      }
+      .event.fixed_schedule { border-left-color: #2563eb; }
+      .event.allocated_task { border-left-color: #0f766e; }
+      .event.ai_plan_item { border-left-color: #b45309; }
+      .event-top {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        margin-bottom: 6px;
+      }
+      .event-title { font-weight: 800; }
+      .event-time {
+        font-size: 12px;
+        color: #475569;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+      .tags { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+      .tag {
+        padding: 4px 8px;
+        border-radius: 999px;
+        font-size: 12px;
+        background: #fff;
+        border: 1px solid rgba(23, 32, 51, 0.08);
+        color: #475569;
+      }
+      .empty {
+        padding: 24px;
+        text-align: center;
+        color: #64748b;
+        border: 1px dashed #cfd8e3;
+        border-radius: 14px;
+        background: #fbfdff;
+      }
+      details {
+        margin-top: 14px;
+        border: 1px solid #dbe4ee;
+        border-radius: 14px;
+        overflow: hidden;
+        background: #fff;
+      }
+      summary { cursor: pointer; padding: 12px 14px; font-weight: 700; }
+      pre {
+        margin: 0;
+        padding: 14px;
+        min-height: 180px;
+        overflow: auto;
+        background: #0f172a;
+        color: #dbeafe;
+        font-family: "Cascadia Code", "Consolas", monospace;
+        font-size: 13px;
+        line-height: 1.55;
+      }
+      @media (max-width: 980px) {
+        .layout { grid-template-columns: 1fr; }
+        .summary { grid-template-columns: 1fr 1fr; }
+      }
+      @media (max-width: 640px) {
+        .row, .draft-grid, .summary { grid-template-columns: 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="hero">
+        <h1>사용자 흐름 테스트</h1>
+        <p>실제 이용자 기준 흐름으로 유저 생성, 일정 등록, 목표 분석, 추가 질문 답변, 목표 저장과 계획 생성, 자동 배치, 시간표 확인까지 한 화면에서 테스트합니다.</p>
+      </section>
+
+      <div class="layout">
+        <div class="left">
+          <section class="card">
+            <div class="head"><h2>테스트 순서</h2><span class="pill">실사용 흐름</span></div>
+            <ol class="flow">
+              <li>유저 생성</li>
+              <li>고정 일정 등록</li>
+              <li>가변 일정 등록</li>
+              <li>자연어 목표 분석</li>
+              <li>추가 질문 답변 후 목표 저장 + 계획 생성</li>
+              <li>자동 배치 후 시간표 확인</li>
+            </ol>
+          </section>
+
+          <section class="card">
+            <div class="head"><h2>빠른 실행</h2><span class="pill">샘플</span></div>
+            <div class="actions">
+              <button class="primary" id="run-all-button" type="button">전체 샘플 흐름 실행</button>
+              <button class="secondary" id="reset-button" type="button">초기화</button>
+            </div>
+            <p class="muted">한 단계씩 눌러도 되고, 전체 실행으로 끝까지 한 번에 돌려도 됩니다.</p>
+          </section>
+
+          <section class="card">
+            <div class="head"><h2>기본 정보</h2><span class="pill">1~3단계</span></div>
+            <div class="stack">
+              <label>유저 이름<input id="user-name" value="데모 사용자" /></label>
+              <div class="row">
+                <label>고정 일정 시작<input id="schedule-start" value="2026-04-14T07:00:00+09:00" /></label>
+                <label>고정 일정 종료<input id="schedule-end" value="2026-04-14T08:00:00+09:00" /></label>
+              </div>
+              <div class="row">
+                <label>일정 유형
+                  <select id="schedule-kind">
+                    <option value="one-time" selected>한 번만</option>
+                    <option value="recurring">반복 일정</option>
+                  </select>
+                </label>
+                <label id="recurrence-label">반복 주기
+                  <select id="schedule-recurrence" disabled>
+                    <option value="daily">매일</option>
+                    <option value="weekly" selected>매주</option>
+                    <option value="biweekly">격주</option>
+                  </select>
+                </label>
+              </div>
+              <div class="row">
+                <label>시간표 시작 범위<input id="range-start" value="2026-04-13T09:00:00+09:00" /></label>
+                <label>시간표 종료 범위<input id="range-end" value="2026-04-20T21:00:00+09:00" /></label>
+              </div>
+              <div class="actions">
+                <button type="button" id="step-user">1) 유저 만들기</button>
+                <button type="button" id="step-schedule">2) 고정 일정 등록</button>
+                <button type="button" id="step-task">3) 가변 일정 등록</button>
+              </div>
+            </div>
+          </section>
+
+          <section class="card">
+            <div class="head"><h2>목표 입력</h2><span class="pill">4~5단계</span></div>
+            <div class="stack">
+              <label>자연어 목표
+                <textarea id="goal-text">캡스톤 데모 페이지를 4월 25일까지 완성하고 싶어요. 주당 8시간 정도 가능하고 평일 저녁에 작업하기 좋습니다.</textarea>
+              </label>
+              <div class="actions">
+                <button class="primary" id="analyze-button" type="button" data-flow-action="analyze">4) 목표 분석하기</button>
+              </div>
+              <p class="muted">분석 결과로 제목, 카테고리, 추가 질문이 나오고, 바로 아래에서 답을 채운 뒤 목표 저장과 계획 생성을 이어서 할 수 있습니다.</p>
+            </div>
+          </section>
+        </div>
+
+        <section class="card">
+          <div class="head"><h2>진행 결과</h2><span class="pill" id="status-pill">대기 중</span></div>
+          <div class="info" id="message-box">왼쪽 순서대로 진행하면 됩니다. 목표 분석 뒤에는 같은 화면에서 질문 답변과 계획 생성까지 이어집니다.</div>
+
+          <div class="summary">
+            <div><strong>User ID</strong><span id="user-id-view">-</span></div>
+            <div><strong>Schedule ID</strong><span id="schedule-id-view">-</span></div>
+            <div><strong>Task ID</strong><span id="task-id-view">-</span></div>
+            <div><strong>Goal ID</strong><span id="goal-id-view">-</span></div>
+          </div>
+
+          <div class="stages">
+            <div class="stage" id="stage-user"><strong>1. 유저 생성</strong><span>아직 유저가 없습니다.</span></div>
+            <div class="stage" id="stage-schedule"><strong>2. 일정 등록</strong><span>고정 일정과 가변 일정이 아직 준비되지 않았습니다.</span></div>
+            <div class="stage" id="stage-analysis"><strong>3. 목표 분석</strong><span>목표를 분석하면 이해한 내용과 질문이 아래에 표시됩니다.</span></div>
+            <div class="stage" id="stage-plan"><strong>4. 목표 저장 + 계획 생성</strong><span>질문 답변을 채운 뒤 목표와 계획을 한 번에 생성합니다.</span></div>
+            <div class="stage" id="stage-calendar"><strong>5. 시간표 확인</strong><span>자동 배치 후 최종 시간표가 아래에 표시됩니다.</span></div>
+          </div>
+
+          <section class="box" style="margin-top:14px;">
+            <div class="head"><h3>AI가 이해한 목표</h3><span class="pill">분석 결과</span></div>
+            <div class="empty" id="draft-empty">아직 목표 분석 전입니다.</div>
+            <div id="draft-content" hidden>
+              <p id="draft-reasoning"></p>
+              <div class="draft-grid">
+                <div class="draft-item"><strong>제목</strong><span id="draft-title">-</span></div>
+                <div class="draft-item"><strong>카테고리</strong><span id="draft-category">-</span></div>
+                <div class="draft-item full"><strong>설명</strong><span id="draft-description">-</span></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="box" style="margin-top:14px;">
+            <div class="head"><h3>추가 질문</h3><span class="pill">답변 입력</span></div>
+            <div class="empty" id="questions-empty">목표를 먼저 분석하면 필요한 질문이 여기에 표시됩니다.</div>
+            <div id="questions-wrap" hidden>
+              <div class="questions" id="question-list"></div>
+              <div class="actions" style="margin-top:14px;">
+                <button class="primary" id="plan-button" type="button" data-flow-action="save-plan">5) 목표 저장하고 계획 생성</button>
+                <button class="ghost" id="calendar-button" type="button" data-flow-action="allocate-calendar">6) 자동 배치하고 시간표 보기</button>
+              </div>
+            </div>
+          </section>
+
+          <h3 style="margin:18px 0 10px;">시간표</h3>
+          <div class="agenda" id="agenda"><div class="empty">아직 시간표를 불러오지 않았습니다.</div></div>
+
+          <details>
+            <summary>마지막 API 응답 보기</summary>
+            <pre id="raw-output">{
+  "hint": "가장 최근 API 응답이 여기에 표시됩니다."
+}</pre>
+          </details>
+        </section>
+      </div>
+    </main>
+
+    <script>
+      const state = {
+        userId: null,
+        scheduleId: null,
+        taskId: null,
+        goalId: null,
+        parsedGoal: null,
+        currentQuestions: []
+      };
+
+      const byId = (id) => document.getElementById(id);
+      const rawOutput = byId("raw-output");
+      const statusPill = byId("status-pill");
+      const messageBox = byId("message-box");
+
+      byId("step-user").onclick = () => runStep(createUser);
+      byId("step-schedule").onclick = () => runStep(addFixedSchedule);
+      byId("step-task").onclick = () => runStep(addFlexibleTask);
+      byId("analyze-button").onclick = () => runStep(analyzeGoal);
+      byId("plan-button").onclick = () => runStep(saveGoalAndGeneratePlan);
+      byId("calendar-button").onclick = () => runStep(allocateAndLoadCalendar);
+      byId("run-all-button").onclick = () => runStep(runFullFlow);
+      byId("reset-button").onclick = () => resetState(true);
+      byId("schedule-kind").onchange = syncRecurrenceUI;
+
+      async function request(method, path, body) {
+        const options = { method };
+        if (body !== undefined) {
+          options.headers = { "Content-Type": "application/json" };
+          options.body = JSON.stringify(body);
+        }
+
+        const response = await fetch(path, options);
+        const payload = await response.json().catch(() => ({}));
+        rawOutput.textContent = JSON.stringify(payload, null, 2);
+        if (!response.ok) {
+          throw new Error(payload.detail || "요청 처리 중 오류가 발생했습니다.");
+        }
+        return payload;
+      }
+
+      async function createUser() {
+        const payload = await request("POST", "/api/v1/users", {
+          email: `user-flow-${Date.now()}@example.com`,
+          name: byId("user-name").value.trim() || "데모 사용자"
+        });
+        state.userId = payload.id;
+        renderSummary();
+        updateStage("user", true, `유저 ${payload.name} 생성 완료`);
+        message(`유저 ID ${payload.id}가 생성되었습니다.`);
+      }
+
+      async function addFixedSchedule() {
+        ensure(state.userId, "먼저 유저를 생성하세요.");
+        const isRecurring = byId("schedule-kind").value === "recurring";
+        const payload = await request("POST", "/api/v1/schedules/fixed", {
+          user_id: state.userId,
+          title: "수업 또는 팀 미팅",
+          start_at: byId("schedule-start").value.trim(),
+          end_at: byId("schedule-end").value.trim(),
+          recurrence_rule: isRecurring ? byId("schedule-recurrence").value : null
+        });
+        state.scheduleId = payload.id;
+        renderSummary();
+        updateScheduleStage();
+        message(isRecurring ? "반복 고정 일정이 등록되었습니다." : "1회성 고정 일정이 등록되었습니다.");
+      }
+
+      async function addFlexibleTask() {
+        ensure(state.userId, "먼저 유저를 생성하세요.");
+        const payload = await request("POST", "/api/v1/tasks/flexible", {
+          user_id: state.userId,
+          title: "이번 주 공부 5시간",
+          estimated_minutes: 300
+        });
+        state.taskId = payload.id;
+        renderSummary();
+        updateScheduleStage();
+        message("가변 일정이 등록되었습니다.");
+      }
+
+      async function analyzeGoal() {
+        const payload = await request("POST", "/api/v1/goals/intake", {
+          text: byId("goal-text").value.trim()
+        });
+        state.parsedGoal = payload.goal;
+        state.currentQuestions = payload.questions || [];
+        byId("draft-empty").hidden = true;
+        byId("draft-content").hidden = false;
+        byId("draft-reasoning").textContent = payload.reasoning || "";
+        byId("draft-title").textContent = payload.goal.title || "-";
+        byId("draft-category").textContent = payload.goal.category || "-";
+        byId("draft-description").textContent = payload.goal.description || "-";
+        renderQuestions(state.currentQuestions, payload.goal.answers_json || {});
+        updateStage("analysis", true, `카테고리: ${payload.goal.category}`);
+        message("목표 분석이 완료되었습니다. 질문 답변을 채운 뒤 계획 생성을 진행하세요.");
+      }
+
+      async function saveGoalAndGeneratePlan() {
+        ensure(state.userId, "먼저 유저를 생성하세요.");
+        if (!state.parsedGoal) {
+          await analyzeGoal();
+        }
+        const answers = collectAnswers();
+        const completed = await request("POST", "/api/v1/goals/complete", {
+          user_id: state.userId,
+          text: byId("goal-text").value.trim(),
+          answers_json: answers
+        });
+        state.goalId = completed.goal.id;
+        renderSummary();
+        updateStage("plan", true, `계획 ${completed.plan.id} 생성 완료`);
+        message("목표 저장과 계획 생성이 완료되었습니다.");
+      }
+
+      async function allocateAndLoadCalendar() {
+        ensure(state.userId && state.goalId, "먼저 목표 저장과 계획 생성을 진행하세요.");
+        const rangeStart = byId("range-start").value.trim();
+        const rangeEnd = byId("range-end").value.trim();
+
+        await request("POST", "/api/v1/planner/allocate", {
+          user_id: state.userId,
+          range_start: rangeStart,
+          range_end: rangeEnd
+        });
+
+        const calendar = await request(
+          "GET",
+          `/api/v1/calendar?user_id=${encodeURIComponent(state.userId)}&start=${encodeURIComponent(rangeStart)}&end=${encodeURIComponent(rangeEnd)}`
+        );
+        renderCalendar(calendar.events || []);
+        updateStage("calendar", true, `이벤트 ${calendar.events.length}개 확인`);
+        message("자동 배치와 시간표 조회가 완료되었습니다.");
+      }
+
+      async function runFullFlow() {
+        resetState(false);
+        await createUser();
+        await addFixedSchedule();
+        await addFlexibleTask();
+        await analyzeGoal();
+        await saveGoalAndGeneratePlan();
+        await allocateAndLoadCalendar();
+        message("전체 샘플 흐름이 완료되었습니다.");
+      }
+
+      function renderQuestions(questions, defaults) {
+        byId("questions-empty").hidden = true;
+        byId("questions-wrap").hidden = false;
+        byId("question-list").innerHTML = questions.length
+          ? questions.map((question) => {
+              const key = escapeHtml(question.key);
+              const value = escapeHtml(String(defaults[question.key] ?? ""));
+              const help = question.help_text ? `<small>${escapeHtml(question.help_text)}</small>` : "";
+              let field = `<textarea data-question-key="${key}" data-answer-type="text">${value}</textarea>`;
+              if (question.answer_type === "number") {
+                field = `<input data-question-key="${key}" data-answer-type="number" type="number" value="${value}" />`;
+              }
+              if (question.answer_type === "date") {
+                field = `<input data-question-key="${key}" data-answer-type="date" type="date" value="${value}" />`;
+              }
+              if (question.answer_type === "boolean") {
+                field = `
+                  <select data-question-key="${key}" data-answer-type="boolean">
+                    <option value="">선택하세요</option>
+                    <option value="true">예</option>
+                    <option value="false">아니오</option>
+                  </select>
+                `;
+              }
+              if (question.answer_type === "select") {
+                field = `
+                  <select data-question-key="${key}" data-answer-type="select">
+                    <option value="">선택하세요</option>
+                    ${(question.options || []).map((option) => `<option value="${escapeHtml(option)}">${escapeHtml(option)}</option>`).join("")}
+                  </select>
+                `;
+              }
+              return `<article class="question"><label>${escapeHtml(question.prompt)}${field}</label>${help}</article>`;
+            }).join("")
+          : '<div class="empty">추가 질문이 없어 바로 계획 생성이 가능합니다.</div>';
+      }
+
+      function collectAnswers() {
+        const answers = {};
+        document.querySelectorAll("[data-question-key]").forEach((field) => {
+          let value = field.value;
+          if (field.dataset.answerType === "number" && value !== "") {
+            value = Number(value);
+          }
+          if (field.dataset.answerType === "boolean" && value !== "") {
+            value = value === "true";
+          }
+          if (value !== "") {
+            answers[field.dataset.questionKey] = value;
+          }
+        });
+        return answers;
+      }
+
+      function renderCalendar(events) {
+        if (!events.length) {
+          byId("agenda").innerHTML = '<div class="empty">표시할 일정이 없습니다.</div>';
+          return;
+        }
+
+        const groups = {};
+        events.forEach((event) => {
+          const key = event.start_at.slice(0, 10);
+          groups[key] = groups[key] || [];
+          groups[key].push(event);
+        });
+
+        byId("agenda").innerHTML = Object.entries(groups).map(([day, items]) => `
+          <section class="day">
+            <div class="day-head">
+              <strong>${new Date(day + "T00:00:00").toLocaleDateString("ko-KR", { month: "long", day: "numeric", weekday: "long" })}</strong>
+              <span>${items.length}개 일정</span>
+            </div>
+            <div class="events">${items.map((event) => `
+              <article class="event ${escapeHtml(event.source_type)}">
+                <div class="event-top">
+                  <div>
+                    <div class="event-title">${escapeHtml(event.title)}</div>
+                    ${event.description ? `<div>${escapeHtml(event.description)}</div>` : ""}
+                  </div>
+                  <div class="event-time">${formatTime(event.start_at)} - ${formatTime(event.end_at)}</div>
+                </div>
+                <div class="tags">
+                  <span class="tag">${escapeHtml(event.source_type)}</span>
+                  <span class="tag">${escapeHtml(event.status)}</span>
+                </div>
+              </article>
+            `).join("")}</div>
+          </section>
+        `).join("");
+      }
+
+      function updateScheduleStage() {
+        if (state.scheduleId && state.taskId) {
+          updateStage("schedule", true, "고정 일정과 가변 일정 등록 완료");
+          return;
+        }
+        updateStage("schedule", false, "고정 일정과 가변 일정이 모두 준비되지는 않았습니다.");
+      }
+
+      function updateStage(key, done, text) {
+        const node = byId(`stage-${key}`);
+        node.classList.toggle("done", Boolean(done));
+        node.querySelector("span").textContent = text;
+      }
+
+      function renderSummary() {
+        byId("user-id-view").textContent = state.userId ?? "-";
+        byId("schedule-id-view").textContent = state.scheduleId ?? "-";
+        byId("task-id-view").textContent = state.taskId ?? "-";
+        byId("goal-id-view").textContent = state.goalId ?? "-";
+      }
+
+      function resetState(showMessage) {
+        state.userId = null;
+        state.scheduleId = null;
+        state.taskId = null;
+        state.goalId = null;
+        state.parsedGoal = null;
+        state.currentQuestions = [];
+
+        renderSummary();
+        byId("draft-empty").hidden = false;
+        byId("draft-content").hidden = true;
+        byId("questions-empty").hidden = false;
+        byId("questions-wrap").hidden = true;
+        byId("question-list").innerHTML = "";
+        byId("agenda").innerHTML = '<div class="empty">아직 시간표를 불러오지 않았습니다.</div>';
+        rawOutput.textContent = JSON.stringify({ hint: "가장 최근 API 응답이 여기에 표시됩니다." }, null, 2);
+        updateStage("user", false, "아직 유저가 없습니다.");
+        updateStage("schedule", false, "고정 일정과 가변 일정이 아직 준비되지 않았습니다.");
+        updateStage("analysis", false, "목표를 분석하면 이해한 내용과 질문이 아래에 표시됩니다.");
+        updateStage("plan", false, "질문 답변을 채운 뒤 목표와 계획을 한 번에 생성합니다.");
+        updateStage("calendar", false, "자동 배치 후 최종 시간표가 아래에 표시됩니다.");
+        statusPill.textContent = "대기 중";
+        byId("schedule-kind").value = "one-time";
+        byId("schedule-recurrence").value = "weekly";
+        syncRecurrenceUI();
+        if (showMessage) {
+          message("화면을 초기화했습니다.");
+        }
+      }
+
+      async function runStep(fn) {
+        statusPill.textContent = "실행 중";
+        try {
+          await fn();
+          statusPill.textContent = "완료";
+        } catch (error) {
+          statusPill.textContent = "오류";
+          message(error.message || "알 수 없는 오류가 발생했습니다.", true);
+        }
+      }
+
+      function ensure(value, text) {
+        if (!value) {
+          throw new Error(text);
+        }
+      }
+
+      function formatTime(value) {
+        return new Date(value).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" });
+      }
+
+      function message(text, error = false) {
+        messageBox.textContent = text;
+        messageBox.classList.toggle("error", Boolean(error));
+      }
+
+      function syncRecurrenceUI() {
+        const isRecurring = byId("schedule-kind").value === "recurring";
+        byId("schedule-recurrence").disabled = !isRecurring;
+        byId("recurrence-label").style.opacity = isRecurring ? "1" : "0.6";
+      }
+
+      function escapeHtml(value) {
+        return String(value)
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#39;");
+      }
+
+      renderSummary();
+      syncRecurrenceUI();
+      resetState(false);
+    </script>
+  </body>
+</html>
