@@ -27,7 +27,7 @@ FastAPI backend for managing users, fixed schedules, flexible tasks, goals, AI-g
 1. Create a virtual environment
 
 ```powershell
-python -m venv .venv
+py -m venv .venv
 .venv\Scripts\Activate.ps1
 ```
 
