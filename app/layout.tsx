@@ -61,7 +61,7 @@ export default function RootLayout({
                   </Link>
                 </li>
                 <li>
-                  <Link href="#" className="hover:opacity-80">
+                  <Link href="/manage" className="hover:opacity-80">
                     일정 관리
                   </Link>
                 </li>
