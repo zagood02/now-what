@@ -10,6 +10,8 @@ class Settings(BaseSettings):
     api_v1_prefix: str = "/api/v1"
     database_url: str = "postgresql+psycopg://planner:planner@localhost:5432/ai_planner"
     db_connect_timeout_seconds: int = 5
+    db_pool_pre_ping: bool = True
+    db_pool_recycle_seconds: int = 1800
     db_echo: bool = False
     auto_create_tables: bool = False
     seed_demo_user: bool = False

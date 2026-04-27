@@ -25,7 +25,12 @@ async def lifespan(_: FastAPI):
 app = FastAPI(
     title=settings.app_name,
     version="0.1.0",
-    description="AI planner backend with schedule management, auto-allocation, and goal-based planning.",
+    description=(
+        "AI planner backend with schedule management, auto-allocation, and goal-based planning.\n\n"
+        "Demo pages:\n"
+        "- [Goal Q&A flow](/api/v1/demo/user-flow)\n"
+        "- [API playground](/api/v1/demo/goal-intake)\n"
+    ),
     lifespan=lifespan,
 )
 
@@ -46,4 +51,6 @@ def root() -> dict[str, str]:
         "name": settings.app_name,
         "docs": "/docs",
         "api_prefix": settings.api_v1_prefix,
+        "demo_user_flow": "/api/v1/demo/user-flow",
+        "demo_api_playground": "/api/v1/demo/goal-intake",
     }

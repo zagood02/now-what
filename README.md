@@ -22,12 +22,12 @@ FastAPI backend for managing users, fixed schedules, flexible tasks, goals, AI-g
 - PostgreSQL
 - Gemini API with template fallback
 
-## Quick Start
+## Quick Start (Local Postgres)
 
 1. Create a virtual environment
 
 ```powershell
-python -m venv .venv
+py -m venv .venv
 .venv\Scripts\Activate.ps1
 ```
 
@@ -62,6 +62,45 @@ docker compose up -d
 ```
 
 Open [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs).
+
+## Use With Supabase
+
+This project can use Supabase as its PostgreSQL provider without changing the overall FastAPI or SQLAlchemy structure.
+
+1. Copy environment variables
+
+```powershell
+Copy-Item .env.example .env
+```
+
+2. Replace `DATABASE_URL` in `.env` with your Supabase connection string
+
+- Persistent backend with IPv6 support: use the `Direct connection` string.
+- Persistent backend on IPv4-only networks: use the `Session pooler` string.
+- Add `?sslmode=require` to the connection string.
+
+3. Run migrations against Supabase
+
+```powershell
+.\.venv\Scripts\alembic.exe upgrade head
+```
+
+4. Start the API
+
+```powershell
+.\.venv\Scripts\uvicorn.exe app.main:app --reload
+```
+
+5. Verify the database connection
+
+- `GET /health`
+- `GET /health/db`
+
+Notes:
+
+- This backend does not have login/auth yet, so Supabase is currently used as the database layer only.
+- For this long-running FastAPI app, avoid the Supabase transaction pooler. It is intended for short-lived/serverless traffic.
+- Local Docker Postgres can still be used for offline development by keeping the default `DATABASE_URL`.
 
 ## Notes
 

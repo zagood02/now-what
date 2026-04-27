@@ -19,6 +19,8 @@ def _build_engine():
         echo=settings.db_echo,
         future=True,
         connect_args=connect_args,
+        pool_pre_ping=settings.db_pool_pre_ping,
+        pool_recycle=settings.db_pool_recycle_seconds,
     )
 
 
