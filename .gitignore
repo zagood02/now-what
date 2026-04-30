@@ -39,3 +39,15 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# 백엔드 가상환경 및 환경변수
+.venv/
+.env
+
+# 프론트엔드 임시 파일
+.next/
+node_modules/
+
+# 파이썬 캐시(임시) 파일
+__pycache__/
+*.pyc
