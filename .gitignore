@@ -51,3 +51,12 @@ node_modules/
 # 파이썬 캐시(임시) 파일
 __pycache__/
 *.pyc
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+.env
+planner.db
+alembic/versions/*.pyc

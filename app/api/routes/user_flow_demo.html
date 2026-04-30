@@ -1,0 +1,1615 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Goal Intake Lab</title>
+    <style>
+      :root {
+        --bg-0: #f4efe6;
+        --bg-1: #e8f0ef;
+        --panel: rgba(255, 255, 255, 0.92);
+        --panel-strong: #ffffff;
+        --line: #d8ddd4;
+        --line-strong: #b7c4bc;
+        --text: #18211d;
+        --muted: #5b675f;
+        --accent: #14532d;
+        --accent-soft: #e6f4ea;
+        --warm: #b45309;
+        --warm-soft: #fff4e5;
+        --danger: #b91c1c;
+        --danger-soft: #fef2f2;
+        --shadow: 0 18px 40px rgba(19, 30, 24, 0.08);
+        --radius: 22px;
+        --radius-sm: 16px;
+        --mono: "IBM Plex Mono", "Cascadia Code", "Consolas", monospace;
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        color: var(--text);
+        font-family: "IBM Plex Sans KR", "Pretendard Variable", "Segoe UI", sans-serif;
+        background:
+          radial-gradient(circle at top right, rgba(20, 83, 45, 0.12), transparent 28%),
+          radial-gradient(circle at top left, rgba(180, 83, 9, 0.09), transparent 24%),
+          linear-gradient(180deg, var(--bg-0) 0%, var(--bg-1) 100%);
+      }
+
+      a { color: inherit; }
+
+      main {
+        max-width: 1480px;
+        margin: 0 auto;
+        padding: 24px 18px 48px;
+      }
+
+      h1, h2, h3, p { margin: 0; }
+
+      code, pre, .endpoint, .metric-value, .tag, .step-number {
+        font-family: var(--mono);
+      }
+
+      .hero,
+      .panel,
+      .subpanel,
+      .metric,
+      .workflow-item,
+      .goal-card,
+      .question-card,
+      .plan-item,
+      .day,
+      .event,
+      .preview-shell {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        box-shadow: var(--shadow);
+      }
+
+      .hero {
+        border-radius: calc(var(--radius) + 4px);
+        padding: 28px;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 20px;
+      }
+
+      .hero-copy {
+        display: grid;
+        gap: 10px;
+        max-width: 760px;
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        width: fit-content;
+        padding: 7px 12px;
+        border-radius: 999px;
+        background: var(--accent-soft);
+        color: var(--accent);
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+
+      .hero h1 {
+        font-size: clamp(2rem, 3vw, 3rem);
+        line-height: 1.05;
+        letter-spacing: -0.03em;
+      }
+
+      .hero p {
+        color: var(--muted);
+        line-height: 1.65;
+        max-width: 64ch;
+      }
+
+      .hero-tools {
+        display: grid;
+        gap: 10px;
+        min-width: 300px;
+      }
+
+      .hero-links,
+      .hero-actions,
+      .inline-actions,
+      .tiny-actions,
+      .toggle-row,
+      .question-footer,
+      .plan-header {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .shell {
+        display: grid;
+        grid-template-columns: minmax(0, 1.7fr) minmax(320px, 0.9fr);
+        gap: 18px;
+        margin-top: 18px;
+        align-items: start;
+      }
+
+      .main-stack,
+      .side-stack,
+      .panel-stack,
+      .field-stack,
+      .question-list,
+      .calendar-stack {
+        display: grid;
+        gap: 16px;
+      }
+
+      .panel {
+        border-radius: var(--radius);
+        padding: 20px;
+      }
+
+      .panel-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 16px;
+        margin-bottom: 16px;
+      }
+
+      .panel-head > div {
+        display: grid;
+        gap: 8px;
+      }
+
+      .panel-head p {
+        color: var(--muted);
+        line-height: 1.55;
+      }
+
+      .endpoint {
+        padding: 8px 12px;
+        border-radius: 999px;
+        background: #f6f8f7;
+        border: 1px solid var(--line);
+        color: #36423a;
+        font-size: 12px;
+        white-space: nowrap;
+      }
+
+      .grid-2 {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+      }
+
+      .subpanel {
+        border-radius: var(--radius-sm);
+        padding: 16px;
+      }
+
+      .subpanel-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 14px;
+        margin-bottom: 14px;
+      }
+
+      .subpanel-head h3 {
+        margin-bottom: 6px;
+      }
+
+      .subpanel-head p {
+        color: var(--muted);
+        line-height: 1.5;
+        font-size: 14px;
+      }
+
+      .field-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .field-grid.three {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .field-full {
+        grid-column: 1 / -1;
+      }
+
+      label {
+        display: grid;
+        gap: 6px;
+        font-size: 13px;
+        font-weight: 700;
+        color: #22302a;
+      }
+
+      input,
+      select,
+      textarea,
+      button {
+        font: inherit;
+      }
+
+      input,
+      select,
+      textarea {
+        width: 100%;
+        padding: 12px 14px;
+        border-radius: 14px;
+        border: 1px solid var(--line-strong);
+        background: var(--panel-strong);
+        color: var(--text);
+      }
+
+      textarea {
+        resize: vertical;
+        min-height: 132px;
+        line-height: 1.58;
+      }
+
+      input:focus,
+      select:focus,
+      textarea:focus {
+        outline: 2px solid rgba(20, 83, 45, 0.15);
+        border-color: var(--accent);
+      }
+
+      button,
+      .link-btn {
+        border: 0;
+        border-radius: 14px;
+        padding: 11px 15px;
+        cursor: pointer;
+        font-weight: 700;
+        text-decoration: none;
+      }
+
+      .primary {
+        background: var(--accent);
+        color: #fff;
+      }
+
+      .secondary {
+        background: #ecf2ef;
+        color: #22302a;
+      }
+
+      .ghost {
+        background: var(--warm-soft);
+        color: var(--warm);
+      }
+
+      .link-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.82);
+      }
+
+      .helper {
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.55;
+      }
+
+      .toggle-row {
+        align-items: center;
+      }
+
+      .toggle-row label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 600;
+      }
+
+      .toggle-row input[type="checkbox"] {
+        width: 16px;
+        height: 16px;
+        margin: 0;
+      }
+
+      .sticky-panel {
+        position: sticky;
+        top: 18px;
+      }
+
+      .status-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: center;
+        margin-bottom: 14px;
+      }
+
+      .status-pill {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 92px;
+        padding: 8px 12px;
+        border-radius: 999px;
+        background: #edf2ef;
+        color: #304039;
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .status-pill[data-state="running"] {
+        background: #e0f2fe;
+        color: #0c4a6e;
+      }
+
+      .status-pill[data-state="done"] {
+        background: var(--accent-soft);
+        color: var(--accent);
+      }
+
+      .status-pill[data-state="error"] {
+        background: var(--danger-soft);
+        color: var(--danger);
+      }
+
+      .notice {
+        padding: 14px;
+        border-radius: var(--radius-sm);
+        background: #edf5ff;
+        color: #1d4ed8;
+        line-height: 1.6;
+        margin-bottom: 16px;
+      }
+
+      .notice.error {
+        background: var(--danger-soft);
+        color: var(--danger);
+      }
+
+      .metric-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+        margin-bottom: 16px;
+      }
+
+      .metric {
+        border-radius: var(--radius-sm);
+        padding: 14px;
+      }
+
+      .metric-label {
+        display: block;
+        color: var(--muted);
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+
+      .metric-value {
+        display: block;
+        margin-top: 6px;
+        font-size: 24px;
+        font-weight: 800;
+      }
+
+      .workflow-list {
+        display: grid;
+        gap: 10px;
+      }
+
+      .workflow-item {
+        border-radius: 16px;
+        padding: 12px 14px;
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 12px;
+        align-items: start;
+      }
+
+      .workflow-item.done {
+        border-color: rgba(20, 83, 45, 0.28);
+        background: rgba(230, 244, 234, 0.88);
+      }
+
+      .step-number {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 30px;
+        height: 30px;
+        border-radius: 10px;
+        background: #f4f6f5;
+        border: 1px solid var(--line);
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .workflow-copy {
+        display: grid;
+        gap: 4px;
+      }
+
+      .workflow-copy small {
+        color: var(--muted);
+        line-height: 1.5;
+      }
+
+      details {
+        border: 1px solid var(--line);
+        border-radius: var(--radius-sm);
+        overflow: hidden;
+        background: rgba(255, 255, 255, 0.84);
+      }
+
+      summary {
+        cursor: pointer;
+        padding: 12px 14px;
+        font-weight: 800;
+      }
+
+      pre {
+        margin: 0;
+        padding: 14px;
+        min-height: 180px;
+        overflow: auto;
+        background: #13211e;
+        color: #dcfce7;
+        font-size: 12px;
+        line-height: 1.6;
+      }
+
+      .draft-shell,
+      .qa-shell {
+        display: grid;
+        gap: 14px;
+      }
+
+      .draft-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .goal-card,
+      .question-card,
+      .plan-item,
+      .preview-shell {
+        border-radius: 18px;
+        padding: 14px;
+      }
+
+      .goal-card.full {
+        grid-column: 1 / -1;
+      }
+
+      .goal-card strong,
+      .preview-shell strong,
+      .plan-item strong {
+        display: block;
+        font-size: 12px;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        margin-bottom: 6px;
+      }
+
+      .reasoning {
+        padding: 14px;
+        border-radius: 18px;
+        background: #f7faf8;
+        border: 1px solid var(--line);
+        color: #33413a;
+        line-height: 1.65;
+      }
+
+      .qa-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.8fr);
+        gap: 14px;
+      }
+
+      .question-list {
+        align-content: start;
+      }
+
+      .question-card {
+        background: rgba(255, 255, 255, 0.94);
+      }
+
+      .question-meta {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-bottom: 10px;
+      }
+
+      .tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 9px;
+        border-radius: 999px;
+        font-size: 11px;
+        background: #f6f8f7;
+        border: 1px solid var(--line);
+        color: #3f4c44;
+      }
+
+      .preview-shell pre {
+        min-height: 240px;
+        margin-top: 10px;
+      }
+
+      .empty {
+        padding: 26px 18px;
+        border-radius: 18px;
+        border: 1px dashed var(--line-strong);
+        background: rgba(255, 255, 255, 0.7);
+        text-align: center;
+        color: var(--muted);
+        line-height: 1.6;
+      }
+
+      .plan-summary-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+        margin-bottom: 14px;
+      }
+
+      .plan-items {
+        display: grid;
+        gap: 10px;
+      }
+
+      .plan-item p {
+        color: #37443d;
+        line-height: 1.55;
+      }
+
+      .plan-item-header,
+      .event-header,
+      .day-head {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: flex-start;
+      }
+
+      .day {
+        border-radius: 18px;
+        overflow: hidden;
+      }
+
+      .day-head {
+        padding: 14px 16px;
+        background: rgba(248, 250, 249, 0.96);
+        border-bottom: 1px solid var(--line);
+      }
+
+      .events {
+        display: grid;
+        gap: 12px;
+        padding: 14px;
+      }
+
+      .event {
+        border-radius: 16px;
+        padding: 14px;
+        border-left: 4px solid transparent;
+      }
+
+      .event.fixed_schedule { border-left-color: #2563eb; }
+      .event.allocated_task { border-left-color: var(--accent); }
+      .event.ai_plan_item { border-left-color: var(--warm); }
+
+      .event p {
+        margin-top: 6px;
+        color: #415148;
+        line-height: 1.55;
+      }
+
+      .muted-inline {
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      @media (max-width: 1180px) {
+        .shell {
+          grid-template-columns: 1fr;
+        }
+
+        .sticky-panel {
+          position: static;
+        }
+      }
+
+      @media (max-width: 920px) {
+        .grid-2,
+        .field-grid,
+        .field-grid.three,
+        .qa-grid,
+        .draft-grid,
+        .plan-summary-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .hero {
+          flex-direction: column;
+        }
+
+        .hero-tools {
+          width: 100%;
+          min-width: 0;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="hero">
+        <div class="hero-copy">
+          <span class="eyebrow">Developer Flow</span>
+          <h1>Goal Intake Lab</h1>
+          <p>유저 생성부터 목표 분석, 질문 답변, 계획 생성, 자동 배치, 캘린더 확인까지를 단계별 API 카드로 나눠서 테스트합니다. 입력은 각 단계 옆에 바로 붙여두고, 오른쪽에는 상태와 request/response를 고정해 개발 중 확인하기 쉽게 구성했습니다.</p>
+        </div>
+        <div class="hero-tools">
+          <div class="hero-links">
+            <a class="link-btn" href="/docs" target="_blank" rel="noreferrer">Swagger 열기</a>
+            <a class="link-btn" href="/api/v1/demo/goal-intake" target="_blank" rel="noreferrer">API Playground</a>
+          </div>
+          <div class="hero-actions">
+            <button class="primary" id="run-all-button" type="button">샘플 흐름 끝까지 실행</button>
+            <button class="secondary" id="reset-button" type="button">상태 초기화</button>
+          </div>
+        </div>
+      </section>
+
+      <div class="shell">
+        <div class="main-stack">
+          <section class="panel">
+            <div class="panel-head">
+              <div>
+                <span class="eyebrow">Step 1</span>
+                <h2>유저 생성</h2>
+                <p>`user_id`를 먼저 확보한 뒤 이후 모든 일정/목표 요청에서 재사용합니다.</p>
+              </div>
+              <span class="endpoint">POST /api/v1/users</span>
+            </div>
+            <div class="field-grid">
+              <label>
+                유저 이름
+                <input id="user-name" value="데모 사용자" />
+              </label>
+              <label>
+                이메일
+                <input id="user-email" value="user-flow-{timestamp}@example.com" />
+              </label>
+              <label class="field-full">
+                타임존
+                <input id="user-timezone" value="Asia/Seoul" />
+              </label>
+            </div>
+            <div class="inline-actions" style="margin-top:14px;">
+              <button class="primary" id="step-user" type="button">유저 생성</button>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-head">
+              <div>
+                <span class="eyebrow">Step 2-3</span>
+                <h2>일정 세팅</h2>
+                <p>고정 일정과 가변 작업을 분리해 테스트할 수 있게 입력 폼도 각 카드로 쪼갰습니다.</p>
+              </div>
+            </div>
+
+            <div class="grid-2">
+              <section class="subpanel">
+                <div class="subpanel-head">
+                  <div>
+                    <h3>고정 일정 등록</h3>
+                    <p>반복 일정 여부, 제목, 위치, 설명을 직접 조절할 수 있습니다.</p>
+                  </div>
+                  <span class="endpoint">POST /api/v1/schedules/fixed</span>
+                </div>
+
+                <div class="field-grid">
+                  <label>
+                    제목
+                    <input id="schedule-title" value="수업 또는 팀 미팅" />
+                  </label>
+                  <label>
+                    위치
+                    <input id="schedule-location" value="캠퍼스" />
+                  </label>
+                  <label class="field-full">
+                    설명
+                    <textarea id="schedule-description">발표 준비나 팀 협업으로 고정된 시간입니다.</textarea>
+                  </label>
+                  <label>
+                    시작
+                    <input id="schedule-start" value="2026-04-14T19:00:00+09:00" />
+                  </label>
+                  <label>
+                    종료
+                    <input id="schedule-end" value="2026-04-14T20:30:00+09:00" />
+                  </label>
+                  <label>
+                    반복 유형
+                    <select id="schedule-kind">
+                      <option value="one-time" selected>한 번만</option>
+                      <option value="recurring">반복 일정</option>
+                    </select>
+                  </label>
+                  <label>
+                    반복 주기
+                    <select id="schedule-recurrence" disabled>
+                      <option value="daily">매일</option>
+                      <option value="weekly" selected>매주</option>
+                      <option value="biweekly">격주</option>
+                    </select>
+                  </label>
+                </div>
+                <div class="toggle-row" style="margin-top:12px;">
+                  <label><input id="schedule-all-day" type="checkbox" /> 종일 일정</label>
+                </div>
+                <div class="inline-actions" style="margin-top:14px;">
+                  <button class="primary" id="step-schedule" type="button">고정 일정 등록</button>
+                </div>
+              </section>
+
+              <section class="subpanel">
+                <div class="subpanel-head">
+                  <div>
+                    <h3>가변 작업 등록</h3>
+                    <p>예상 시간, 세션 길이, 우선순위를 직접 손보며 배치 결과를 보기 좋습니다.</p>
+                  </div>
+                  <span class="endpoint">POST /api/v1/tasks/flexible</span>
+                </div>
+
+                <div class="field-grid">
+                  <label>
+                    제목
+                    <input id="task-title" value="이번 주 공부 5시간" />
+                  </label>
+                  <label>
+                    마감
+                    <input id="task-due-at" value="2026-04-20T21:00:00+09:00" />
+                  </label>
+                  <label class="field-full">
+                    설명
+                    <textarea id="task-description">목표 계획과 별개로 매주 확보해야 하는 공부 시간입니다.</textarea>
+                  </label>
+                </div>
+                <div class="field-grid three" style="margin-top:12px;">
+                  <label>
+                    총 예상 시간(분)
+                    <input id="task-estimated-minutes" type="number" min="1" value="300" />
+                  </label>
+                  <label>
+                    최소 세션(분)
+                    <input id="task-min-session" type="number" min="1" value="30" />
+                  </label>
+                  <label>
+                    선호 세션(분)
+                    <input id="task-preferred-session" type="number" min="1" value="60" />
+                  </label>
+                  <label>
+                    하루 최대(분)
+                    <input id="task-max-per-day" type="number" min="1" value="180" />
+                  </label>
+                  <label>
+                    우선순위(1-3)
+                    <input id="task-priority" type="number" min="1" max="3" value="2" />
+                  </label>
+                </div>
+                <div class="inline-actions" style="margin-top:14px;">
+                  <button class="primary" id="step-task" type="button">가변 작업 등록</button>
+                </div>
+              </section>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-head">
+              <div>
+                <span class="eyebrow">Step 4-6</span>
+                <h2>목표 분석과 계획 생성</h2>
+                <p>자연어 목표를 분석하고, 생성된 질문은 아래 별도 답변 영역에서 바로 채워 넣습니다.</p>
+              </div>
+            </div>
+
+            <div class="grid-2">
+              <section class="subpanel">
+                <div class="subpanel-head">
+                  <div>
+                    <h3>목표 입력</h3>
+                    <p>카테고리를 비워두면 AI가 추론하고, 직접 고정하고 싶으면 선택하세요.</p>
+                  </div>
+                  <span class="endpoint">POST /api/v1/goals/intake</span>
+                </div>
+                <div class="field-grid">
+                  <label class="field-full">
+                    자연어 목표
+                    <textarea id="goal-text">캡스톤 데모 페이지를 4월 25일까지 완성하고 싶어요. 주당 8시간 정도 가능하고 평일 저녁에 작업하기 좋습니다.</textarea>
+                  </label>
+                  <label>
+                    카테고리 강제 지정
+                    <select id="goal-category">
+                      <option value="">자동 추론</option>
+                      <option value="study">study</option>
+                      <option value="health">health</option>
+                      <option value="work">work</option>
+                      <option value="habit">habit</option>
+                      <option value="general">general</option>
+                    </select>
+                  </label>
+                </div>
+                <div class="inline-actions" style="margin-top:14px;">
+                  <button class="primary" id="analyze-button" type="button">목표 분석하기</button>
+                </div>
+              </section>
+
+              <section class="subpanel">
+                <div class="subpanel-head">
+                  <div>
+                    <h3>계획/캘린더 범위</h3>
+                    <p>계획 생성 시 기존 active plan 교체 여부와 배치 범위를 따로 제어합니다.</p>
+                  </div>
+                  <span class="endpoint">POST /api/v1/goals/complete · /planner/allocate</span>
+                </div>
+                <div class="field-grid">
+                  <label>
+                    캘린더 시작
+                    <input id="range-start" value="2026-04-13T09:00:00+09:00" />
+                  </label>
+                  <label>
+                    캘린더 종료
+                    <input id="range-end" value="2026-04-20T21:00:00+09:00" />
+                  </label>
+                </div>
+                <div class="toggle-row" style="margin-top:12px;">
+                  <label><input id="replace-existing-plan" type="checkbox" checked /> 기존 active plan archive 후 새 plan 생성</label>
+                  <label><input id="clear-existing-allocation" type="checkbox" /> 기존 배치 결과 지우고 다시 allocate</label>
+                </div>
+                <div class="helper" style="margin-top:12px;">
+                  질문 답변 입력 후 `목표 저장 + 계획 생성`을 누르고, 그 다음 `배치 + 캘린더 조회`를 실행하세요.
+                </div>
+              </section>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-head">
+              <div>
+                <span class="eyebrow">Draft</span>
+                <h2>AI가 이해한 목표</h2>
+                <p>분석 결과를 먼저 확인한 뒤, 바로 아래 질문 답변으로 넘어갈 수 있습니다.</p>
+              </div>
+            </div>
+
+            <div class="draft-shell">
+              <div class="empty" id="draft-empty">아직 목표 분석 전입니다.</div>
+              <div id="draft-content" hidden>
+                <div class="reasoning" id="draft-reasoning">-</div>
+                <div class="draft-grid" style="margin-top:14px;">
+                  <article class="goal-card">
+                    <strong>제목</strong>
+                    <span id="draft-title">-</span>
+                  </article>
+                  <article class="goal-card">
+                    <strong>카테고리</strong>
+                    <span id="draft-category">-</span>
+                  </article>
+                  <article class="goal-card full">
+                    <strong>설명</strong>
+                    <span id="draft-description">-</span>
+                  </article>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-head">
+              <div>
+                <span class="eyebrow">Questions</span>
+                <h2>질문과 답변</h2>
+                <p>질문은 카드로 분리하고, 오른쪽에는 현재 `answers_json`이 어떻게 전송될지 실시간으로 보여줍니다.</p>
+              </div>
+              <span class="endpoint">POST /api/v1/goals/complete</span>
+            </div>
+
+            <div class="qa-shell">
+              <div class="empty" id="questions-empty">목표를 먼저 분석하면 질문 카드가 이곳에 생성됩니다.</div>
+              <div id="questions-wrap" hidden>
+                <div class="qa-grid">
+                  <div>
+                    <div class="question-list" id="question-list"></div>
+                    <div class="question-footer" style="margin-top:14px;">
+                      <button class="primary" id="plan-button" type="button">목표 저장 + 계획 생성</button>
+                      <button class="secondary" id="allocate-button" type="button">배치 + 캘린더 조회</button>
+                      <button class="ghost" id="refresh-calendar-button" type="button">캘린더만 새로고침</button>
+                    </div>
+                  </div>
+
+                  <aside class="preview-shell">
+                    <strong>answers_json preview</strong>
+                    <div class="helper">질문 답변을 바꾸면 이 JSON도 즉시 갱신됩니다.</div>
+                    <pre id="answers-preview">{}</pre>
+                  </aside>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-head">
+              <div>
+                <span class="eyebrow">Plan</span>
+                <h2>생성된 계획</h2>
+                <p>계획 생성 후 요약과 plan item을 바로 확인합니다.</p>
+              </div>
+              <span class="endpoint">GoalCompleteResponse</span>
+            </div>
+
+            <div class="empty" id="plan-empty">아직 생성된 계획이 없습니다.</div>
+            <div id="plan-content" hidden>
+              <div class="plan-summary-grid">
+                <article class="goal-card">
+                  <strong>Plan ID</strong>
+                  <span id="plan-id">-</span>
+                </article>
+                <article class="goal-card">
+                  <strong>LLM Mode</strong>
+                  <span id="plan-llm-mode">-</span>
+                </article>
+                <article class="goal-card">
+                  <strong>Status</strong>
+                  <span id="plan-status">-</span>
+                </article>
+                <article class="goal-card">
+                  <strong>Items</strong>
+                  <span id="plan-item-count">0</span>
+                </article>
+              </div>
+
+              <article class="goal-card full" style="margin-bottom:12px;">
+                <strong>요약</strong>
+                <p id="plan-summary-text" style="line-height:1.65;"></p>
+              </article>
+
+              <div class="plan-items" id="plan-items"></div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-head">
+              <div>
+                <span class="eyebrow">Calendar</span>
+                <h2>자동 배치 결과</h2>
+                <p>allocate 결과를 날짜별로 묶어 보여줍니다. 계획 생성 이후에 배치를 실행하세요.</p>
+              </div>
+              <span class="endpoint">POST /api/v1/planner/allocate · GET /api/v1/calendar</span>
+            </div>
+
+            <div class="calendar-stack" id="agenda">
+              <div class="empty">아직 시간표를 불러오지 않았습니다.</div>
+            </div>
+          </section>
+        </div>
+
+        <aside class="side-stack">
+          <section class="panel sticky-panel">
+            <div class="status-row">
+              <div>
+                <span class="eyebrow">Inspector</span>
+                <h2 style="margin-top:8px;">실행 상태</h2>
+              </div>
+              <span class="status-pill" id="status-pill" data-state="idle">대기 중</span>
+            </div>
+
+            <div class="notice" id="message-box">각 카드의 입력값은 그 카드에서 바로 수정하고 실행하면 됩니다. 더 이상 기본 정보 한 구역에 몰아넣지 않았습니다.</div>
+
+            <div class="metric-grid">
+              <article class="metric">
+                <span class="metric-label">User ID</span>
+                <span class="metric-value" id="user-id-view">-</span>
+              </article>
+              <article class="metric">
+                <span class="metric-label">Schedule ID</span>
+                <span class="metric-value" id="schedule-id-view">-</span>
+              </article>
+              <article class="metric">
+                <span class="metric-label">Task ID</span>
+                <span class="metric-value" id="task-id-view">-</span>
+              </article>
+              <article class="metric">
+                <span class="metric-label">Goal ID</span>
+                <span class="metric-value" id="goal-id-view">-</span>
+              </article>
+            </div>
+
+            <div class="workflow-list">
+              <article class="workflow-item" id="stage-user">
+                <span class="step-number">01</span>
+                <div class="workflow-copy">
+                  <strong>유저 생성</strong>
+                  <small>아직 유저가 없습니다.</small>
+                </div>
+              </article>
+              <article class="workflow-item" id="stage-schedule">
+                <span class="step-number">02</span>
+                <div class="workflow-copy">
+                  <strong>고정 일정 등록</strong>
+                  <small>아직 등록되지 않았습니다.</small>
+                </div>
+              </article>
+              <article class="workflow-item" id="stage-task">
+                <span class="step-number">03</span>
+                <div class="workflow-copy">
+                  <strong>가변 작업 등록</strong>
+                  <small>아직 등록되지 않았습니다.</small>
+                </div>
+              </article>
+              <article class="workflow-item" id="stage-analysis">
+                <span class="step-number">04</span>
+                <div class="workflow-copy">
+                  <strong>목표 분석</strong>
+                  <small>분석 결과가 아직 없습니다.</small>
+                </div>
+              </article>
+              <article class="workflow-item" id="stage-plan">
+                <span class="step-number">05</span>
+                <div class="workflow-copy">
+                  <strong>계획 생성</strong>
+                  <small>질문 답변을 반영한 plan이 아직 없습니다.</small>
+                </div>
+              </article>
+              <article class="workflow-item" id="stage-calendar">
+                <span class="step-number">06</span>
+                <div class="workflow-copy">
+                  <strong>자동 배치</strong>
+                  <small>캘린더를 아직 조회하지 않았습니다.</small>
+                </div>
+              </article>
+            </div>
+
+            <details open style="margin-top:16px;">
+              <summary>마지막 요청</summary>
+              <pre id="request-output">{
+  "hint": "가장 최근에 보낸 요청이 여기에 표시됩니다."
+}</pre>
+            </details>
+
+            <details open style="margin-top:12px;">
+              <summary>마지막 응답</summary>
+              <pre id="response-output">{
+  "hint": "가장 최근 API 응답이 여기에 표시됩니다."
+}</pre>
+            </details>
+          </section>
+        </aside>
+      </div>
+    </main>
+
+    <script>
+      const state = {
+        userId: null,
+        scheduleId: null,
+        taskId: null,
+        goalId: null,
+        parsedGoal: null,
+        currentQuestions: [],
+        lastPlan: null,
+      };
+
+      const byId = (id) => document.getElementById(id);
+      const statusPill = byId("status-pill");
+      const messageBox = byId("message-box");
+      const requestOutput = byId("request-output");
+      const responseOutput = byId("response-output");
+      const answersPreview = byId("answers-preview");
+
+      byId("run-all-button").onclick = () => runStep(runFullFlow);
+      byId("reset-button").onclick = () => resetState(true);
+      byId("step-user").onclick = () => runStep(createUser);
+      byId("step-schedule").onclick = () => runStep(addFixedSchedule);
+      byId("step-task").onclick = () => runStep(addFlexibleTask);
+      byId("analyze-button").onclick = () => runStep(analyzeGoal);
+      byId("plan-button").onclick = () => runStep(saveGoalAndGeneratePlan);
+      byId("allocate-button").onclick = () => runStep(allocateAndLoadCalendar);
+      byId("refresh-calendar-button").onclick = () => runStep(loadCalendarOnly);
+      byId("schedule-kind").onchange = syncRecurrenceUI;
+      byId("question-list").addEventListener("input", renderAnswersPreview);
+      byId("question-list").addEventListener("change", renderAnswersPreview);
+
+      async function request(method, path, body) {
+        const payload = body === undefined ? null : body;
+        requestOutput.textContent = JSON.stringify({ method, path, body: payload }, null, 2);
+
+        const options = { method };
+        if (payload !== null) {
+          options.headers = { "Content-Type": "application/json" };
+          options.body = JSON.stringify(payload);
+        }
+
+        const response = await fetch(path, options);
+        const data = await response.json().catch(() => ({}));
+        responseOutput.textContent = JSON.stringify(data, null, 2);
+
+        if (!response.ok) {
+          throw new Error(data.detail || "요청 처리 중 오류가 발생했습니다.");
+        }
+        return data;
+      }
+
+      async function createUser() {
+        const email = normalizedUserEmail();
+        const payload = await request("POST", "/api/v1/users", {
+          email,
+          name: byId("user-name").value.trim() || "데모 사용자",
+          timezone: byId("user-timezone").value.trim() || "Asia/Seoul",
+        });
+
+        state.userId = payload.id;
+        renderSummary();
+        updateStage("user", true, `user_id=${payload.id} · ${payload.email}`);
+        message(`유저가 생성되었습니다. 이제 user_id ${payload.id}를 이어서 사용합니다.`);
+      }
+
+      async function addFixedSchedule() {
+        ensure(state.userId, "먼저 유저를 생성하세요.");
+
+        const isRecurring = byId("schedule-kind").value === "recurring";
+        const payload = await request("POST", "/api/v1/schedules/fixed", {
+          user_id: state.userId,
+          title: byId("schedule-title").value.trim(),
+          description: emptyToNull(byId("schedule-description").value),
+          location: emptyToNull(byId("schedule-location").value),
+          start_at: byId("schedule-start").value.trim(),
+          end_at: byId("schedule-end").value.trim(),
+          is_all_day: byId("schedule-all-day").checked,
+          recurrence_rule: isRecurring ? byId("schedule-recurrence").value : null,
+        });
+
+        state.scheduleId = payload.id;
+        renderSummary();
+        updateStage("schedule", true, `schedule_id=${payload.id} · ${payload.title}`);
+        message("고정 일정이 등록되었습니다.");
+      }
+
+      async function addFlexibleTask() {
+        ensure(state.userId, "먼저 유저를 생성하세요.");
+
+        const dueAt = byId("task-due-at").value.trim();
+        const payload = await request("POST", "/api/v1/tasks/flexible", {
+          user_id: state.userId,
+          title: byId("task-title").value.trim(),
+          description: emptyToNull(byId("task-description").value),
+          estimated_minutes: numericValue("task-estimated-minutes"),
+          min_session_minutes: numericValue("task-min-session"),
+          preferred_session_minutes: numericValue("task-preferred-session"),
+          max_minutes_per_day: numericValue("task-max-per-day"),
+          priority: numericValue("task-priority"),
+          due_at: dueAt || null,
+        });
+
+        state.taskId = payload.id;
+        renderSummary();
+        updateStage("task", true, `task_id=${payload.id} · ${payload.title}`);
+        message("가변 작업이 등록되었습니다.");
+      }
+
+      async function analyzeGoal() {
+        const payload = await request("POST", "/api/v1/goals/intake", {
+          text: byId("goal-text").value.trim(),
+          category: selectedGoalCategory(),
+        });
+
+        state.parsedGoal = payload.goal;
+        state.currentQuestions = payload.questions || [];
+
+        byId("draft-empty").hidden = true;
+        byId("draft-content").hidden = false;
+        byId("draft-reasoning").textContent = payload.reasoning || "설명 없음";
+        byId("draft-title").textContent = payload.goal.title || "-";
+        byId("draft-category").textContent = payload.goal.category || "-";
+        byId("draft-description").textContent = payload.goal.description || "-";
+
+        renderQuestions(payload.questions || [], payload.goal.answers_json || {});
+        updateStage("analysis", true, `category=${payload.goal.category}`);
+        message("목표 분석이 완료되었습니다. 아래 질문 카드에서 답변을 채워보세요.");
+      }
+
+      async function saveGoalAndGeneratePlan() {
+        ensure(state.userId, "먼저 유저를 생성하세요.");
+        if (!state.parsedGoal) {
+          await analyzeGoal();
+        }
+
+        const payload = await request("POST", "/api/v1/goals/complete", {
+          user_id: state.userId,
+          text: byId("goal-text").value.trim(),
+          category: selectedGoalCategory(),
+          answers_json: collectAnswers(),
+          replace_existing: byId("replace-existing-plan").checked,
+        });
+
+        state.goalId = payload.goal.id;
+        state.lastPlan = payload.plan;
+        renderSummary();
+        renderPlan(payload.plan, payload.llm_mode);
+        updateStage("plan", true, `goal_id=${payload.goal.id} · plan_id=${payload.plan.id}`);
+        message("목표 저장과 계획 생성이 완료되었습니다.");
+      }
+
+      async function allocateAndLoadCalendar() {
+        ensure(state.userId, "먼저 유저를 생성하세요.");
+        ensure(state.goalId, "먼저 목표 저장 + 계획 생성을 완료하세요.");
+
+        const rangeStart = byId("range-start").value.trim();
+        const rangeEnd = byId("range-end").value.trim();
+
+        await request("POST", "/api/v1/planner/allocate", {
+          user_id: state.userId,
+          range_start: rangeStart,
+          range_end: rangeEnd,
+          clear_existing: byId("clear-existing-allocation").checked,
+        });
+
+        await loadCalendarOnly();
+        updateStage("calendar", true, "allocate 후 캘린더 조회 완료");
+        message("자동 배치와 캘린더 조회가 완료되었습니다.");
+      }
+
+      async function loadCalendarOnly() {
+        ensure(state.userId, "먼저 유저를 생성하세요.");
+
+        const rangeStart = byId("range-start").value.trim();
+        const rangeEnd = byId("range-end").value.trim();
+        const calendar = await request(
+          "GET",
+          `/api/v1/calendar?user_id=${encodeURIComponent(state.userId)}&start=${encodeURIComponent(rangeStart)}&end=${encodeURIComponent(rangeEnd)}`
+        );
+
+        renderCalendar(calendar.events || []);
+        updateStage("calendar", true, `이벤트 ${calendar.events.length}개 로드`);
+        message(`캘린더를 새로고침했습니다. 총 ${calendar.events.length}개 이벤트입니다.`);
+      }
+
+      async function runFullFlow() {
+        resetState(false);
+        await createUser();
+        await addFixedSchedule();
+        await addFlexibleTask();
+        await analyzeGoal();
+        await saveGoalAndGeneratePlan();
+        await allocateAndLoadCalendar();
+        message("샘플 흐름이 끝까지 실행되었습니다.");
+      }
+
+      function renderQuestions(questions, defaults) {
+        byId("questions-empty").hidden = true;
+        byId("questions-wrap").hidden = false;
+
+        if (!questions.length) {
+          byId("question-list").innerHTML = '<div class="empty">추가 질문이 없어 바로 계획 생성이 가능합니다.</div>';
+          renderAnswersPreview();
+          return;
+        }
+
+        byId("question-list").innerHTML = questions.map((question, index) => {
+          const key = escapeHtml(question.key);
+          const value = defaults[question.key] ?? "";
+          const required = question.required ? "required" : "optional";
+          const typeLabel = question.answer_type || "text";
+          const help = question.help_text ? `<div class="helper">${escapeHtml(question.help_text)}</div>` : "";
+          return `
+            <article class="question-card">
+              <div class="question-meta">
+                <span class="tag">Q${index + 1}</span>
+                <span class="tag">${escapeHtml(typeLabel)}</span>
+                <span class="tag">${required}</span>
+                <span class="tag">${escapeHtml(question.key)}</span>
+              </div>
+              <label>
+                ${escapeHtml(question.prompt)}
+                ${renderQuestionField(question, value)}
+              </label>
+              ${help}
+            </article>
+          `;
+        }).join("");
+
+        renderAnswersPreview();
+      }
+
+      function renderQuestionField(question, value) {
+        const key = escapeHtml(question.key);
+        const safeValue = escapeHtml(String(value ?? ""));
+
+        if (question.answer_type === "number") {
+          return `<input data-question-key="${key}" data-answer-type="number" type="number" value="${safeValue}" />`;
+        }
+
+        if (question.answer_type === "date") {
+          return `<input data-question-key="${key}" data-answer-type="date" type="date" value="${safeValue}" />`;
+        }
+
+        if (question.answer_type === "boolean") {
+          return `
+            <select data-question-key="${key}" data-answer-type="boolean">
+              <option value="">선택하세요</option>
+              <option value="true"${value === true || value === "true" ? " selected" : ""}>예</option>
+              <option value="false"${value === false || value === "false" ? " selected" : ""}>아니오</option>
+            </select>
+          `;
+        }
+
+        if (question.answer_type === "select") {
+          const options = (question.options || []).map((option) => {
+            const selected = String(option) === String(value) ? " selected" : "";
+            return `<option value="${escapeHtml(option)}"${selected}>${escapeHtml(option)}</option>`;
+          }).join("");
+          return `
+            <select data-question-key="${key}" data-answer-type="select">
+              <option value="">선택하세요</option>
+              ${options}
+            </select>
+          `;
+        }
+
+        return `<textarea data-question-key="${key}" data-answer-type="text">${safeValue}</textarea>`;
+      }
+
+      function collectAnswers() {
+        const answers = {};
+        document.querySelectorAll("[data-question-key]").forEach((field) => {
+          let value = field.value;
+
+          if (field.dataset.answerType === "number" && value !== "") {
+            value = Number(value);
+          }
+
+          if (field.dataset.answerType === "boolean" && value !== "") {
+            value = value === "true";
+          }
+
+          if (value !== "") {
+            answers[field.dataset.questionKey] = value;
+          }
+        });
+        return answers;
+      }
+
+      function renderAnswersPreview() {
+        answersPreview.textContent = JSON.stringify(collectAnswers(), null, 2);
+      }
+
+      function renderPlan(plan, llmMode) {
+        byId("plan-empty").hidden = true;
+        byId("plan-content").hidden = false;
+
+        byId("plan-id").textContent = plan.id ?? "-";
+        byId("plan-llm-mode").textContent = llmMode || plan.llm_mode || "-";
+        byId("plan-status").textContent = plan.status || "-";
+        byId("plan-item-count").textContent = String((plan.items || []).length);
+        byId("plan-summary-text").textContent = plan.summary || "요약 없음";
+
+        byId("plan-items").innerHTML = (plan.items || []).length
+          ? plan.items.map((item) => `
+              <article class="plan-item">
+                <div class="plan-item-header">
+                  <div>
+                    <h3>${escapeHtml(item.title)}</h3>
+                    <p>${escapeHtml(item.description || "설명 없음")}</p>
+                  </div>
+                  <div class="tiny-actions">
+                    <span class="tag">${escapeHtml(item.item_type)}</span>
+                    <span class="tag">priority ${escapeHtml(item.priority)}</span>
+                    <span class="tag">${escapeHtml(item.status)}</span>
+                  </div>
+                </div>
+                <div class="tiny-actions" style="margin-top:10px;">
+                  <span class="tag">${escapeHtml(item.estimated_minutes)} min</span>
+                  <span class="tag">${item.is_schedulable ? "schedulable" : "not schedulable"}</span>
+                  ${item.target_date ? `<span class="tag">${escapeHtml(item.target_date)}</span>` : ""}
+                </div>
+              </article>
+            `).join("")
+          : '<div class="empty">생성된 plan item이 없습니다.</div>';
+      }
+
+      function renderCalendar(events) {
+        if (!events.length) {
+          byId("agenda").innerHTML = '<div class="empty">표시할 일정이 없습니다.</div>';
+          return;
+        }
+
+        const groups = {};
+        events.forEach((event) => {
+          const day = event.start_at.slice(0, 10);
+          groups[day] = groups[day] || [];
+          groups[day].push(event);
+        });
+
+        const html = Object.entries(groups)
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([day, items]) => `
+            <section class="day">
+              <div class="day-head">
+                <div>
+                  <strong>${formatDay(day)}</strong>
+                  <div class="muted-inline">${items.length}개 이벤트</div>
+                </div>
+              </div>
+              <div class="events">
+                ${items.map((event) => `
+                  <article class="event ${escapeHtml(event.source_type)}">
+                    <div class="event-header">
+                      <div>
+                        <strong>${escapeHtml(event.title)}</strong>
+                        ${event.description ? `<p>${escapeHtml(event.description)}</p>` : ""}
+                      </div>
+                      <div class="muted-inline">${formatTime(event.start_at)} - ${formatTime(event.end_at)}</div>
+                    </div>
+                    <div class="tiny-actions" style="margin-top:10px;">
+                      <span class="tag">${escapeHtml(event.source_type)}</span>
+                      <span class="tag">${escapeHtml(event.status)}</span>
+                    </div>
+                  </article>
+                `).join("")}
+              </div>
+            </section>
+          `).join("");
+
+        byId("agenda").innerHTML = html;
+      }
+
+      function renderSummary() {
+        byId("user-id-view").textContent = state.userId ?? "-";
+        byId("schedule-id-view").textContent = state.scheduleId ?? "-";
+        byId("task-id-view").textContent = state.taskId ?? "-";
+        byId("goal-id-view").textContent = state.goalId ?? "-";
+      }
+
+      function updateStage(key, done, text) {
+        const node = byId(`stage-${key}`);
+        node.classList.toggle("done", Boolean(done));
+        node.querySelector("small").textContent = text;
+      }
+
+      function resetState(showMessage) {
+        state.userId = null;
+        state.scheduleId = null;
+        state.taskId = null;
+        state.goalId = null;
+        state.parsedGoal = null;
+        state.currentQuestions = [];
+        state.lastPlan = null;
+
+        renderSummary();
+
+        byId("draft-empty").hidden = false;
+        byId("draft-content").hidden = true;
+        byId("questions-empty").hidden = false;
+        byId("questions-wrap").hidden = true;
+        byId("question-list").innerHTML = "";
+        byId("plan-empty").hidden = false;
+        byId("plan-content").hidden = true;
+        byId("agenda").innerHTML = '<div class="empty">아직 시간표를 불러오지 않았습니다.</div>';
+
+        requestOutput.textContent = JSON.stringify({ hint: "가장 최근에 보낸 요청이 여기에 표시됩니다." }, null, 2);
+        responseOutput.textContent = JSON.stringify({ hint: "가장 최근 API 응답이 여기에 표시됩니다." }, null, 2);
+        answersPreview.textContent = "{}";
+
+        updateStage("user", false, "아직 유저가 없습니다.");
+        updateStage("schedule", false, "아직 등록되지 않았습니다.");
+        updateStage("task", false, "아직 등록되지 않았습니다.");
+        updateStage("analysis", false, "분석 결과가 아직 없습니다.");
+        updateStage("plan", false, "질문 답변을 반영한 plan이 아직 없습니다.");
+        updateStage("calendar", false, "캘린더를 아직 조회하지 않았습니다.");
+
+        setStatus("idle", "대기 중");
+        byId("schedule-kind").value = "one-time";
+        byId("schedule-recurrence").value = "weekly";
+        syncRecurrenceUI();
+
+        if (showMessage) {
+          message("실행 상태를 초기화했습니다.");
+        } else {
+          message("각 카드의 입력을 수정한 뒤 필요한 단계만 실행해보세요.");
+        }
+      }
+
+      async function runStep(fn) {
+        setStatus("running", "실행 중");
+        try {
+          await fn();
+          setStatus("done", "완료");
+        } catch (error) {
+          setStatus("error", "오류");
+          message(error.message || "알 수 없는 오류가 발생했습니다.", true);
+        }
+      }
+
+      function setStatus(kind, text) {
+        statusPill.dataset.state = kind;
+        statusPill.textContent = text;
+      }
+
+      function message(text, isError = false) {
+        messageBox.textContent = text;
+        messageBox.classList.toggle("error", Boolean(isError));
+      }
+
+      function selectedGoalCategory() {
+        return byId("goal-category").value || null;
+      }
+
+      function syncRecurrenceUI() {
+        const recurring = byId("schedule-kind").value === "recurring";
+        byId("schedule-recurrence").disabled = !recurring;
+      }
+
+      function normalizedUserEmail() {
+        const raw = byId("user-email").value.trim();
+        const email = (raw || "user-flow-{timestamp}@example.com").replaceAll("{timestamp}", String(Date.now()));
+        byId("user-email").value = email;
+        return email;
+      }
+
+      function numericValue(id) {
+        return Number(byId(id).value);
+      }
+
+      function emptyToNull(value) {
+        const trimmed = String(value ?? "").trim();
+        return trimmed ? trimmed : null;
+      }
+
+      function ensure(value, text) {
+        if (!value) {
+          throw new Error(text);
+        }
+      }
+
+      function formatDay(day) {
+        return new Date(`${day}T00:00:00`).toLocaleDateString("ko-KR", {
+          month: "long",
+          day: "numeric",
+          weekday: "long",
+        });
+      }
+
+      function formatTime(value) {
+        return new Date(value).toLocaleTimeString("ko-KR", {
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+      }
+
+      function escapeHtml(value) {
+        return String(value)
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#39;");
+      }
+
+      renderSummary();
+      syncRecurrenceUI();
+      resetState(false);
+    </script>
+  </body>
+</html>

@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>캘린더 데모</title>
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: "Segoe UI", "Noto Sans KR", sans-serif;
+        background: linear-gradient(180deg, #f8fafc 0%, #eef3f8 100%);
+        color: #172033;
+      }
+      main { max-width: 1180px; margin: 0 auto; padding: 24px 16px 40px; }
+      h1, h2, p { margin: 0; }
+      p { color: #5b667a; line-height: 1.6; }
+      .layout { display: grid; grid-template-columns: 320px 1fr; gap: 16px; margin-top: 20px; }
+      .card {
+        background: rgba(255, 255, 255, 0.94);
+        border: 1px solid #d9e2ec;
+        border-radius: 18px;
+        padding: 16px;
+        box-shadow: 0 14px 36px rgba(15, 23, 42, 0.06);
+      }
+      .stack, .days { display: grid; gap: 12px; }
+      label { display: grid; gap: 6px; font-size: 13px; font-weight: 700; }
+      input, button { font: inherit; }
+      input {
+        width: 100%;
+        padding: 10px 12px;
+        border-radius: 10px;
+        border: 1px solid #c9d5e4;
+        background: white;
+      }
+      .actions, .filters { display: flex; gap: 8px; flex-wrap: wrap; }
+      button {
+        border: 0;
+        border-radius: 10px;
+        padding: 10px 14px;
+        cursor: pointer;
+        font-weight: 700;
+      }
+      .primary { background: #0f766e; color: white; }
+      .secondary { background: #e7eef7; color: #1f2937; }
+      .filter { background: #f5f8fb; color: #475569; border: 1px solid #d7e0eb; }
+      .filter.active { background: #e6fffb; color: #0f766e; border-color: rgba(15, 118, 110, 0.28); }
+      .summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
+      .summary-card { padding: 12px; border-radius: 14px; background: #f8fbff; border: 1px solid #dde7f1; }
+      .summary-card strong { display: block; margin-bottom: 6px; font-size: 12px; color: #66758a; text-transform: uppercase; }
+      .summary-card span { font-size: 24px; font-weight: 800; }
+      .legend { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+      .legend-item { display: inline-flex; align-items: center; gap: 8px; color: #526071; font-size: 13px; }
+      .dot { width: 10px; height: 10px; border-radius: 999px; }
+      .dot.fixed { background: #2563eb; }
+      .dot.allocated { background: #0f766e; }
+      .dot.plan { background: #b45309; }
+      .info { padding: 12px; border-radius: 12px; background: #eef6ff; color: #1d4ed8; font-size: 13px; line-height: 1.6; margin-bottom: 16px; }
+      .info.error { background: #fef2f2; color: #b91c1c; }
+      .day { border: 1px solid #dbe4ee; border-radius: 16px; background: white; overflow: hidden; }
+      .day-header { padding: 14px 16px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; }
+      .day-header strong { display: block; font-size: 16px; }
+      .day-header span { color: #66758a; font-size: 13px; }
+      .events { display: grid; gap: 10px; padding: 14px; }
+      .event { border-radius: 14px; padding: 12px 14px; border-left: 4px solid transparent; background: #fbfdff; border: 1px solid #e6edf5; }
+      .event.fixed_schedule { border-left-color: #2563eb; background: rgba(37, 99, 235, 0.05); }
+      .event.allocated_task { border-left-color: #0f766e; background: rgba(15, 118, 110, 0.06); }
+      .event.ai_plan_item { border-left-color: #b45309; background: rgba(180, 83, 9, 0.07); }
+      .event-top { display: flex; justify-content: space-between; gap: 12px; align-items: start; margin-bottom: 6px; }
+      .event-title { font-weight: 800; font-size: 15px; }
+      .event-time { white-space: nowrap; font-size: 12px; color: #475569; font-weight: 700; }
+      .event-meta { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+      .tag { padding: 5px 8px; border-radius: 999px; background: rgba(255,255,255,.82); border: 1px solid rgba(23,32,51,.08); font-size: 12px; color: #475569; }
+      details { margin-top: 16px; border: 1px solid #dbe4ee; border-radius: 14px; overflow: hidden; background: white; }
+      summary { cursor: pointer; padding: 12px 14px; font-weight: 700; }
+      pre { margin: 0; padding: 14px; background: #0f172a; color: #dbeafe; overflow: auto; min-height: 180px; font-family: "Cascadia Code", "Consolas", monospace; font-size: 13px; line-height: 1.55; }
+      .empty { padding: 24px; text-align: center; color: #64748b; border: 1px dashed #cfd8e3; border-radius: 14px; background: #fbfdff; }
+      @media (max-width: 960px) { .layout { grid-template-columns: 1fr; } .summary { grid-template-columns: 1fr 1fr; } }
+      @media (max-width: 640px) { .summary { grid-template-columns: 1fr; } }
+    </style>
+  </head>
+  <body data-page="calendar-demo">
+    <main>
+      <h1>캘린더 데모</h1>
+      <p>고정 일정, 자동 배치된 가변 일정, AI 계획 항목을 한 번에 확인하는 화면입니다.</p>
+
+      <div class="layout">
+        <section class="card">
+          <div class="stack">
+            <label>User ID<input id="user-id" type="number" min="1" value="1" /></label>
+            <label>Start<input id="start" value="2026-04-13T09:00:00+09:00" /></label>
+            <label>End<input id="end" value="2026-04-20T21:00:00+09:00" /></label>
+            <div class="actions">
+              <button class="primary" id="load-button" type="button">캘린더 불러오기</button>
+              <button class="secondary" id="week-button" type="button">이번 주 값 채우기</button>
+            </div>
+            <div class="filters">
+              <button class="filter active" type="button" data-filter="fixed_schedule">고정 일정</button>
+              <button class="filter active" type="button" data-filter="allocated_task">가변 일정</button>
+              <button class="filter active" type="button" data-filter="ai_plan_item">AI 계획</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px;">
+            <h2 style="margin:0;">시간표</h2>
+            <span class="info" id="status-pill" style="margin:0;padding:6px 10px;">대기 중</span>
+          </div>
+
+          <div class="summary">
+            <div class="summary-card"><strong>Total</strong><span id="total-count">0</span></div>
+            <div class="summary-card"><strong>Fixed</strong><span id="fixed-count">0</span></div>
+            <div class="summary-card"><strong>Allocated</strong><span id="allocated-count">0</span></div>
+            <div class="summary-card"><strong>Plan Items</strong><span id="plan-count">0</span></div>
+          </div>
+
+          <div class="legend">
+            <span class="legend-item"><span class="dot fixed"></span>고정 일정</span>
+            <span class="legend-item"><span class="dot allocated"></span>가변 일정</span>
+            <span class="legend-item"><span class="dot plan"></span>AI 계획 항목</span>
+          </div>
+
+          <div class="info" id="message-box">사용자와 기간을 입력한 뒤 캘린더를 불러오세요.</div>
+          <div class="days" id="days-container"><div class="empty">아직 캘린더를 불러오지 않았습니다.</div></div>
+
+          <details>
+            <summary>응답 JSON 보기</summary>
+            <pre id="raw-output">{
+  "hint": "캘린더 응답이 여기에 표시됩니다."
+}</pre>
+          </details>
+        </section>
+      </div>
+    </main>
+
+    <script>
+      const filters = { fixed_schedule: true, allocated_task: true, ai_plan_item: true };
+      const byId = (id) => document.getElementById(id);
+      const daysContainer = byId("days-container");
+      const rawOutput = byId("raw-output");
+      const messageBox = byId("message-box");
+      const statusPill = byId("status-pill");
+
+      document.querySelectorAll("[data-filter]").forEach((button) => {
+        button.addEventListener("click", () => {
+          const key = button.dataset.filter;
+          filters[key] = !filters[key];
+          button.classList.toggle("active", filters[key]);
+          renderAgenda(window.__calendarPayload || null);
+        });
+      });
+
+      byId("load-button").addEventListener("click", loadCalendar);
+      byId("week-button").addEventListener("click", setThisWeek);
+      setThisWeek();
+
+      function setThisWeek() {
+        byId("start").value = "2026-04-13T09:00:00+09:00";
+        byId("end").value = "2026-04-20T21:00:00+09:00";
+      }
+
+      async function loadCalendar() {
+        const userId = byId("user-id").value.trim();
+        const start = byId("start").value.trim();
+        const end = byId("end").value.trim();
+        const path = `/api/v1/calendar?user_id=${encodeURIComponent(userId)}&start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`;
+
+        statusPill.textContent = "불러오는 중";
+        try {
+          const response = await fetch(path);
+          const payload = await response.json();
+          window.__calendarPayload = payload;
+          rawOutput.textContent = JSON.stringify(payload, null, 2);
+          statusPill.textContent = String(response.status);
+          if (!response.ok) {
+            message(payload.detail || "캘린더 요청이 실패했습니다.", true);
+            daysContainer.innerHTML = '<div class="empty">캘린더를 렌더링할 수 없습니다.</div>';
+            return;
+          }
+          updateSummary(payload);
+          renderAgenda(payload);
+          message("캘린더를 불러왔습니다.");
+        } catch (error) {
+          statusPill.textContent = "오류";
+          message("네트워크 오류가 발생했습니다.", true);
+          daysContainer.innerHTML = '<div class="empty">캘린더를 렌더링할 수 없습니다.</div>';
+        }
+      }
+
+      function updateSummary(payload) {
+        const totals = payload.totals || {};
+        byId("total-count").textContent = String((payload.events || []).length);
+        byId("fixed-count").textContent = String(totals.fixed_schedule || 0);
+        byId("allocated-count").textContent = String(totals.allocated_task || 0);
+        byId("plan-count").textContent = String(totals.ai_plan_item || 0);
+      }
+
+      function renderAgenda(payload) {
+        if (!payload || !Array.isArray(payload.events)) return;
+        const visibleEvents = payload.events.filter((event) => filters[event.source_type]);
+        if (!visibleEvents.length) {
+          daysContainer.innerHTML = '<div class="empty">현재 필터에서 보이는 일정이 없습니다.</div>';
+          return;
+        }
+
+        const groups = new Map();
+        visibleEvents.forEach((event) => {
+          const key = event.start_at.slice(0, 10);
+          if (!groups.has(key)) groups.set(key, []);
+          groups.get(key).push(event);
+        });
+
+        daysContainer.innerHTML = [...groups.entries()].map(([dateKey, events]) => {
+          const title = new Date(events[0].start_at).toLocaleDateString("ko-KR", {
+            weekday: "long", month: "long", day: "numeric"
+          });
+          const cards = events.map((event) => `
+            <article class="event ${event.source_type}">
+              <div class="event-top">
+                <div>
+                  <div class="event-title">${escapeHtml(event.title)}</div>
+                  ${event.description ? `<div>${escapeHtml(event.description)}</div>` : ""}
+                </div>
+                <div class="event-time">${formatTime(event.start_at)} - ${formatTime(event.end_at)}</div>
+              </div>
+              <div class="event-meta">
+                <span class="tag">${escapeHtml(event.source_type)}</span>
+                <span class="tag">${escapeHtml(event.status)}</span>
+              </div>
+            </article>
+          `).join("");
+          return `
+            <section class="day">
+              <div class="day-header">
+                <strong>${title}</strong>
+                <span>${events.length}개 일정</span>
+              </div>
+              <div class="events">${cards}</div>
+            </section>
+          `;
+        }).join("");
+      }
+
+      function formatTime(value) {
+        return new Date(value).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" });
+      }
+
+      function message(text, isError = false) {
+        messageBox.textContent = text;
+        messageBox.classList.toggle("error", Boolean(isError));
+      }
+
+      function escapeHtml(value) {
+        return String(value)
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#39;");
+      }
+    </script>
+  </body>
+</html>

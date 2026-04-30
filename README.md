@@ -1,40 +1,151 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# AI Planner - Full Stack Application
 
-## Getting Started
+시간표 제작 및 스케줄 수행 보조 프로그램
 
-First, run the development server:
+## Overview
+
+This project combines a **Next.js frontend** with a **FastAPI backend** to provide an AI-powered planning and scheduling system.
+
+### Frontend (Next.js)
+- Modern React-based UI for schedule management
+- Calendar views and task planning interface
+
+### Backend (FastAPI)
+- REST API for managing users, schedules, tasks, and goals
+- AI-powered plan generation using Gemini API
+- Automatic time allocation algorithms
+- PostgreSQL database with SQLAlchemy ORM
+
+## Tech Stack
+
+### Frontend
+- Next.js 15+
+- React
+- TypeScript
+- Tailwind CSS
+
+### Backend
+- Python 3.12+
+- FastAPI
+- SQLAlchemy 2.0
+- Alembic
+- PostgreSQL
+- Gemini API with template fallback
+
+## Quick Start
+
+### Prerequisites
+- Node.js 18+
+- Python 3.12+
+- Docker (for PostgreSQL)
+
+### 1. Clone and Setup
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone <repository-url>
+cd now-what
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. Backend Setup
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```powershell
+# Create virtual environment
+py -m venv .venv
+.venv\Scripts\Activate.ps1
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+# Install dependencies
+pip install -r requirements.txt
 
-## Learn More
+# Copy environment variables
+Copy-Item .env.example .env
 
-To learn more about Next.js, take a look at the following resources:
+# Start PostgreSQL
+docker compose up -d
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+# Run migrations
+.\.venv\Scripts\alembic.exe upgrade head
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+# Start the API
+.\.venv\Scripts\uvicorn.exe app.main:app --reload
+```
 
-## Deploy on Vercel
+API will be available at [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### 3. Frontend Setup
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+# Install dependencies
+npm install
 
-# 그래서 이제 뭐함?
-시간표 제작 및 스케줄 수행 보조 프로그램
->>>>>>> af0c039ef8774ab16595f9a64832b080e4588405
+# Start development server
+npm run dev
+```
+
+Frontend will be available at [http://localhost:3000](http://localhost:3000)
+
+## Features
+
+### Backend Features
+- User creation and lookup
+- Fixed schedule CRUD
+- Flexible task CRUD
+- Goal intake from natural language
+- Goal question generation
+- Goal save + plan generation
+- Greedy auto-allocation into free time
+- Unified calendar view
+
+### Frontend Features
+- Interactive calendar interface
+- Schedule management
+- Task planning and allocation
+- Goal setting and tracking
+
+## Database Schema
+
+The application uses PostgreSQL with the following main tables:
+- `users` - User accounts
+- `fixed_schedules` - Fixed calendar events
+- `flexible_tasks` - Tasks that can be scheduled flexibly
+- `goals` - User goals with AI-generated plans
+- `ai_plans` - AI-generated planning data
+- `allocated_tasks` - Scheduled task allocations
+- `ai_plan_items` - Individual plan items
+
+## API Endpoints
+
+### Main Endpoints
+- `POST /api/v1/users` - Create user
+- `GET /api/v1/users` - List users
+- `POST /api/v1/schedules/fixed` - Create fixed schedule
+- `GET /api/v1/schedules/fixed` - List fixed schedules
+- `POST /api/v1/tasks/flexible` - Create flexible task
+- `GET /api/v1/tasks/flexible` - List flexible tasks
+- `POST /api/v1/goals/intake` - Start goal intake process
+- `POST /api/v1/planner/allocate` - Allocate tasks to schedule
+- `GET /api/v1/calendar` - Get unified calendar view
+
+## Deployment
+
+### Using Supabase
+The backend can use Supabase as its PostgreSQL provider:
+
+1. Replace `DATABASE_URL` in `.env` with your Supabase connection string
+2. Run migrations: `alembic upgrade head`
+3. Start API: `uvicorn app.main:app --reload`
+
+### Frontend Deployment
+Deploy to Vercel or any static hosting service:
+
+```bash
+npm run build
+npm run start
+```
+
+## Notes
+
+- Production defaults: `AUTO_CREATE_TABLES=false` and `SEED_DEMO_USER=false`
+- Set `ALLOWED_ORIGINS` explicitly for your frontend
+- `recurrence_rule` supports `daily`, `weekly`, and `biweekly`
+- All operations require `user_id` for proper scoping
+- Gemini API fallback to template-based responses when unavailable
