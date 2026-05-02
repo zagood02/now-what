@@ -20,7 +20,7 @@ The script creates:
 ```powershell
 docker compose up -d
 .\.venv\Scripts\alembic.exe upgrade head
-.\.venv\Scripts\uvicorn.exe app.main:app --reload
+.\.venv\Scripts\uvicorn.exe backend.main:app --reload
 ```
 
 Open:

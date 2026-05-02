@@ -66,7 +66,7 @@ docker compose up -d
 .\.venv\Scripts\alembic.exe upgrade head
 
 # Start the API
-.\.venv\Scripts\uvicorn.exe app.main:app --reload
+.\.venv\Scripts\uvicorn.exe backend.main:app --reload
 ```
 
 API will be available at [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
@@ -132,7 +132,7 @@ The backend can use Supabase as its PostgreSQL provider:
 
 1. Replace `DATABASE_URL` in `.env` with your Supabase connection string
 2. Run migrations: `alembic upgrade head`
-3. Start API: `uvicorn app.main:app --reload`
+3. Start API: `uvicorn backend.main:app --reload`
 
 ### Frontend Deployment
 Deploy to Vercel or any static hosting service:
