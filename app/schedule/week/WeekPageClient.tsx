@@ -4,14 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { AppSettings, readSettings } from "@/lib/settings";
-import {
-  type FixedScheduleSeries,
-  formatTimeRange,
-  getFixedScheduleSeries,
-  getScheduleColorsByKey,
-  getScheduleOccurrencesForDate,
-  timeToNumber,
-} from "@/lib/mockSchedules";
+import { calendarAPI, type CalendarEvent } from "@/lib/api";
 
 const dayNames = ["일", "월", "화", "수", "목", "금", "토"];
 
@@ -27,34 +20,55 @@ function formatHour(hour: number, format: AppSettings["timeFormat"]) {
   return `${hour < 12 ? "오전" : "오후"} ${h}시`;
 }
 
+function timeToNumber(timeString: string): number {
+  const [hours, minutes] = timeString.split(':').map(Number);
+  return hours + minutes / 60;
+}
+
+function formatTimeRange(startTime: string, endTime: string): string {
+  const start = startTime.slice(0, 5); // HH:MM
+  const end = endTime.slice(0, 5); // HH:MM
+  return `${start} - ${end}`;
+}
+
+function getScheduleColorsByKey(colorKey: number) {
+  const palette = [
+    {
+      bg: "var(--card-blue-bg)",
+      text: "var(--card-blue-text)",
+    },
+    {
+      bg: "var(--card-green-bg)",
+      text: "var(--card-green-text)",
+    },
+    {
+      bg: "var(--card-yellow-bg)",
+      text: "var(--card-yellow-text)",
+    },
+    {
+      bg: "var(--card-red-bg)",
+      text: "var(--card-red-text)",
+    },
+  ];
+
+  return palette[((colorKey % palette.length) + palette.length) % palette.length];
+}
+
 export default function WeekPageClient() {
   const params = useSearchParams();
 
   const week = Number(params.get("week") ?? 0);
-  const year = Number(params.get("year") ?? new Date().getFullYear());
-  const month = Number(params.get("month") ?? new Date().getMonth());
+  const year = Number(params.get("year") ?? 2026);  // 기본값을 2026으로
+  const month = Number(params.get("month") ?? 4);   // 기본값을 4로 (5월)
 
   const [settings] = useState<AppSettings>(() => readSettings());
-  const [fixedSeriesList, setFixedSeriesList] = useState<FixedScheduleSeries[]>([]);
-
-  useEffect(() => {
-    setFixedSeriesList(getFixedScheduleSeries());
-
-    const handleStorage = () => {
-      setFixedSeriesList(getFixedScheduleSeries());
-    };
-
-    window.addEventListener("storage", handleStorage);
-    window.addEventListener("focus", handleStorage);
-
-    return () => {
-      window.removeEventListener("storage", handleStorage);
-      window.removeEventListener("focus", handleStorage);
-    };
-  }, []);
+  const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const weekDates = useMemo(() => {
-    const firstDate = new Date(year, month, 1);
+    // month 파라미터는 0-based (0=1월, 4=5월)
+    const firstDate = new Date(year, month, 1);  // month는 이미 0-based
     const firstDay = firstDate.getDay();
     const start = new Date(year, month, 1 - firstDay + week * 7);
 
@@ -65,19 +79,90 @@ export default function WeekPageClient() {
     });
   }, [week, year, month]);
 
-  const occurrencesByDay = useMemo(() => {
-    return weekDates.map((date) =>
-      getScheduleOccurrencesForDate(date, fixedSeriesList).sort((a, b) => {
-        return timeToNumber(a.start_time) - timeToNumber(b.start_time);
-      })
-    );
-  }, [weekDates, fixedSeriesList]);
+  useEffect(() => {
+    const fetchCalendarData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const startDate = weekDates[0];
+        const endDate = new Date(weekDates[6]);
+        endDate.setHours(23, 59, 59, 999);
+
+        const response = await calendarAPI.get({
+          user_id: 1, // 테스트 유저 ID
+          start: startDate.toISOString(),
+          end: endDate.toISOString(),
+        });
+
+        setCalendarEvents(response.data.events);
+      } catch (err) {
+        console.error("Failed to fetch calendar data:", err);
+        setError("시간표 데이터를 불러오는데 실패했습니다.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (weekDates.length > 0) {
+      fetchCalendarData();
+    }
+  }, [weekDates]);
 
   const { startHour, endHour, timeFormat } = settings;
   const hours = Array.from(
     { length: endHour - startHour + 1 },
     (_, i) => i + startHour
   );
+
+  const occurrencesByDay = useMemo(() => {
+    return weekDates.map((date) => {
+      const dayStart = new Date(date);
+      dayStart.setHours(0, 0, 0, 0);
+      const dayEnd = new Date(date);
+      dayEnd.setHours(23, 59, 59, 999);
+
+      return calendarEvents
+        .filter((event) => {
+          const eventStart = new Date(event.start_at);
+          const eventEnd = new Date(event.end_at);
+          return eventStart >= dayStart && eventStart <= dayEnd;
+        })
+        .sort((a, b) => {
+          const aStart = new Date(a.start_at);
+          const bStart = new Date(b.start_at);
+          return aStart.getTime() - bStart.getTime();
+        })
+        .map((event) => ({
+          id: event.id,
+          title: event.title,
+          start_time: new Date(event.start_at).toTimeString().slice(0, 8),
+          end_time: new Date(event.end_at).toTimeString().slice(0, 8),
+          color_key: event.source_type === "fixed_schedule" ? 0 :
+                    event.source_type === "allocated_task" ? 1 :
+                    event.source_type === "ai_plan_item" ? 2 : 3,
+          source_type: event.source_type as "fixed",
+        }));
+    });
+  }, [weekDates, calendarEvents]);
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="text-lg" style={{ color: "var(--app-text-muted)" }}>
+          시간표를 불러오는 중...
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="text-lg text-red-500">{error}</div>
+      </div>
+    );
+  }
 
   return (
     <div>

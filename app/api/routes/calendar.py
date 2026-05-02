@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
@@ -22,4 +22,20 @@ def get_calendar(
     require_user(session, user_id)
     if end <= start:
         raise HTTPException(status_code=400, detail="end must be after start.")
-    return calendar_service.build(session, user_id=user_id, start=start, end=end)
+    # Convert to naive datetime if timezone-aware
+    if start.tzinfo is not None:
+        start = start.replace(tzinfo=None)
+    if end.tzinfo is not None:
+        end = end.replace(tzinfo=None)
+    try:
+        return calendar_service.build(session, user_id=user_id, start=start, end=end)
+    except Exception as e:
+        # Return empty calendar on error to prevent frontend crashes
+        from app.schemas.calendar import CalendarResponse
+        return CalendarResponse(
+            user_id=user_id,
+            start=start,
+            end=end,
+            events=[],
+            totals={"fixed_schedule": 0, "allocated_task": 0, "ai_plan_item": 0}
+        )

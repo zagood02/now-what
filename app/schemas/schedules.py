@@ -14,6 +14,7 @@ class FixedScheduleCreate(BaseModel):
     end_at: datetime
     is_all_day: bool = False
     recurrence_rule: str | None = Field(default=None, max_length=255)
+    day_of_week: int | None = Field(default=None, ge=0, le=6)  # 0=일요일, 1=월요일, ..., 6=토요일
 
 
 class FixedScheduleUpdate(BaseModel):
@@ -24,6 +25,7 @@ class FixedScheduleUpdate(BaseModel):
     end_at: datetime | None = None
     is_all_day: bool | None = None
     recurrence_rule: str | None = Field(default=None, max_length=255)
+    day_of_week: int | None = Field(default=None, ge=0, le=6)
 
 
 class FixedScheduleRead(ORMModel):
@@ -36,6 +38,7 @@ class FixedScheduleRead(ORMModel):
     end_at: datetime
     is_all_day: bool
     recurrence_rule: str | None
+    day_of_week: int | None
     created_at: datetime
     updated_at: datetime
 

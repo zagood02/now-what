@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import and_, or_, select
@@ -13,13 +13,21 @@ from app.services.recurrence import SUPPORTED_RECURRENCE_RULES, normalize_recurr
 
 router = APIRouter(prefix="/schedules/fixed", tags=["fixed-schedules"])
 
+KST = timezone(timedelta(hours=9))
+
+
+def _normalize_local_datetime(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value
+    return value.astimezone(KST).replace(tzinfo=None)
+
 
 def _validate_window(start_at: datetime, end_at: datetime) -> None:
     if end_at <= start_at:
         raise HTTPException(status_code=400, detail="end_at must be after start_at.")
 
 
-def _validate_recurrence_rule(recurrence_rule: str | None) -> str | None:
+def _validate_recurrence_rule(recurrence_rule: str | None, day_of_week: int | None = None) -> str | None:
     normalized = normalize_recurrence_rule(recurrence_rule)
     if recurrence_rule and normalized is None:
         supported = ", ".join(SUPPORTED_RECURRENCE_RULES)
@@ -27,6 +35,13 @@ def _validate_recurrence_rule(recurrence_rule: str | None) -> str | None:
             status_code=400,
             detail=f"Unsupported recurrence_rule. Use one of: {supported}.",
         )
+
+    if normalized in ("weekly", "biweekly") and day_of_week is None:
+        raise HTTPException(
+            status_code=400,
+            detail="weekly 및 biweekly 반복은 요일 선택이 필요합니다.",
+        )
+
     return normalized
 
 
@@ -36,11 +51,15 @@ def create_fixed_schedule(
     session: Session = Depends(get_db_session),
 ) -> FixedSchedule:
     require_user(session, payload.user_id)
-    _validate_window(payload.start_at, payload.end_at)
-    recurrence_rule = _validate_recurrence_rule(payload.recurrence_rule)
+    start_at = _normalize_local_datetime(payload.start_at)
+    end_at = _normalize_local_datetime(payload.end_at)
+    _validate_window(start_at, end_at)
+    recurrence_rule = _validate_recurrence_rule(payload.recurrence_rule, payload.day_of_week)
 
     schedule = FixedSchedule(
-        **payload.model_dump(exclude={"recurrence_rule"}),
+        **payload.model_dump(exclude={"recurrence_rule", "start_at", "end_at"}),
+        start_at=start_at,
+        end_at=end_at,
         recurrence_rule=recurrence_rule,
     )
     session.add(schedule)
@@ -94,13 +113,18 @@ def update_fixed_schedule(
     )
 
     updates = payload.model_dump(exclude_unset=True)
+    if "start_at" in updates:
+        updates["start_at"] = _normalize_local_datetime(updates["start_at"])
+    if "end_at" in updates:
+        updates["end_at"] = _normalize_local_datetime(updates["end_at"])
     next_start = updates.get("start_at", schedule.start_at)
     next_end = updates.get("end_at", schedule.end_at)
     _validate_window(next_start, next_end)
+    next_day_of_week = updates.get("day_of_week", schedule.day_of_week)
     if "recurrence_rule" in updates:
-        updates["recurrence_rule"] = _validate_recurrence_rule(updates["recurrence_rule"])
+        updates["recurrence_rule"] = _validate_recurrence_rule(updates["recurrence_rule"], next_day_of_week)
     else:
-        _validate_recurrence_rule(schedule.recurrence_rule)
+        _validate_recurrence_rule(schedule.recurrence_rule, next_day_of_week)
 
     for field, value in updates.items():
         setattr(schedule, field, value)

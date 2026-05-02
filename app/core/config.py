@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     app_name: str = "AI Planner API"
     environment: str = "development"
     api_v1_prefix: str = "/api/v1"
-    database_url: str = "postgresql+psycopg://planner:planner@localhost:5432/ai_planner"
+    database_url: str = "sqlite:///./ai_planner.db"
     db_connect_timeout_seconds: int = 5
     db_pool_pre_ping: bool = True
     db_pool_recycle_seconds: int = 1800
@@ -24,7 +24,12 @@ class Settings(BaseSettings):
     llm_reasoning_effort: str = "none"
     llm_enable_web_search: bool = False
     llm_web_search_domains: list[str] = Field(default_factory=list)
-    allowed_origins: list[str] = Field(default_factory=list)
+    allowed_origins: list[str] = Field(default_factory=lambda: ["http://localhost:3000", "http://localhost:3001"])
+    jwt_secret_key: str = "your-secret-key-here"
+    jwt_algorithm: str = "HS256"
+    jwt_expiration_hours: int = 24
+    secret_key: str = "your-secret-key-here-change-this-in-production"
+    access_token_expire_minutes: int = 30
 
     model_config = SettingsConfigDict(
         env_file=".env",

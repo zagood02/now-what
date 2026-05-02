@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, String, Text
+from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin
@@ -21,5 +21,6 @@ class FixedSchedule(Base, TimestampMixin):
     end_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True, nullable=False)
     is_all_day: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     recurrence_rule: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    day_of_week: Mapped[int | None] = mapped_column(Integer, nullable=True)  # 0=일요일, 1=월요일, ..., 6=토요일
 
     user = relationship("User", back_populates="fixed_schedules")

@@ -26,7 +26,7 @@ class CalendarService:
                     ),
                     and_(
                         FixedSchedule.recurrence_rule.is_not(None),
-                        FixedSchedule.start_at < end,
+                        FixedSchedule.recurrence_rule != "",
                     ),
                 ),
             )

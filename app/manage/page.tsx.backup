@@ -16,10 +16,11 @@ type FixedFormState = {
   title: string;
   start_time: string;
   end_time: string;
-  freq_type: "NONE" | "WEEKLY" | "BIWEEKLY" | "MONTHLY";
-  recurrence_rule: string;
-  day_of_week: number | null;
-  repeat_start_date: string
+  freq_type: RepeatType;
+  selected_days: DayCode[];
+  month_rule: MonthRule;
+  selected_month_days: number[];
+  biweekly_start_date: string;
 };
 
 type VariableFormState = {
@@ -29,16 +30,15 @@ type VariableFormState = {
   deadline: string;
 };
 
-const todayString = new Date().toISOString().split("T")[0];
-
 const fixedInitialForm: FixedFormState = {
   title: "",
   start_time: "09:00",
   end_time: "10:00",
   freq_type: "WEEKLY",
-  recurrence_rule: "weekly",
-  day_of_week: null,
-  repeat_start_date: todayString,
+  selected_days: ["MON"],
+  month_rule: "START",
+  selected_month_days: [1],
+  biweekly_start_date: "",
 };
 
 const variableInitialForm: VariableFormState = {
@@ -48,27 +48,97 @@ const variableInitialForm: VariableFormState = {
   deadline: "",
 };
 
+function toTimeWithSeconds(value: string) {
+  return value.length === 5 ? `${value}:00` : value;
+}
+
+function toDeadlineWithTimezone(value: string) {
+  return `${value}:00+09:00`;
+}
+
+function toDateInputValue(value: string | null) {
+  return value ?? "";
+}
+
+function toDateTimeLocalValue(value: string) {
+  const date = parseKstDateString(value);
+
+  if (Number.isNaN(date.getTime())) return "";
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hour = String(date.getHours()).padStart(2, "0");
+  const minute = String(date.getMinutes()).padStart(2, "0");
+
+  return `${year}-${month}-${day}T${hour}:${minute}`;
+}
+
+function createFormFromDetailItem(
+  item: FixedScheduleDetailItem
+): FixedFormState {
+  return {
+    title: item.title,
+    start_time: item.start_time.slice(0, 5),
+    end_time: item.end_time.slice(0, 5),
+    freq_type: item.freq_type,
+    selected_days: item.target_day ? [item.target_day] : ["MON"],
+    month_rule:
+      item.freq_type === "MONTHLY"
+        ? item.target_month_day
+          ? "CUSTOM"
+          : "START"
+        : "START",
+    selected_month_days: item.target_month_day ? [item.target_month_day] : [1],
+    biweekly_start_date: item.biweekly_start_date ?? "",
+  };
+}
+
+function createVariableFormFromItem(item: VariableSchedule): VariableFormState {
+  return {
+    title: item.title,
+    estimated_time: String(item.estimated_time),
+    level: String(item.level),
+    deadline: toDateTimeLocalValue(item.deadline),
+  };
+}
+
 export default function ManagePage() {
   const [activeTab, setActiveTab] = useState<"fixed" | "variable">("fixed");
   const [fixedForm, setFixedForm] = useState<FixedFormState>(fixedInitialForm);
-  const [variableForm, setVariableForm] = useState<VariableFormState>(variableInitialForm);
+  const [variableForm, setVariableForm] =
+    useState<VariableFormState>(variableInitialForm);
 
+  const [fixedSchedules, setFixedSchedules] = useState<FixedSchedule[]>([]);
+  const [flexibleTasks, setFlexibleTasks] = useState<FlexibleTask[]>([]);
+
+  const [expandedSeriesId, setExpandedSeriesId] = useState<string | null>(null);
+
+  const [editingSeriesId, setEditingSeriesId] = useState<string | null>(null);
+  const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
+  const [editingDetail, setEditingDetail] = useState<FixedScheduleDetailItem | null>(
+    null
+  );
+
+  const [addingToSeriesId, setAddingToSeriesId] = useState<string | null>(null);
+
+  const [editingVariableId, setEditingVariableId] = useState<string | null>(null);
+  const [isLoaded, setIsLoaded] = useState(false);
+  
   const [testUserId, setTestUserId] = useState<number | null>(null);
   const [isLoadingApi, setIsLoadingApi] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
-  const [fixedSchedules, setFixedSchedules] = useState<FixedSchedule[]>([]);
-  const [flexibleTasks, setFlexibleTasks] = useState<FlexibleTask[]>([]);
 
   // Initialize test user and load data from API
   useEffect(() => {
     const initializeData = async () => {
       try {
         setIsLoadingApi(true);
-
+        
         // Create or get test user
         const userRes = await userAPI.list();
         let userId = userRes.data[0]?.id;
-
+        
         if (!userId) {
           const createRes = await userAPI.create({
             email: "test@example.com",
@@ -77,28 +147,32 @@ export default function ManagePage() {
           });
           userId = createRes.data.id;
         }
-
+        
         setTestUserId(userId);
-
+        
         // Load schedules from API
         const schedulesRes = await fixedScheduleAPI.list({ user_id: userId });
+        console.log("Fixed schedules from API:", schedulesRes.data);
         setFixedSchedules(schedulesRes.data);
-
+        
         // Load flexible tasks from API
         const tasksRes = await flexibleTaskAPI.list({ user_id: userId });
+        console.log("Flexible tasks from API:", tasksRes.data);
         setFlexibleTasks(tasksRes.data);
-
+        
         setApiError(null);
       } catch (error) {
         console.error("Failed to load data from API:", error);
         setApiError(handleApiError(error));
+        // Initialize empty arrays if API fails
         setFixedSchedules([]);
         setFlexibleTasks([]);
       } finally {
         setIsLoadingApi(false);
+        setIsLoaded(true);
       }
     };
-
+    
     initializeData();
   }, []);
 
@@ -115,23 +189,12 @@ export default function ManagePage() {
     });
   }, [flexibleTasks]);
 
-  const getAnchorDate = () => {
-    const now = new Date();
-    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-
-    if (fixedForm.repeat_start_date) {
-      return fixedForm.repeat_start_date;
-    }
-
-    if ((fixedForm.freq_type === "WEEKLY" || fixedForm.freq_type === "BIWEEKLY") && fixedForm.day_of_week !== null) {
-      const todayWeekday = now.getDay();
-      const diff = (fixedForm.day_of_week - todayWeekday + 7) % 7;
-      const nextDate = new Date(now);
-      nextDate.setDate(now.getDate() + diff);
-      return `${nextDate.getFullYear()}-${String(nextDate.getMonth() + 1).padStart(2, "0")}-${String(nextDate.getDate()).padStart(2, "0")}`;
-    }
-
-    return today;
+  const resetFixedEditState = () => {
+    setEditingSeriesId(null);
+    setEditingRuleId(null);
+    setEditingDetail(null);
+    setAddingToSeriesId(null);
+    setFixedForm(fixedInitialForm);
   };
 
   const handleFixedSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -144,18 +207,25 @@ export default function ManagePage() {
       return;
     }
 
-    if ((fixedForm.freq_type === "WEEKLY" || fixedForm.freq_type === "BIWEEKLY") && fixedForm.day_of_week === null) {
-      setApiError("매주/격주 반복은 요일 선택이 필요합니다.");
+    if (
+      (fixedForm.freq_type === "WEEKLY" || fixedForm.freq_type === "BIWEEKLY") &&
+      fixedForm.selected_days.length === 0
+    ) {
       return;
     }
 
-    if (fixedForm.freq_type === "BIWEEKLY" && !fixedForm.repeat_start_date) {
-      setApiError("격주 반복은 시작 날짜 선택이 필요합니다.");
+    if (
+      fixedForm.freq_type === "BIWEEKLY" &&
+      !fixedForm.biweekly_start_date.trim()
+    ) {
       return;
     }
 
-    if (fixedForm.freq_type === "MONTHLY" && !fixedForm.repeat_start_date) {
-      setApiError("월 반복은 시작 날짜 선택이 필요합니다.");
+    if (
+      fixedForm.freq_type === "MONTHLY" &&
+      fixedForm.month_rule === "CUSTOM" &&
+      fixedForm.selected_month_days.length === 0
+    ) {
       return;
     }
 
@@ -163,31 +233,39 @@ export default function ManagePage() {
       setIsLoadingApi(true);
       setApiError(null);
 
-      const anchorDate = getAnchorDate();
-      const start_at = `${anchorDate}T${fixedForm.start_time}:00`;
-      const end_at = `${anchorDate}T${fixedForm.end_time}:00`;
-      const recurrence_rule =
-        fixedForm.freq_type === "WEEKLY"
-          ? "weekly"
-          : fixedForm.freq_type === "BIWEEKLY"
-          ? "biweekly"
-          : fixedForm.freq_type === "MONTHLY"
-          ? "monthly"
-          : undefined;
+      // Create recurrence rule based on freq_type
+      // Backend only supports: daily, weekly, biweekly
+      let recurrenceRule = "";
+      if (fixedForm.freq_type === "WEEKLY") {
+        recurrenceRule = "weekly";
+      } else if (fixedForm.freq_type === "BIWEEKLY") {
+        recurrenceRule = "biweekly";
+      } else if (fixedForm.freq_type === "MONTHLY") {
+        // Monthly not supported by backend, use weekly as fallback
+        recurrenceRule = "weekly";
+      }
 
+      // Build start_at and end_at datetime strings
+      const today = new Date().toISOString().split("T")[0];
+      const start_at = `${today}T${fixedForm.start_time}:00+09:00`;
+      const end_at = `${today}T${fixedForm.end_time}:00+09:00`;
+
+      // API call to create fixed schedule
       const response = await fixedScheduleAPI.create({
         user_id: testUserId,
         title: fixedForm.title.trim(),
         start_at,
         end_at,
         is_all_day: false,
-        recurrence_rule: recurrence_rule || undefined,
-        day_of_week: fixedForm.day_of_week ?? undefined,
+        recurrence_rule: recurrenceRule || undefined,
       });
 
+      console.log("Fixed schedule created:", response.data);
+
+      // Add to local state for UI update
       setFixedSchedules((prev) => [...prev, response.data]);
       setFixedForm(fixedInitialForm);
-
+      
       alert("✅ 고정 스케줄이 등록되었습니다!");
     } catch (error) {
       console.error("Failed to create fixed schedule:", error);
@@ -197,30 +275,142 @@ export default function ManagePage() {
     }
   };
 
-  const handleDeleteFixed = async (scheduleId: number) => {
-    if (!testUserId) {
-      setApiError("사용자 ID를 찾을 수 없습니다.");
-      return;
+  const handleEditDetail = (
+    series: FixedScheduleSeries,
+    detail: FixedScheduleDetailItem
+  ) => {
+    setActiveTab("fixed");
+    setEditingSeriesId(series.series_id);
+    setEditingRuleId(detail.rule_id);
+    setEditingDetail(detail);
+    setAddingToSeriesId(null);
+    setFixedForm(createFormFromDetailItem(detail));
+  };
+
+  const handleAddRuleToSeries = (series: FixedScheduleSeries) => {
+    setActiveTab("fixed");
+    setAddingToSeriesId(series.series_id);
+    setEditingSeriesId(null);
+    setEditingRuleId(null);
+    setEditingDetail(null);
+    setFixedForm({
+      title: series.title,
+      start_time: "09:00",
+      end_time: "10:00",
+      freq_type: "WEEKLY",
+      selected_days: ["MON"],
+      month_rule: "START",
+      selected_month_days: [1],
+      biweekly_start_date: "",
+    });
+  };
+
+  const handleDeleteDetail = (
+    seriesId: string,
+    detail: FixedScheduleDetailItem
+  ) => {
+    const now = new Date().toISOString();
+
+    setFixedSeriesList((prev) =>
+      prev
+        .map((series) => {
+          if (series.series_id !== seriesId) return series;
+
+          const nextRules: FixedScheduleRule[] = [];
+
+          series.rules.forEach((rule) => {
+            if (rule.rule_id !== detail.rule_id) {
+              nextRules.push(rule);
+              return;
+            }
+
+            if (detail.target_day) {
+              const remainingDays = rule.days.filter(
+                (day) => day !== detail.target_day
+              );
+
+              if (remainingDays.length > 0) {
+                nextRules.push({
+                  ...rule,
+                  days: remainingDays,
+                  updated_at: now,
+                });
+              }
+              return;
+            }
+
+            if (detail.target_month_day !== null) {
+              if (rule.month_rule === "CUSTOM") {
+                const remainingMonthDays = rule.month_days.filter(
+                  (day) => day !== detail.target_month_day
+                );
+
+                if (remainingMonthDays.length > 0) {
+                  nextRules.push({
+                    ...rule,
+                    month_days: remainingMonthDays,
+                    updated_at: now,
+                  });
+                }
+              }
+              return;
+            }
+
+            // 단일 규칙이면 삭제
+          });
+
+          return {
+            ...series,
+            updated_at: now,
+            rules: nextRules,
+          };
+        })
+        .filter((series) => series.rules.length > 0)
+    );
+
+    if (
+      editingSeriesId === seriesId &&
+      editingRuleId === detail.rule_id
+    ) {
+      resetFixedEditState();
+    }
+  };
+
+  const handleToggleSeriesDetail = (seriesId: string) => {
+    setExpandedSeriesId((prev) => (prev === seriesId ? null : seriesId));
+  };
+
+  const handleDeleteSeries = (seriesId: string) => {
+    setFixedSeriesList((prev) => prev.filter((series) => series.series_id !== seriesId));
+
+    if (expandedSeriesId === seriesId) {
+      setExpandedSeriesId(null);
     }
 
-    try {
-      setIsLoadingApi(true);
-      setApiError(null);
-      await fixedScheduleAPI.delete(scheduleId, testUserId);
-      setFixedSchedules((prev) => prev.filter((schedule) => schedule.id !== scheduleId));
-    } catch (error) {
-      console.error("Failed to delete fixed schedule:", error);
-      setApiError(handleApiError(error));
-    } finally {
-      setIsLoadingApi(false);
+    if (editingSeriesId === seriesId || addingToSeriesId === seriesId) {
+      resetFixedEditState();
     }
+  };
+
+  const handleEditVariable = (item: VariableSchedule) => {
+    setActiveTab("variable");
+    setEditingVariableId(item.id);
+    setVariableForm(createVariableFormFromItem(item));
   };
 
   const handleVariableSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     if (!variableForm.title.trim()) return;
-    if (!variableForm.estimated_time || Number(variableForm.estimated_time) <= 0) return;
+    if (!variableForm.estimated_time || Number(variableForm.estimated_time) <= 0)
+      return;
+    if (
+      !variableForm.level ||
+      Number(variableForm.level) < 0 ||
+      Number(variableForm.level) > 10
+    )
+      return;
+    if (!variableForm.deadline) return;
     if (!testUserId) {
       setApiError("사용자 ID를 찾을 수 없습니다.");
       return;
@@ -230,23 +420,45 @@ export default function ManagePage() {
       setIsLoadingApi(true);
       setApiError(null);
 
+      const now = new Date().toISOString();
       const estimatedMinutes = Number(variableForm.estimated_time);
 
-      const response = await flexibleTaskAPI.create({
-        user_id: testUserId,
-        title: variableForm.title.trim(),
-        estimated_minutes: estimatedMinutes,
-        min_session_minutes: Math.max(15, Math.floor(estimatedMinutes / 4)),
-        preferred_session_minutes: Math.max(30, Math.floor(estimatedMinutes / 2)),
-        max_minutes_per_day: Math.min(180, estimatedMinutes),
-        priority: Number(variableForm.level),
-        due_at: variableForm.deadline ? `${variableForm.deadline}:00` : undefined,
-        details_json: {},
-      });
+      if (editingVariableId) {
+        // Update existing task
+        await flexibleTaskAPI.update(
+          Number(editingVariableId.split("-")[1]) || parseInt(editingVariableId),
+          testUserId,
+          {
+            title: variableForm.title.trim(),
+            estimated_minutes: estimatedMinutes,
+            priority: Number(variableForm.level),
+            due_at: toDeadlineWithTimezone(variableForm.deadline),
+          }
+        );
+        console.log("Flexible task updated");
+      } else {
+        // Create new task
+        const response = await flexibleTaskAPI.create({
+          user_id: testUserId,
+          title: variableForm.title.trim(),
+          estimated_minutes: estimatedMinutes,
+          min_session_minutes: Math.max(15, Math.floor(estimatedMinutes / 4)),
+          preferred_session_minutes: Math.max(30, Math.floor(estimatedMinutes / 2)),
+          max_minutes_per_day: Math.min(180, estimatedMinutes),
+          priority: Number(variableForm.level),
+          due_at: toDeadlineWithTimezone(variableForm.deadline),
+          details_json: {},
+        });
 
-      setFlexibleTasks((prev) => [...prev, response.data]);
+        console.log("Flexible task created:", response.data);
+
+        // Add to local state
+        setFlexibleTasks((prev) => [...prev, response.data]);
+      }
+
+      setEditingVariableId(null);
       setVariableForm(variableInitialForm);
-
+      
       alert("✅ 유연한 작업이 등록되었습니다!");
     } catch (error) {
       console.error("Failed to save flexible task:", error);
@@ -261,10 +473,32 @@ export default function ManagePage() {
       const taskId = parseInt(id);
       await flexibleTaskAPI.delete(taskId, testUserId!);
       setFlexibleTasks((prev) => prev.filter((item) => item.id !== taskId));
+      
+      if (editingVariableId === id) {
+        setEditingVariableId(null);
+        setVariableForm(variableInitialForm);
+      }
     } catch (error) {
       console.error("Failed to delete flexible task:", error);
       setApiError(handleApiError(error));
     }
+  };
+
+  const handleToggleDone = (id: string) => {
+    const now = new Date().toISOString();
+
+    setVariableList((prev) =>
+      prev.map((item) =>
+        item.id === id
+          ? { ...item, is_done: !item.is_done, updated_at: now }
+          : item
+      )
+    );
+  };
+
+  const handleCancelVariableEdit = () => {
+    setEditingVariableId(null);
+    setVariableForm(variableInitialForm);
   };
 
   return (
@@ -281,7 +515,7 @@ export default function ManagePage() {
           로딩 중...
         </div>
       )}
-
+      
       {apiError && (
         <div
           className="rounded-xl border p-4"
@@ -360,7 +594,7 @@ export default function ManagePage() {
         </button>
       </div>
 
-      {activeTab === "fixed" && (
+      {activeTab === "fixed" ? (
         <div className="grid grid-cols-1 xl:grid-cols-[500px_1fr] gap-6">
           <section
             className="rounded-2xl border p-5 shadow-sm"
@@ -369,12 +603,32 @@ export default function ManagePage() {
               borderColor: "var(--app-border)",
             }}
           >
-            <h2
-              className="text-xl font-bold mb-4"
-              style={{ color: "var(--app-text)" }}
-            >
-              고정 스케줄 등록
-            </h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2
+                className="text-xl font-bold"
+                style={{ color: "var(--app-text)" }}
+              >
+                {editingDetail
+                  ? "개별 일정 수정"
+                  : addingToSeriesId
+                    ? "반복 항목 추가"
+                    : "고정 스케줄 등록"}
+              </h2>
+
+              {(editingDetail || addingToSeriesId) && (
+                <button
+                  type="button"
+                  onClick={resetFixedEditState}
+                  className="px-3 py-2 rounded-lg text-sm font-semibold"
+                  style={{
+                    background: "var(--app-surface-muted)",
+                    color: "var(--app-text)",
+                  }}
+                >
+                  취소
+                </button>
+              )}
+            </div>
 
             <form onSubmit={handleFixedSubmit} className="space-y-4">
               <div>
@@ -382,18 +636,14 @@ export default function ManagePage() {
                   className="block text-sm font-semibold mb-2"
                   style={{ color: "var(--app-text)" }}
                 >
-                  제목
+                  일정 이름
                 </label>
                 <input
-                  type="text"
                   value={fixedForm.title}
                   onChange={(e) =>
-                    setFixedForm((prev) => ({
-                      ...prev,
-                      title: e.target.value,
-                    }))
+                    setFixedForm((prev) => ({ ...prev, title: e.target.value }))
                   }
-                  placeholder="예: 알고리즘 수업"
+                  placeholder="예: 출근"
                   className="w-full rounded-xl border px-3 py-2 outline-none"
                   style={{
                     background: "var(--app-bg)",
@@ -403,7 +653,7 @@ export default function ManagePage() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label
                     className="block text-sm font-semibold mb-2"
@@ -467,81 +717,100 @@ export default function ManagePage() {
                   onChange={(e) =>
                     setFixedForm((prev) => ({
                       ...prev,
-                      freq_type: e.target.value as "NONE" | "WEEKLY" | "BIWEEKLY" | "MONTHLY",
-                      recurrence_rule:
-                        e.target.value === "WEEKLY"
-                          ? "weekly"
-                          : e.target.value === "BIWEEKLY"
-                          ? "biweekly"
-                          : e.target.value === "MONTHLY"
-                          ? "monthly"
-                          : "",
+                      freq_type: e.target.value as RepeatType,
                     }))
                   }
-                  className="w-full rounded-xl border px-3 py-2 outline-none"
+                  disabled={Boolean(editingDetail)}
+                  className="w-full rounded-xl border px-3 py-2 outline-none disabled:opacity-60"
                   style={{
                     background: "var(--app-bg)",
                     borderColor: "var(--app-border)",
                     color: "var(--app-text)",
                   }}
                 >
-                  <option value="NONE">반복 없음</option>
                   <option value="WEEKLY">매주</option>
                   <option value="BIWEEKLY">격주</option>
                   <option value="MONTHLY">매월</option>
                 </select>
               </div>
 
-              {(fixedForm.freq_type === "WEEKLY" || fixedForm.freq_type === "BIWEEKLY") && (
-                <div>
-                  <label
-                    className="block text-sm font-semibold mb-2"
-                    style={{ color: "var(--app-text)" }}
-                  >
-                    요일
-                  </label>
-                  <select
-                    value={fixedForm.day_of_week ?? ""}
-                    onChange={(e) =>
-                      setFixedForm((prev) => ({
-                        ...prev,
-                        day_of_week: e.target.value ? parseInt(e.target.value) : null,
-                      }))
-                    }
-                    className="w-full rounded-xl border px-3 py-2 outline-none"
-                    style={{
-                      background: "var(--app-bg)",
-                      borderColor: "var(--app-border)",
-                      color: "var(--app-text)",
-                    }}
-                  >
-                    <option value="">요일 선택</option>
-                    <option value="0">일요일</option>
-                    <option value="1">월요일</option>
-                    <option value="2">화요일</option>
-                    <option value="3">수요일</option>
-                    <option value="4">목요일</option>
-                    <option value="5">금요일</option>
-                    <option value="6">토요일</option>
-                  </select>
+              {!editingDetail &&
+                (fixedForm.freq_type === "WEEKLY" ||
+                  fixedForm.freq_type === "BIWEEKLY") && (
+                  <div>
+                    <label
+                      className="block text-sm font-semibold mb-2"
+                      style={{ color: "var(--app-text)" }}
+                    >
+                      요일 선택
+                    </label>
+
+                    <div className="grid grid-cols-7 gap-2">
+                      {dayOptions.map((day) => {
+                        const selected = fixedForm.selected_days.includes(day.code);
+
+                        return (
+                          <button
+                            key={day.code}
+                            type="button"
+                            onClick={() =>
+                              setFixedForm((prev) => ({
+                                ...prev,
+                                selected_days: toggleSelectedDay(
+                                  prev.selected_days,
+                                  day.code
+                                ),
+                              }))
+                            }
+                            className="h-11 rounded-lg border text-sm font-bold transition"
+                            style={{
+                              background: selected
+                                ? "var(--primary-button-bg)"
+                                : "var(--app-bg)",
+                              color: selected
+                                ? "var(--primary-button-text)"
+                                : "var(--app-text)",
+                              borderColor: selected
+                                ? "var(--primary-button-bg)"
+                                : "var(--app-border)",
+                            }}
+                          >
+                            {day.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+              {editingDetail && (
+                <div
+                  className="rounded-xl border px-3 py-3 text-sm"
+                  style={{
+                    background: "var(--app-bg)",
+                    borderColor: "var(--app-border)",
+                    color: "var(--app-text-muted)",
+                  }}
+                >
+                  수정 대상: {editingDetail.label}
                 </div>
               )}
 
-              {(fixedForm.freq_type === "BIWEEKLY" || fixedForm.freq_type === "MONTHLY") && (
+              {fixedForm.freq_type === "BIWEEKLY" && (
                 <div>
                   <label
                     className="block text-sm font-semibold mb-2"
                     style={{ color: "var(--app-text)" }}
                   >
-                    시작 날짜
+                    격주 시작일
                   </label>
                   <input
                     type="date"
-                    value={fixedForm.repeat_start_date}
+                    value={toDateInputValue(fixedForm.biweekly_start_date)}
                     onChange={(e) =>
                       setFixedForm((prev) => ({
                         ...prev,
-                        repeat_start_date: e.target.value,
+                        biweekly_start_date: e.target.value,
                       }))
                     }
                     className="w-full rounded-xl border px-3 py-2 outline-none"
@@ -554,6 +823,100 @@ export default function ManagePage() {
                 </div>
               )}
 
+              {!editingDetail && fixedForm.freq_type === "MONTHLY" && (
+                <div className="space-y-3">
+                  <div>
+                    <label
+                      className="block text-sm font-semibold mb-2"
+                      style={{ color: "var(--app-text)" }}
+                    >
+                      월간 반복 방식
+                    </label>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      {monthRuleOptions.map((option) => {
+                        const selected = fixedForm.month_rule === option.value;
+
+                        return (
+                          <button
+                            key={option.value}
+                            type="button"
+                            onClick={() =>
+                              setFixedForm((prev) => ({
+                                ...prev,
+                                month_rule: option.value,
+                              }))
+                            }
+                            className="h-11 rounded-lg border text-sm font-semibold transition"
+                            style={{
+                              background: selected
+                                ? "var(--primary-button-bg)"
+                                : "var(--app-bg)",
+                              color: selected
+                                ? "var(--primary-button-text)"
+                                : "var(--app-text)",
+                              borderColor: selected
+                                ? "var(--primary-button-bg)"
+                                : "var(--app-border)",
+                            }}
+                          >
+                            {option.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {fixedForm.month_rule === "CUSTOM" && (
+                    <div>
+                      <label
+                        className="block text-sm font-semibold mb-2"
+                        style={{ color: "var(--app-text)" }}
+                      >
+                        기타 날짜 선택
+                      </label>
+
+                      <div className="grid grid-cols-7 gap-2">
+                        {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => {
+                          const selected =
+                            fixedForm.selected_month_days.includes(day);
+
+                          return (
+                            <button
+                              key={day}
+                              type="button"
+                              onClick={() =>
+                                setFixedForm((prev) => ({
+                                  ...prev,
+                                  selected_month_days: toggleSelectedMonthDay(
+                                    prev.selected_month_days,
+                                    day
+                                  ),
+                                }))
+                              }
+                              className="h-11 rounded-lg border text-sm font-semibold transition"
+                              style={{
+                                background: selected
+                                  ? "var(--primary-button-bg)"
+                                  : "var(--app-bg)",
+                                color: selected
+                                  ? "var(--primary-button-text)"
+                                  : "var(--app-text)",
+                                borderColor: selected
+                                  ? "var(--primary-button-bg)"
+                                  : "var(--app-border)",
+                              }}
+                            >
+                              {day}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <button
                 type="submit"
                 className="w-full rounded-xl py-3 font-semibold transition hover:opacity-90"
@@ -562,11 +925,14 @@ export default function ManagePage() {
                   color: "var(--primary-button-text)",
                 }}
               >
-                고정 스케줄 추가
+                {editingDetail
+                  ? "개별 일정 저장"
+                  : addingToSeriesId
+                    ? "반복 항목 추가"
+                    : "고정 스케줄 추가"}
               </button>
             </form>
           </section>
-
 
           <section
             className="rounded-2xl border p-5 shadow-sm"
@@ -604,13 +970,13 @@ export default function ManagePage() {
                 </div>
               ) : (
                 sortedFixedSchedules.map((schedule) => {
-                  const startTime = new Date(schedule.start_at).toLocaleTimeString('ko-KR', {
-                    hour: '2-digit',
-                    minute: '2-digit'
+                  const startTime = new Date(schedule.start_at).toLocaleTimeString('ko-KR', { 
+                    hour: '2-digit', 
+                    minute: '2-digit' 
                   });
-                  const endTime = new Date(schedule.end_at).toLocaleTimeString('ko-KR', {
-                    hour: '2-digit',
-                    minute: '2-digit'
+                  const endTime = new Date(schedule.end_at).toLocaleTimeString('ko-KR', { 
+                    hour: '2-digit', 
+                    minute: '2-digit' 
                   });
 
                   return (
@@ -641,15 +1007,10 @@ export default function ManagePage() {
                             style={{ color: "var(--app-text-muted)" }}
                           >
                             {startTime} - {endTime}
-                            {schedule.day_of_week !== null && (
-                              <span className="ml-2">
-                                ({['일', '월', '화', '수', '목', '금', '토'][schedule.day_of_week]}요일)
-                              </span>
-                            )}
                             {schedule.recurrence_rule && (
                               <span className="ml-2">
-                                ({schedule.recurrence_rule === 'weekly' ? '매주' :
-                                  schedule.recurrence_rule === 'biweekly' ? '격주' :
+                                ({schedule.recurrence_rule === 'weekly' ? '매주' : 
+                                  schedule.recurrence_rule === 'biweekly' ? '격주' : 
                                   schedule.recurrence_rule})
                               </span>
                             )}
@@ -659,7 +1020,8 @@ export default function ManagePage() {
                           type="button"
                           onClick={() => {
                             if (confirm('정말 삭제하시겠습니까?')) {
-                              handleDeleteFixed(schedule.id);
+                              // TODO: Implement delete functionality
+                              setFixedSchedules(prev => prev.filter(s => s.id !== schedule.id));
                             }
                           }}
                           className="px-3 py-1 rounded-lg text-sm font-semibold transition hover:opacity-90"
@@ -675,13 +1037,121 @@ export default function ManagePage() {
                   );
                 })
               )}
+                          </div>
+
+                          <div className="mt-2 space-y-1">
+                            {series.rules.map((rule) => (
+                              <div
+                                key={rule.rule_id}
+                                className="text-sm"
+                                style={{ color: "var(--app-text-muted)" }}
+                              >
+                                {formatRuleSummary(rule)}
+                              </div>
+                            ))}
+                          </div>
+                        </button>
+
+                        <div className="flex flex-col gap-2 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => handleAddRuleToSeries(series)}
+                            className="px-3 py-2 rounded-lg font-semibold text-sm"
+                            style={{
+                              background: "var(--card-yellow-bg)",
+                              color: "var(--card-yellow-text)",
+                            }}
+                          >
+                            추가
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteSeries(series.series_id)}
+                            className="px-3 py-2 rounded-lg font-semibold text-sm"
+                            style={{
+                              background: "var(--card-red-bg)",
+                              color: "var(--card-red-text)",
+                            }}
+                          >
+                            전체 삭제
+                          </button>
+                        </div>
+                      </div>
+
+                      {expanded && (
+                        <div
+                          className="mt-4 pt-4 border-t space-y-3"
+                          style={{ borderColor: "var(--app-border)" }}
+                        >
+                          {series.rules.flatMap((rule) =>
+                            expandRuleToDetailItems(series, rule).map((item) => (
+                              <div
+                                key={item.id}
+                                className="rounded-lg border p-3"
+                                style={{
+                                  background: "var(--app-surface)",
+                                  borderColor: "var(--app-border)",
+                                }}
+                              >
+                                <div className="flex items-start justify-between gap-3">
+                                  <div>
+                                    <div
+                                      className="font-semibold"
+                                      style={{ color: "var(--app-text)" }}
+                                    >
+                                      {item.title}
+                                    </div>
+                                    <div
+                                      className="text-sm mt-1"
+                                      style={{ color: "var(--app-text-muted)" }}
+                                    >
+                                      {item.label} {formatTimeRange(item.start_time, item.end_time)}
+                                    </div>
+                                  </div>
+
+                                  <div className="flex flex-col gap-2 shrink-0">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleEditDetail(series, item)}
+                                      className="px-3 py-2 rounded-lg font-semibold text-sm"
+                                      style={{
+                                        background: "var(--card-blue-bg)",
+                                        color: "var(--card-blue-text)",
+                                      }}
+                                    >
+                                      수정
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        handleDeleteDetail(series.series_id, item)
+                                      }
+                                      className="px-3 py-2 rounded-lg font-semibold text-sm"
+                                      style={{
+                                        background: "var(--card-red-bg)",
+                                        color: "var(--card-red-text)",
+                                      }}
+                                    >
+                                      삭제
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
             </div>
           </section>
         </div>
-      )}
-
-      {activeTab === "variable" && (
-        <div className="grid grid-cols-1 xl:grid-cols-[500px_1fr] gap-6">
+      ) : (
+        <div className="grid grid-cols-1 xl:grid-cols-[420px_1fr] gap-6">
           <section
             className="rounded-2xl border p-5 shadow-sm"
             style={{
@@ -689,12 +1159,28 @@ export default function ManagePage() {
               borderColor: "var(--app-border)",
             }}
           >
-            <h2
-              className="text-xl font-bold mb-4"
-              style={{ color: "var(--app-text)" }}
-            >
-              변동 스케줄 등록
-            </h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2
+                className="text-xl font-bold"
+                style={{ color: "var(--app-text)" }}
+              >
+                {editingVariableId ? "변동 스케줄 수정" : "변동 스케줄 등록"}
+              </h2>
+
+              {editingVariableId && (
+                <button
+                  type="button"
+                  onClick={handleCancelVariableEdit}
+                  className="px-3 py-2 rounded-lg text-sm font-semibold"
+                  style={{
+                    background: "var(--app-surface-muted)",
+                    color: "var(--app-text)",
+                  }}
+                >
+                  수정 취소
+                </button>
+              )}
+            </div>
 
             <form onSubmit={handleVariableSubmit} className="space-y-4">
               <div>
@@ -702,10 +1188,9 @@ export default function ManagePage() {
                   className="block text-sm font-semibold mb-2"
                   style={{ color: "var(--app-text)" }}
                 >
-                  제목
+                  일정 이름
                 </label>
                 <input
-                  type="text"
                   value={variableForm.title}
                   onChange={(e) =>
                     setVariableForm((prev) => ({
@@ -755,11 +1240,11 @@ export default function ManagePage() {
                   className="block text-sm font-semibold mb-2"
                   style={{ color: "var(--app-text)" }}
                 >
-                  우선순위 (1-10)
+                  난이도 및 피로도
                 </label>
                 <input
                   type="number"
-                  min={1}
+                  min={0}
                   max={10}
                   value={variableForm.level}
                   onChange={(e) =>
@@ -810,7 +1295,7 @@ export default function ManagePage() {
                   color: "var(--primary-button-text)",
                 }}
               >
-                변동 스케줄 추가
+                {editingVariableId ? "변동 스케줄 저장" : "변동 스케줄 추가"}
               </button>
             </form>
           </section>
@@ -918,6 +1403,7 @@ export default function ManagePage() {
                         <button
                           type="button"
                           onClick={() => {
+                            // TODO: Implement edit functionality
                             alert('수정 기능은 아직 구현되지 않았습니다.');
                           }}
                           className="px-3 py-2 rounded-lg font-semibold text-sm"
