@@ -1,6 +1,12 @@
 import axios, { type AxiosInstance } from "axios";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const normalizeUrl = (url: string) => url.replace(/\/+$/, "");
+
+const rawApiUrl = process.env.NEXT_PUBLIC_API_URL?.trim() || "";
+const defaultApiUrl = typeof window !== "undefined"
+  ? `${window.location.protocol}//${window.location.hostname}:8000`
+  : "http://localhost:8000";
+const API_BASE_URL = normalizeUrl(rawApiUrl || defaultApiUrl);
 const API_V1_PREFIX = "/api/v1";
 
 // Axios 인스턴스 생성
