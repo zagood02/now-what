@@ -1,0 +1,551 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>API 테스트 페이지</title>
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: "Segoe UI", "Noto Sans KR", sans-serif;
+        background: linear-gradient(180deg, #f7fafc 0%, #edf3f8 100%);
+        color: #162031;
+      }
+      main { max-width: 1240px; margin: 0 auto; padding: 24px 16px 40px; }
+      h1, h2, h3, p { margin: 0; }
+      p { color: #566579; line-height: 1.6; }
+      .hero, .card {
+        background: rgba(255, 255, 255, 0.95);
+        border: 1px solid #d8e2ec;
+        border-radius: 20px;
+        box-shadow: 0 14px 34px rgba(15, 23, 42, 0.05);
+      }
+      .hero { padding: 22px; }
+      .layout { display: grid; grid-template-columns: 400px 1fr; gap: 16px; margin-top: 18px; }
+      .left { display: grid; gap: 16px; align-content: start; }
+      .card { padding: 16px; }
+      .head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 12px;
+      }
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: #e8f7f4;
+        color: #0f766e;
+        font-size: 12px;
+        font-weight: 700;
+      }
+      .stack, .grid, .history { display: grid; gap: 12px; }
+      .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+      label { display: grid; gap: 6px; font-size: 13px; font-weight: 700; }
+      input, select, textarea, button { font: inherit; }
+      input, select, textarea {
+        width: 100%;
+        padding: 10px 12px;
+        border-radius: 12px;
+        border: 1px solid #c8d4e2;
+        background: #fff;
+        color: #162031;
+      }
+      textarea {
+        min-height: 230px;
+        resize: vertical;
+        line-height: 1.55;
+        font-family: "Cascadia Code", "Consolas", monospace;
+        font-size: 13px;
+      }
+      button {
+        border: 0;
+        border-radius: 12px;
+        padding: 10px 14px;
+        cursor: pointer;
+        font-weight: 700;
+      }
+      .primary { background: #0f766e; color: #fff; }
+      .secondary { background: #e9eff7; color: #162031; }
+      .ghost { background: #fff7ed; color: #b45309; }
+      .actions, .quick-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
+      .quick-buttons button { background: #eefaf7; color: #0f766e; }
+      .guide, .summary, .history-item {
+        padding: 12px;
+        border-radius: 14px;
+        border: 1px solid #dce5ef;
+        background: #fbfdff;
+      }
+      .guide strong, .summary strong {
+        display: block;
+        margin-bottom: 6px;
+        font-size: 12px;
+        color: #66758a;
+        text-transform: uppercase;
+      }
+      .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 10px;
+        margin: 12px 0;
+      }
+      .summary span {
+        display: block;
+        font-size: 18px;
+        font-weight: 800;
+        word-break: break-all;
+      }
+      .info {
+        padding: 12px;
+        border-radius: 14px;
+        background: #eef6ff;
+        color: #1d4ed8;
+        font-size: 13px;
+        line-height: 1.6;
+      }
+      .info.error { background: #fef2f2; color: #b91c1c; }
+      details {
+        margin-top: 12px;
+        border-radius: 14px;
+        border: 1px solid #dce5ef;
+        overflow: hidden;
+        background: #fff;
+      }
+      summary {
+        cursor: pointer;
+        padding: 12px 14px;
+        font-weight: 700;
+      }
+      pre {
+        margin: 0;
+        padding: 14px;
+        min-height: 180px;
+        overflow: auto;
+        background: #0f172a;
+        color: #dbeafe;
+        font-family: "Cascadia Code", "Consolas", monospace;
+        font-size: 13px;
+        line-height: 1.55;
+      }
+      .history-item small { color: #66758a; }
+      @media (max-width: 980px) {
+        .layout { grid-template-columns: 1fr; }
+        .summary-grid { grid-template-columns: 1fr 1fr; }
+      }
+      @media (max-width: 640px) {
+        .row, .summary-grid { grid-template-columns: 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="hero">
+        <h1>API 테스트 페이지</h1>
+        <p>Swagger보다 빠르게 핵심 API를 눌러보는 용도입니다. 특히 목표 흐름은 이제 <code>POST /goals/intake</code>와 <code>POST /goals/complete</code> 두 단계만 테스트하면 됩니다.</p>
+      </section>
+
+      <div class="layout">
+        <div class="left">
+          <section class="card">
+            <div class="head"><h2>빠른 시작</h2><span class="pill">추천 순서</span></div>
+            <div class="quick-buttons">
+              <button type="button" data-jump="health">1. 헬스체크</button>
+              <button type="button" data-jump="create-user">2. 유저 생성</button>
+              <button type="button" data-jump="create-fixed-once">3. 고정 일정</button>
+              <button type="button" data-jump="create-task">4. 가변 일정</button>
+              <button type="button" data-jump="goal-intake">5. 목표 분석</button>
+              <button type="button" data-jump="goal-complete">6. 목표 완료 + 계획</button>
+              <button type="button" data-jump="allocate">7. 자동 배치</button>
+              <button type="button" data-jump="calendar">8. 캘린더 확인</button>
+            </div>
+            <p class="info" id="message-box">왼쪽에서 프리셋을 고른 뒤 요청을 보내면 됩니다. 응답에서 얻은 <code>user_id</code>와 <code>goal_id</code>는 아래 입력칸에 자동 반영됩니다.</p>
+          </section>
+
+          <section class="card">
+            <div class="head"><h2>현재 API 설명</h2><span class="pill" id="preset-group">기본</span></div>
+            <div class="grid">
+              <div class="guide"><strong id="preset-title">GET /health</strong><span id="preset-help">서버 상태를 빠르게 확인합니다.</span></div>
+              <div class="guide"><strong>필요한 값</strong><span id="preset-requires">없음</span></div>
+              <div class="guide"><strong>다음 추천</strong><span id="preset-next">정상이라면 유저 생성으로 넘어가세요.</span></div>
+            </div>
+          </section>
+
+          <section class="card">
+            <div class="stack">
+              <label>프리셋 선택<select id="preset-select"></select></label>
+              <div class="row">
+                <label>User ID<input id="userId" type="number" min="1" value="1" /></label>
+                <label>Goal ID<input id="goalId" type="number" min="1" value="1" /></label>
+              </div>
+              <div class="row">
+                <label>Schedule ID<input id="scheduleId" type="number" min="1" value="1" /></label>
+                <label>Task ID<input id="taskId" type="number" min="1" value="1" /></label>
+              </div>
+              <div class="row">
+                <label>Start<input id="start" value="2026-04-13T09:00:00+09:00" /></label>
+                <label>End<input id="end" value="2026-04-20T21:00:00+09:00" /></label>
+              </div>
+              <label>Method<input id="method" /></label>
+              <label>Path<input id="path" /></label>
+              <label>JSON Body<textarea id="body"></textarea></label>
+              <div class="actions">
+                <button class="primary" id="send-button" type="button">요청 보내기</button>
+                <button class="secondary" id="reload-button" type="button">프리셋 다시 불러오기</button>
+                <button class="ghost" id="copy-body-button" type="button">본문 복사</button>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <section class="card">
+          <div class="head"><h2>응답 확인</h2><span class="pill" id="status-pill">대기 중</span></div>
+
+          <div class="summary-grid">
+            <div class="summary"><strong>Resolved Path</strong><span id="resolved-path">-</span></div>
+            <div class="summary"><strong>User ID</strong><span id="summary-user-id">1</span></div>
+            <div class="summary"><strong>Goal ID</strong><span id="summary-goal-id">1</span></div>
+            <div class="summary"><strong>마지막 상태</strong><span id="summary-status">-</span></div>
+          </div>
+
+          <details open>
+            <summary>실제로 전송될 요청 본문</summary>
+            <pre id="request-preview">{
+  "hint": "선택한 프리셋의 실제 요청 본문이 여기에 표시됩니다."
+}</pre>
+          </details>
+
+          <details open>
+            <summary>응답 JSON</summary>
+            <pre id="response-output">{
+  "hint": "응답 JSON이 여기에 표시됩니다."
+}</pre>
+          </details>
+
+          <section class="card" style="margin-top:12px; padding:14px;">
+            <div class="head"><h3>최근 요청 기록</h3><span class="pill">History</span></div>
+            <div class="history" id="history-list">
+              <div class="history-item"><strong>아직 요청이 없습니다.</strong><small>요청을 보내면 최근 기록 6개를 여기에 보여줍니다.</small></div>
+            </div>
+          </section>
+        </section>
+      </div>
+    </main>
+
+    <script>
+      const presets = [
+        {
+          key: "health",
+          group: "기본",
+          label: "GET /health",
+          method: "GET",
+          path: "/api/v1/health",
+          body: "",
+          help: "서버 상태를 빠르게 확인합니다.",
+          requires: "없음",
+          next: "정상이라면 유저 생성으로 넘어가세요."
+        },
+        {
+          key: "list-users",
+          group: "유저",
+          label: "GET /users",
+          method: "GET",
+          path: "/api/v1/users",
+          body: "",
+          help: "현재 등록된 유저 목록을 확인합니다.",
+          requires: "없음",
+          next: "유저가 없다면 생성부터 진행하세요."
+        },
+        {
+          key: "create-user",
+          group: "유저",
+          label: "POST /users",
+          method: "POST",
+          path: "/api/v1/users",
+          body: "{\n  \"email\": \"playground-{timestamp}@example.com\",\n  \"name\": \"API Playground User\"\n}",
+          help: "새 유저를 만듭니다. 최소 필드만 사용합니다.",
+          requires: "없음",
+          next: "응답의 user_id가 자동 반영됩니다."
+        },
+        {
+          key: "create-fixed-once",
+          group: "고정 일정",
+          label: "POST /schedules/fixed (1회)",
+          method: "POST",
+          path: "/api/v1/schedules/fixed",
+          body: "{\n  \"user_id\": {userId},\n  \"title\": \"발표 리허설\",\n  \"start_at\": \"2026-04-14T14:00:00+09:00\",\n  \"end_at\": \"2026-04-14T15:00:00+09:00\"\n}",
+          help: "한 번만 있는 고정 일정을 등록합니다.",
+          requires: "userId",
+          next: "반복 일정이 필요하면 다음 프리셋을 사용하세요."
+        },
+        {
+          key: "create-fixed-recurring",
+          group: "고정 일정",
+          label: "POST /schedules/fixed (반복)",
+          method: "POST",
+          path: "/api/v1/schedules/fixed",
+          body: "{\n  \"user_id\": {userId},\n  \"title\": \"주간 팀 미팅\",\n  \"start_at\": \"2026-04-14T14:00:00+09:00\",\n  \"end_at\": \"2026-04-14T15:00:00+09:00\",\n  \"recurrence_rule\": \"weekly\"\n}",
+          help: "반복 고정 일정을 등록합니다.",
+          requires: "userId",
+          next: "recurrence_rule에는 daily, weekly, biweekly를 사용할 수 있습니다."
+        },
+        {
+          key: "create-task",
+          group: "가변 일정",
+          label: "POST /tasks/flexible",
+          method: "POST",
+          path: "/api/v1/tasks/flexible",
+          body: "{\n  \"user_id\": {userId},\n  \"title\": \"이번 주 공부 5시간\",\n  \"estimated_minutes\": 300\n}",
+          help: "가변 일정 하나를 등록합니다.",
+          requires: "userId",
+          next: "이후 자동 배치에서 빈 시간에 들어갑니다."
+        },
+        {
+          key: "goal-intake",
+          group: "목표",
+          label: "POST /goals/intake",
+          method: "POST",
+          path: "/api/v1/goals/intake",
+          body: "{\n  \"text\": \"캡스톤 데모 페이지를 4월 25일까지 완성하고 싶어요. 주당 8시간 정도 가능하고 평일 저녁에 작업하기 좋습니다.\"\n}",
+          help: "자연어 목표를 분석해서 제목, 카테고리, 추가 질문을 만듭니다.",
+          requires: "없음",
+          next: "질문 답을 채운 뒤 goals/complete로 이어가세요."
+        },
+        {
+          key: "goal-complete",
+          group: "목표",
+          label: "POST /goals/complete",
+          method: "POST",
+          path: "/api/v1/goals/complete",
+          body: "{\n  \"user_id\": {userId},\n  \"text\": \"캡스톤 데모 페이지를 4월 25일까지 완성하고 싶어요. 주당 8시간 정도 가능하고 평일 저녁에 작업하기 좋습니다.\",\n  \"answers_json\": {\n    \"weekly_available_hours\": 8,\n    \"constraints\": \"평일 저녁에만 가능합니다.\"\n  }\n}",
+          help: "자연어 목표와 추가 답변을 받아 목표 저장과 계획 생성을 한 번에 처리합니다.",
+          requires: "userId",
+          next: "응답에서 goal과 plan을 받은 뒤 planner/allocate를 호출하세요."
+        },
+        {
+          key: "allocate",
+          group: "플래너",
+          label: "POST /planner/allocate",
+          method: "POST",
+          path: "/api/v1/planner/allocate",
+          body: "{\n  \"user_id\": {userId},\n  \"range_start\": \"2026-04-13T09:00:00+09:00\",\n  \"range_end\": \"2026-04-20T21:00:00+09:00\"\n}",
+          help: "고정 일정과 목표 계획을 제외한 빈 시간에 작업을 배치합니다.",
+          requires: "userId, range_start, range_end",
+          next: "마지막으로 calendar를 조회하면 결과를 한 번에 확인할 수 있습니다."
+        },
+        {
+          key: "calendar",
+          group: "캘린더",
+          label: "GET /calendar",
+          method: "GET",
+          path: "/api/v1/calendar?user_id={userId}&start={start}&end={end}",
+          body: "",
+          help: "통합 시간표를 조회합니다.",
+          requires: "userId, start, end",
+          next: "캘린더 전용 데모 페이지와 같이 보면 더 보기 좋습니다."
+        }
+      ];
+
+      const history = [];
+      const byId = (id) => document.getElementById(id);
+      const presetSelect = byId("preset-select");
+      const methodInput = byId("method");
+      const pathInput = byId("path");
+      const bodyInput = byId("body");
+      const requestPreview = byId("request-preview");
+      const responseOutput = byId("response-output");
+      const statusPill = byId("status-pill");
+      const messageBox = byId("message-box");
+
+      presets.forEach((preset, index) => {
+        const option = document.createElement("option");
+        option.value = String(index);
+        option.textContent = `[${preset.group}] ${preset.label}`;
+        presetSelect.appendChild(option);
+      });
+
+      document.querySelectorAll("[data-jump]").forEach((button) => {
+        button.addEventListener("click", () => {
+          const index = presets.findIndex((preset) => preset.key === button.dataset.jump);
+          if (index >= 0) {
+            presetSelect.value = String(index);
+            loadSelectedPreset();
+          }
+        });
+      });
+
+      presetSelect.addEventListener("change", loadSelectedPreset);
+      byId("reload-button").addEventListener("click", loadSelectedPreset);
+      byId("send-button").addEventListener("click", sendRequest);
+      byId("copy-body-button").addEventListener("click", copyBody);
+
+      ["userId", "goalId", "scheduleId", "taskId", "start", "end", "method", "path", "body"].forEach((id) => {
+        byId(id).addEventListener("input", refreshPreview);
+      });
+
+      loadSelectedPreset();
+      renderHistory();
+
+      function currentPreset() {
+        return presets[Number(presetSelect.value || 0)];
+      }
+
+      function loadSelectedPreset() {
+        const preset = currentPreset();
+        methodInput.value = preset.method;
+        pathInput.value = preset.path;
+        bodyInput.value = preset.body;
+        byId("preset-group").textContent = preset.group;
+        byId("preset-title").textContent = preset.label;
+        byId("preset-help").textContent = preset.help;
+        byId("preset-requires").textContent = preset.requires;
+        byId("preset-next").textContent = preset.next;
+        refreshPreview();
+      }
+
+      function tokenMap() {
+        return {
+          "{userId}": byId("userId").value.trim(),
+          "{goalId}": byId("goalId").value.trim(),
+          "{scheduleId}": byId("scheduleId").value.trim(),
+          "{taskId}": byId("taskId").value.trim(),
+          "{start}": byId("start").value.trim(),
+          "{end}": byId("end").value.trim(),
+          "{timestamp}": String(Date.now())
+        };
+      }
+
+      function replaceTokens(template) {
+        let value = template || "";
+        Object.entries(tokenMap()).forEach(([key, token]) => {
+          value = value.split(key).join(token);
+        });
+        return value;
+      }
+
+      function buildRequestPath(template) {
+        const raw = template || "";
+        const [basePart, queryPart] = raw.split("?", 2);
+        const resolvedBase = replaceTokens(basePart);
+        if (!queryPart) {
+          return resolvedBase;
+        }
+
+        const params = new URLSearchParams();
+        queryPart.split("&").forEach((entry) => {
+          if (!entry) {
+            return;
+          }
+          const [key, value = ""] = entry.split("=", 2);
+          params.append(key, replaceTokens(value));
+        });
+        return `${resolvedBase}?${params.toString()}`;
+      }
+
+      function refreshPreview() {
+        const resolvedPath = buildRequestPath(pathInput.value.trim());
+        const resolvedBody = replaceTokens(bodyInput.value);
+        byId("resolved-path").textContent = resolvedPath || "-";
+        byId("summary-user-id").textContent = byId("userId").value || "-";
+        byId("summary-goal-id").textContent = byId("goalId").value || "-";
+        requestPreview.textContent = resolvedBody || '{\n  "hint": "이 API는 본문이 필요 없습니다."\n}';
+      }
+
+      async function sendRequest() {
+        const method = methodInput.value.trim().toUpperCase();
+        const path = buildRequestPath(pathInput.value.trim());
+        const rawBody = replaceTokens(bodyInput.value);
+        const options = { method };
+
+        statusPill.textContent = "실행 중";
+        try {
+          if (rawBody.trim()) {
+            options.headers = { "Content-Type": "application/json" };
+            options.body = rawBody;
+          }
+
+          const response = await fetch(path, options);
+          const payload = await response.json().catch(() => ({}));
+          responseOutput.textContent = JSON.stringify(payload, null, 2);
+          statusPill.textContent = String(response.status);
+          byId("summary-status").textContent = String(response.status);
+          captureIds(payload);
+          addHistory(method, path, response.status);
+          if (!response.ok) {
+            message(payload.detail || "요청 처리에 실패했습니다.", true);
+            return;
+          }
+          message("요청이 정상 처리되었습니다.");
+        } catch (error) {
+          statusPill.textContent = "오류";
+          byId("summary-status").textContent = "오류";
+          addHistory(method, path, "ERR");
+          message(error.message || "네트워크 오류가 발생했습니다.", true);
+        }
+      }
+
+      function captureIds(payload) {
+        if (payload && typeof payload === "object") {
+          if (payload.id && payload.email) {
+            byId("userId").value = String(payload.id);
+          }
+          if (payload.id && payload.user_id && payload.start_at && payload.end_at) {
+            byId("scheduleId").value = String(payload.id);
+          }
+          if (payload.id && payload.user_id && Object.prototype.hasOwnProperty.call(payload, "estimated_minutes")) {
+            byId("taskId").value = String(payload.id);
+          }
+          if (payload.goal && payload.goal.id) {
+            byId("goalId").value = String(payload.goal.id);
+          }
+          if (payload.goal && payload.goal.user_id) {
+            byId("userId").value = String(payload.goal.user_id);
+          }
+        }
+        refreshPreview();
+      }
+
+      function addHistory(method, path, status) {
+        history.unshift({ method, path, status, time: new Date().toLocaleTimeString("ko-KR") });
+        if (history.length > 6) {
+          history.length = 6;
+        }
+        renderHistory();
+      }
+
+      function renderHistory() {
+        const html = history.length
+          ? history.map((item) => `
+              <div class="history-item">
+                <strong>${escapeHtml(item.method)} ${escapeHtml(item.path)}</strong>
+                <small>${escapeHtml(item.time)} · 상태 ${escapeHtml(String(item.status))}</small>
+              </div>
+            `).join("")
+          : '<div class="history-item"><strong>아직 요청이 없습니다.</strong><small>요청을 보내면 최근 기록 6개를 여기에 보여줍니다.</small></div>';
+        byId("history-list").innerHTML = html;
+      }
+
+      async function copyBody() {
+        await navigator.clipboard.writeText(requestPreview.textContent);
+        message("현재 요청 본문을 복사했습니다.");
+      }
+
+      function message(text, isError = false) {
+        messageBox.textContent = text;
+        messageBox.classList.toggle("error", Boolean(isError));
+      }
+
+      function escapeHtml(value) {
+        return String(value)
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#39;");
+      }
+    </script>
+  </body>
+</html>

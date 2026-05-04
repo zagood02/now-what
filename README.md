@@ -1,9 +1,91 @@
-# AI Planner Backend
+# AI Planner - Full Stack Application
 
-FastAPI backend for managing users, fixed schedules, flexible tasks, goals, AI-generated plans, and automatic time allocation.
+시간표 제작 및 스케줄 수행 보조 프로그램
+
+## Overview
+
+This project combines a **Next.js frontend** with a **FastAPI backend** to provide an AI-powered planning and scheduling system.
+
+### Frontend (Next.js)
+- Modern React-based UI for schedule management
+- Calendar views and task planning interface
+
+### Backend (FastAPI)
+- REST API for managing users, schedules, tasks, and goals
+- AI-powered plan generation using Gemini API
+- Automatic time allocation algorithms
+- PostgreSQL database with SQLAlchemy ORM
+
+## Tech Stack
+
+### Frontend
+- Next.js 15+
+- React
+- TypeScript
+- Tailwind CSS
+
+### Backend
+- Python 3.12+
+- FastAPI
+- SQLAlchemy 2.0
+- Alembic
+- PostgreSQL
+- Gemini API with template fallback
+
+## Quick Start
+
+### Prerequisites
+- Node.js 18+
+- Python 3.12+
+- Docker (for PostgreSQL)
+
+### 1. Clone and Setup
+
+```bash
+git clone <repository-url>
+cd now-what
+```
+
+### 2. Backend Setup
+
+```powershell
+# Create virtual environment
+py -m venv .venv
+.venv\Scripts\Activate.ps1
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Copy environment variables
+Copy-Item .env.example .env
+
+# Start PostgreSQL
+docker compose up -d
+
+# Run migrations
+.\.venv\Scripts\alembic.exe upgrade head
+
+# Start the API
+.\.venv\Scripts\uvicorn.exe backend.main:app --reload
+```
+
+API will be available at [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
+
+### 3. Frontend Setup
+
+```bash
+# Install dependencies
+npm install
+
+# Start development server
+npm run dev
+```
+
+Frontend will be available at [http://localhost:3000](http://localhost:3000)
 
 ## Features
 
+### Backend Features
 - User creation and lookup
 - Fixed schedule CRUD
 - Flexible task CRUD
@@ -13,120 +95,57 @@ FastAPI backend for managing users, fixed schedules, flexible tasks, goals, AI-g
 - Greedy auto-allocation into free time
 - Unified calendar view
 
-## Tech Stack
+### Frontend Features
+- Interactive calendar interface
+- Schedule management
+- Task planning and allocation
+- Goal setting and tracking
 
-- Python 3.12+
-- FastAPI
-- SQLAlchemy 2.0
-- Alembic
-- PostgreSQL
-- Gemini API with template fallback
+## Database Schema
 
-## Quick Start (Local Postgres)
+The application uses PostgreSQL with the following main tables:
+- `users` - User accounts
+- `fixed_schedules` - Fixed calendar events
+- `flexible_tasks` - Tasks that can be scheduled flexibly
+- `goals` - User goals with AI-generated plans
+- `ai_plans` - AI-generated planning data
+- `allocated_tasks` - Scheduled task allocations
+- `ai_plan_items` - Individual plan items
 
-1. Create a virtual environment
+## API Endpoints
 
-```powershell
-py -m venv .venv
-.venv\Scripts\Activate.ps1
+### Main Endpoints
+- `POST /api/v1/users` - Create user
+- `GET /api/v1/users` - List users
+- `POST /api/v1/schedules/fixed` - Create fixed schedule
+- `GET /api/v1/schedules/fixed` - List fixed schedules
+- `POST /api/v1/tasks/flexible` - Create flexible task
+- `GET /api/v1/tasks/flexible` - List flexible tasks
+- `POST /api/v1/goals/intake` - Start goal intake process
+- `POST /api/v1/planner/allocate` - Allocate tasks to schedule
+- `GET /api/v1/calendar` - Get unified calendar view
+
+## Deployment
+
+### Using Supabase
+The backend can use Supabase as its PostgreSQL provider:
+
+1. Replace `DATABASE_URL` in `.env` with your Supabase connection string
+2. Run migrations: `alembic upgrade head`
+3. Start API: `uvicorn backend.main:app --reload`
+
+### Frontend Deployment
+Deploy to Vercel or any static hosting service:
+
+```bash
+npm run build
+npm run start
 ```
-
-2. Install dependencies
-
-```powershell
-pip install -r requirements.txt
-```
-
-3. Copy environment variables
-
-```powershell
-Copy-Item .env.example .env
-```
-
-4. Start PostgreSQL
-
-```powershell
-docker compose up -d
-```
-
-5. Run migrations
-
-```powershell
-.\.venv\Scripts\alembic.exe upgrade head
-```
-
-6. Start the API
-
-```powershell
-.\.venv\Scripts\uvicorn.exe app.main:app --reload
-```
-
-Open [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs).
-
-## Use With Supabase
-
-This project can use Supabase as its PostgreSQL provider without changing the overall FastAPI or SQLAlchemy structure.
-
-1. Copy environment variables
-
-```powershell
-Copy-Item .env.example .env
-```
-
-2. Replace `DATABASE_URL` in `.env` with your Supabase connection string
-
-- Persistent backend with IPv6 support: use the `Direct connection` string.
-- Persistent backend on IPv4-only networks: use the `Session pooler` string.
-- Add `?sslmode=require` to the connection string.
-
-3. Run migrations against Supabase
-
-```powershell
-.\.venv\Scripts\alembic.exe upgrade head
-```
-
-4. Start the API
-
-```powershell
-.\.venv\Scripts\uvicorn.exe app.main:app --reload
-```
-
-5. Verify the database connection
-
-- `GET /health`
-- `GET /health/db`
-
-Notes:
-
-- This backend does not have login/auth yet, so Supabase is currently used as the database layer only.
-- For this long-running FastAPI app, avoid the Supabase transaction pooler. It is intended for short-lived/serverless traffic.
-- Local Docker Postgres can still be used for offline development by keeping the default `DATABASE_URL`.
 
 ## Notes
 
-- Production defaults are conservative: `AUTO_CREATE_TABLES=false` and `SEED_DEMO_USER=false`.
-- Set `ALLOWED_ORIGINS` explicitly for your frontend.
-- `recurrence_rule` supports `daily`, `weekly`, and `biweekly`.
-- Item-level goal, fixed schedule, and flexible task operations require `user_id` so requests stay scoped to the correct owner.
-- If Gemini is unavailable, the app falls back to template-based questions and plans.
-
-## Main Endpoints
-
-- `POST /api/v1/users`
-- `GET /api/v1/users`
-- `GET /api/v1/users/{user_id}`
-- `POST /api/v1/schedules/fixed`
-- `GET /api/v1/schedules/fixed`
-- `PATCH /api/v1/schedules/fixed/{schedule_id}?user_id=...`
-- `DELETE /api/v1/schedules/fixed/{schedule_id}?user_id=...`
-- `POST /api/v1/tasks/flexible`
-- `GET /api/v1/tasks/flexible`
-- `PATCH /api/v1/tasks/flexible/{task_id}?user_id=...`
-- `DELETE /api/v1/tasks/flexible/{task_id}?user_id=...`
-- `GET /api/v1/goals`
-- `GET /api/v1/goals/{goal_id}?user_id=...`
-- `PATCH /api/v1/goals/{goal_id}?user_id=...`
-- `POST /api/v1/goals/intake`
-- `POST /api/v1/goals/complete`
-- `POST /api/v1/planner/allocate`
-- `GET /api/v1/calendar`
+- Production defaults: `AUTO_CREATE_TABLES=false` and `SEED_DEMO_USER=false`
+- Set `ALLOWED_ORIGINS` explicitly for your frontend
+- `recurrence_rule` supports `daily`, `weekly`, and `biweekly`
+- All operations require `user_id` for proper scoping
+- Gemini API fallback to template-based responses when unavailable

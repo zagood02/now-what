@@ -1,0 +1,74 @@
+@import "tailwindcss";
+
+:root {
+  --app-bg: #f9fafb;
+  --app-surface: #ffffff;
+  --app-surface-muted: #f3f4f6;
+  --app-surface-soft: #f9fafb;
+  --app-text: #111827;
+  --app-text-muted: #4b5563;
+  --app-border: #e5e7eb;
+
+  --sidebar-bg: #111827;
+  --sidebar-text: #ffffff;
+
+  --sky-button-bg: #e0f2fe;
+  --sky-button-text: #0369a1;
+  --sky-button-border: #bae6fd;
+  --sky-button-hover: #bae6fd;
+
+  --primary-button-bg: #3b82f6;
+  --primary-button-text: #ffffff;
+  --primary-button-hover: #2563eb;
+
+  --card-blue-bg: #dbeafe;
+  --card-blue-text: #1e40af;
+  --card-green-bg: #dcfce7;
+  --card-green-text: #166534;
+  --card-red-bg: #fee2e2;
+  --card-red-text: #991b1b;
+  --card-yellow-bg: #fef3c7;
+  --card-yellow-text: #92400e;
+}
+
+html.theme-dark {
+  --app-bg: #030712;
+  --app-surface: #111827;
+  --app-surface-muted: #1f2937;
+  --app-surface-soft: #0f172a;
+  --app-text: #f9fafb;
+  --app-text-muted: #d1d5db;
+  --app-border: #374151;
+
+  --sidebar-bg: #000000;
+  --sidebar-text: #ffffff;
+
+  --sky-button-bg: rgba(12, 74, 110, 0.45);
+  --sky-button-text: #bae6fd;
+  --sky-button-border: #0369a1;
+  --sky-button-hover: rgba(14, 116, 144, 0.5);
+
+  --primary-button-bg: #2563eb;
+  --primary-button-text: #ffffff;
+  --primary-button-hover: #1d4ed8;
+
+  --card-blue-bg: rgba(30, 58, 138, 0.45);
+  --card-blue-text: #dbeafe;
+  --card-green-bg: rgba(20, 83, 45, 0.45);
+  --card-green-text: #dcfce7;
+  --card-red-bg: rgba(127, 29, 29, 0.45);
+  --card-red-text: #fee2e2;
+  --card-yellow-bg: rgba(120, 53, 15, 0.45);
+  --card-yellow-text: #fef3c7;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--app-bg);
+  color: var(--app-text);
+}

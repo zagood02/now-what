@@ -11,17 +11,17 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-from app.db.init_db import create_db_and_tables
-from app.db.session import SessionLocal
-from app.models.ai_plan import AIPlan, AIPlanItem
-from app.models.enums import GoalCategory, GoalStatus, PlanStatus
-from app.models.fixed_schedule import FixedSchedule
-from app.models.flexible_task import FlexibleTask
-from app.models.goal import Goal
-from app.models.user import User
-from app.services.allocation import AllocationService
-from app.services import planning
-from app.services.planning import PlanningService
+from backend.db.init_db import create_db_and_tables
+from backend.db.session import SessionLocal
+from backend.models.ai_plan import AIPlan, AIPlanItem
+from backend.models.enums import GoalCategory, GoalStatus, PlanStatus
+from backend.models.fixed_schedule import FixedSchedule
+from backend.models.flexible_task import FlexibleTask
+from backend.models.goal import Goal
+from backend.models.user import User
+from backend.services.allocation import AllocationService
+from backend.services import planning
+from backend.services.planning import PlanningService
 
 
 SAMPLE_EMAIL = "frontend-sample@example.com"
