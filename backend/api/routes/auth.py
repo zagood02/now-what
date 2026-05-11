@@ -1,7 +1,7 @@
 from uuid import uuid4
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException
 from jose import JWTError, jwt
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -12,13 +12,12 @@ from backend.core.config import settings
 from backend.db.session import get_db_session
 from backend.models.auth_account import AuthAccount
 from backend.models.user import User
-from backend.schemas.users import GoogleLoginRequest, KakaoLoginRequest, LoginResponse, UserRead
+from backend.schemas.users import GoogleLoginRequest, LoginResponse, UserRead
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 GOOGLE_CERTS_URL = "https://www.googleapis.com/oauth2/v3/certs"
 GOOGLE_ISSUERS = {"accounts.google.com", "https://accounts.google.com"}
-KAKAO_USER_ME_URL = "https://kapi.kakao.com/v2/user/me"
 
 
 @router.get("/me", response_model=UserRead)
@@ -42,26 +41,6 @@ def login_with_google(
         provider_user_id=str(claims["sub"]),
         email=email,
         name=claims.get("name") or email or "Google User",
-    )
-    return _build_login_response(user)
-
-
-@router.post("/kakao", response_model=LoginResponse)
-def login_with_kakao(
-    payload: KakaoLoginRequest,
-    session: Session = Depends(get_db_session),
-) -> LoginResponse:
-    profile = _fetch_kakao_profile(payload.access_token)
-    kakao_account = profile.get("kakao_account") or {}
-    kakao_profile = kakao_account.get("profile") or {}
-    email = kakao_account.get("email")
-
-    user = _get_or_create_social_user(
-        session,
-        provider="kakao",
-        provider_user_id=str(profile["id"]),
-        email=email,
-        name=kakao_profile.get("nickname") or email or "Kakao User",
     )
     return _build_login_response(user)
 
@@ -90,25 +69,6 @@ def _verify_google_credential(credential: str) -> dict:
         raise HTTPException(status_code=401, detail="Invalid Google issuer.")
 
     return claims
-
-
-def _fetch_kakao_profile(access_token: str) -> dict:
-    try:
-        response = httpx.get(
-            KAKAO_USER_ME_URL,
-            headers={"Authorization": f"Bearer {access_token}"},
-            timeout=5,
-        )
-    except httpx.HTTPError:
-        raise HTTPException(status_code=401, detail="Could not verify Kakao token.") from None
-
-    if response.status_code != 200:
-        raise HTTPException(status_code=401, detail="Invalid Kakao token.")
-
-    profile = response.json()
-    if "id" not in profile:
-        raise HTTPException(status_code=401, detail="Kakao profile is missing an id.")
-    return profile
 
 
 def _get_or_create_social_user(

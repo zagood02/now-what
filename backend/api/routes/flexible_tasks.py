@@ -3,6 +3,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from backend.api.deps import get_current_user, require_owned_resource
+from backend.core.timezone import normalize_optional_to_kst_naive
 from backend.db.session import get_db_session
 from backend.models.flexible_task import FlexibleTask
 from backend.models.user import User
@@ -45,7 +46,9 @@ def create_flexible_task(
         preferred_session_minutes=payload.preferred_session_minutes,
         max_minutes_per_day=payload.max_minutes_per_day,
     )
-    task = FlexibleTask(**payload.model_dump(exclude={"user_id"}), user_id=current_user.id)
+    data = payload.model_dump(exclude={"user_id"})
+    data["due_at"] = normalize_optional_to_kst_naive(data.get("due_at"))
+    task = FlexibleTask(**data, user_id=current_user.id)
     session.add(task)
     session.commit()
     session.refresh(task)
@@ -64,6 +67,22 @@ def list_flexible_tasks(
         .order_by(FlexibleTask.priority.desc(), FlexibleTask.id.asc())
     )
     return session.scalars(query).all()
+
+
+@router.get("/{task_id}", response_model=FlexibleTaskRead)
+def get_flexible_task(
+    task_id: int,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_db_session),
+) -> FlexibleTask:
+    task = session.scalar(
+        select(FlexibleTask)
+        .options(selectinload(FlexibleTask.allocations))
+        .where(FlexibleTask.id == task_id, FlexibleTask.user_id == current_user.id)
+    )
+    if not task:
+        raise HTTPException(status_code=404, detail="Flexible task not found.")
+    return task
 
 
 @router.patch("/{task_id}", response_model=FlexibleTaskRead)
@@ -93,6 +112,8 @@ def update_flexible_task(
     )
 
     for field, value in updates.items():
+        if field == "due_at":
+            value = normalize_optional_to_kst_naive(value)
         setattr(task, field, value)
 
     session.commit()

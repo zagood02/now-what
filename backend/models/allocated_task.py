@@ -20,8 +20,8 @@ class AllocatedTask(Base, TimestampMixin):
         nullable=False,
     )
     title_snapshot: Mapped[str] = mapped_column(String(200), nullable=False)
-    scheduled_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True, nullable=False)
-    scheduled_end: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True, nullable=False)
+    scheduled_start: Mapped[datetime] = mapped_column(DateTime(), index=True, nullable=False)
+    scheduled_end: Mapped[datetime] = mapped_column(DateTime(), index=True, nullable=False)
     duration_minutes: Mapped[int] = mapped_column(nullable=False)
 
     user = relationship("User", back_populates="allocated_tasks")

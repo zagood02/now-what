@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from backend.api.deps import get_current_user
 from backend.core.config import settings
+from backend.core.timezone import normalize_to_kst_naive
 from backend.db.session import get_db_session
 from backend.models.user import User
 from backend.schemas.goals import AIPlanItemRead
@@ -26,7 +27,9 @@ def allocate_schedule(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_db_session),
 ) -> AllocateResponse:
-    if payload.range_end <= payload.range_start:
+    range_start = normalize_to_kst_naive(payload.range_start)
+    range_end = normalize_to_kst_naive(payload.range_end)
+    if range_end <= range_start:
         raise HTTPException(status_code=400, detail="range_end must be after range_start.")
 
     day_start = payload.day_start or _parse_default_time(settings.default_day_start)
@@ -37,8 +40,8 @@ def allocate_schedule(
     result = allocation_service.allocate(
         session,
         user_id=current_user.id,
-        range_start=payload.range_start,
-        range_end=payload.range_end,
+        range_start=range_start,
+        range_end=range_end,
         day_start=day_start,
         day_end=day_end,
         clear_existing=payload.clear_existing,

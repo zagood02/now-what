@@ -1,9 +1,10 @@
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
 
-from sqlalchemy import and_, case, func, or_, select
+from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
+from backend.core.timezone import normalize_optional_to_kst_naive, normalize_to_kst_naive
 from backend.models.ai_plan import AIPlanItem
 from backend.models.allocated_task import AllocatedTask
 from backend.models.enums import FlexibleTaskStatus, PlanItemStatus
@@ -42,6 +43,9 @@ class AllocationService:
         day_end: time,
         clear_existing: bool = False,
     ) -> AllocationResult:
+        range_start = normalize_to_kst_naive(range_start)
+        range_end = normalize_to_kst_naive(range_end)
+
         if clear_existing:
             affected_task_ids = session.scalars(
                 select(AllocatedTask.flexible_task_id).where(
@@ -104,51 +108,44 @@ class AllocationService:
         range_end: datetime,
     ) -> list[tuple[datetime, datetime]]:
         fixed_schedules = session.scalars(
-            select(FixedSchedule).where(
-                FixedSchedule.user_id == user_id,
-                or_(
-                    and_(
-                        FixedSchedule.recurrence_rule.is_(None),
-                        FixedSchedule.start_at < range_end,
-                        FixedSchedule.end_at > range_start,
-                    ),
-                    and_(
-                        FixedSchedule.recurrence_rule.is_not(None),
-                        FixedSchedule.start_at < range_end,
-                    ),
-                ),
-            )
+            select(FixedSchedule).where(FixedSchedule.user_id == user_id)
         ).all()
         allocated_tasks = session.scalars(
-            select(AllocatedTask).where(
-                AllocatedTask.user_id == user_id,
-                AllocatedTask.scheduled_start < range_end,
-                AllocatedTask.scheduled_end > range_start,
-            )
+            select(AllocatedTask).where(AllocatedTask.user_id == user_id)
         ).all()
         plan_items = session.scalars(
             select(AIPlanItem).where(
                 AIPlanItem.user_id == user_id,
                 AIPlanItem.scheduled_start.is_not(None),
                 AIPlanItem.scheduled_end.is_not(None),
-                AIPlanItem.scheduled_start < range_end,
-                AIPlanItem.scheduled_end > range_start,
             )
         ).all()
 
         intervals: list[tuple[datetime, datetime]] = []
         for item in fixed_schedules:
             intervals.extend(
-                (occurrence.start_at, occurrence.end_at)
+                (
+                    normalize_to_kst_naive(occurrence.start_at),
+                    normalize_to_kst_naive(occurrence.end_at),
+                )
                 for occurrence in expand_fixed_schedule(
                     item,
                     range_start=range_start,
                     range_end=range_end,
                 )
             )
-        intervals.extend((item.scheduled_start, item.scheduled_end) for item in allocated_tasks)
         intervals.extend(
-            (item.scheduled_start, item.scheduled_end)
+            (
+                normalize_to_kst_naive(item.scheduled_start),
+                normalize_to_kst_naive(item.scheduled_end),
+            )
+            for item in allocated_tasks
+        )
+        intervals.extend(
+            (
+                normalize_to_kst_naive(item.scheduled_start),
+                normalize_to_kst_naive(item.scheduled_end),
+            )
             for item in plan_items
             if item.scheduled_start and item.scheduled_end
         )
@@ -162,17 +159,22 @@ class AllocationService:
         day_end: time,
         busy_slots: list[tuple[datetime, datetime]],
     ) -> list[TimeSlot]:
+        range_start = normalize_to_kst_naive(range_start)
+        range_end = normalize_to_kst_naive(range_end)
+        normalized_busy_slots: list[tuple[datetime, datetime]] = []
+        for start, end in busy_slots:
+            normalized_start = normalize_to_kst_naive(start)
+            normalized_end = normalize_to_kst_naive(end)
+            if normalized_end > normalized_start:
+                normalized_busy_slots.append((normalized_start, normalized_end))
+        busy_slots = normalized_busy_slots
         slots: list[TimeSlot] = []
         current_day = range_start.date()
         last_day = range_end.date()
-        tzinfo = range_start.tzinfo
 
         while current_day <= last_day:
             window_start = datetime.combine(current_day, day_start)
             window_end = datetime.combine(current_day, day_end)
-            if tzinfo is not None:
-                window_start = window_start.replace(tzinfo=tzinfo)
-                window_end = window_end.replace(tzinfo=tzinfo)
 
             day_start_at = max(window_start, range_start)
             day_end_at = min(window_end, range_end)
@@ -197,6 +199,7 @@ class AllocationService:
         return [slot for slot in slots if slot.minutes > 0]
 
     def _minutes_available_before(self, slot: TimeSlot, deadline: datetime) -> int:
+        deadline = normalize_to_kst_naive(deadline)
         effective_end = min(slot.end, deadline)
         if effective_end <= slot.start:
             return 0
@@ -226,7 +229,6 @@ class AllocationService:
                         FlexibleTaskStatus.in_progress,
                     ]
                 ),
-                or_(FlexibleTask.due_at.is_(None), FlexibleTask.due_at >= range_start),
             ).order_by(*ordering)
         ).all()
 
@@ -244,9 +246,17 @@ class AllocationService:
 
         allocated: list[AllocatedTask] = []
         unscheduled: list[int] = []
-        minutes_by_task_day: dict[tuple[int, date], int] = {}
+        minutes_by_task_day = self._load_existing_task_daily_minutes(
+            session,
+            user_id=user_id,
+            range_start=range_start,
+            range_end=range_end,
+        )
 
         for task in tasks:
+            task.due_at = normalize_optional_to_kst_naive(task.due_at)
+            if task.due_at and task.due_at < range_start:
+                continue
             remaining = task.estimated_minutes - int(existing_minutes.get(task.id, 0))
             if remaining <= 0:
                 continue
@@ -335,7 +345,7 @@ class AllocationService:
             if item.target_date:
                 deadline = min(
                     range_end,
-                    datetime.combine(item.target_date, time(23, 59)).replace(tzinfo=range_end.tzinfo),
+                    datetime.combine(item.target_date, time(23, 59)),
                 )
 
             slot_found = False
@@ -358,11 +368,69 @@ class AllocationService:
 
         return {"scheduled": scheduled, "unscheduled": unscheduled}
 
+    def _load_existing_task_daily_minutes(
+        self,
+        session: Session,
+        *,
+        user_id: int,
+        range_start: datetime,
+        range_end: datetime,
+    ) -> dict[tuple[int, date], int]:
+        day_window_start = datetime.combine(range_start.date(), time.min)
+        day_window_end = datetime.combine(range_end.date() + timedelta(days=1), time.min)
+        allocations = session.scalars(
+            select(AllocatedTask).where(
+                AllocatedTask.user_id == user_id,
+                AllocatedTask.scheduled_start < day_window_end,
+                AllocatedTask.scheduled_end > day_window_start,
+            )
+        ).all()
+
+        minutes_by_task_day: dict[tuple[int, date], int] = {}
+        for allocation in allocations:
+            self._add_interval_minutes_by_day(
+                minutes_by_task_day,
+                task_id=allocation.flexible_task_id,
+                start_at=normalize_to_kst_naive(allocation.scheduled_start),
+                end_at=normalize_to_kst_naive(allocation.scheduled_end),
+            )
+        return minutes_by_task_day
+
+    def _add_interval_minutes_by_day(
+        self,
+        minutes_by_task_day: dict[tuple[int, date], int],
+        *,
+        task_id: int,
+        start_at: datetime,
+        end_at: datetime,
+    ) -> None:
+        if end_at <= start_at:
+            return
+
+        pointer = start_at
+        while pointer < end_at:
+            next_day = datetime.combine(pointer.date() + timedelta(days=1), time.min)
+            chunk_end = min(end_at, next_day)
+            minutes = int((chunk_end - pointer).total_seconds() // 60)
+            day_key = (task_id, pointer.date())
+            minutes_by_task_day[day_key] = minutes_by_task_day.get(day_key, 0) + minutes
+            pointer = chunk_end
+
     def _merge_intervals(self, intervals: list[tuple[datetime, datetime]]) -> list[tuple[datetime, datetime]]:
         if not intervals:
             return []
 
-        ordered = sorted(intervals, key=lambda item: item[0])
+        normalized_intervals: list[tuple[datetime, datetime]] = []
+        for start, end in intervals:
+            normalized_start = normalize_to_kst_naive(start)
+            normalized_end = normalize_to_kst_naive(end)
+            if normalized_end > normalized_start:
+                normalized_intervals.append((normalized_start, normalized_end))
+
+        ordered = sorted(normalized_intervals, key=lambda item: item[0])
+        if not ordered:
+            return []
+
         merged: list[tuple[datetime, datetime]] = [ordered[0]]
         for start, end in ordered[1:]:
             last_start, last_end = merged[-1]

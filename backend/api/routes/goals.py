@@ -8,7 +8,7 @@ from backend.models.ai_plan import AIPlan, AIPlanItem
 from backend.models.enums import GoalStatus, PlanStatus
 from backend.models.goal import Goal
 from backend.models.user import User
-from backend.schemas.goals import AIPlanRead, GoalDetailRead, GoalRead, GoalUpdate
+from backend.schemas.goals import AIPlanRead, GoalCreate, GoalDetailRead, GoalRead, GoalUpdate
 from backend.schemas.planning import (
     GoalCompleteRequest,
     GoalCompleteResponse,
@@ -29,6 +29,28 @@ def list_goals(
     return session.scalars(
         select(Goal).where(Goal.user_id == current_user.id).order_by(Goal.created_at.desc())
     ).all()
+
+
+@router.post("/goals", response_model=GoalRead, status_code=status.HTTP_201_CREATED)
+def create_goal(
+    payload: GoalCreate,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_db_session),
+) -> Goal:
+    goal = Goal(
+        user_id=current_user.id,
+        title=payload.title,
+        description=payload.description,
+        category=payload.category,
+        status=payload.status,
+        target_date=payload.target_date,
+        details_json=payload.details_json,
+        answers_json=payload.answers_json,
+    )
+    session.add(goal)
+    session.commit()
+    session.refresh(goal)
+    return goal
 
 
 @router.get("/goals/{goal_id}", response_model=GoalDetailRead)

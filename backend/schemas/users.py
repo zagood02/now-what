@@ -22,10 +22,6 @@ class GoogleLoginRequest(BaseModel):
     credential: str = Field(min_length=1)
 
 
-class KakaoLoginRequest(BaseModel):
-    access_token: str = Field(min_length=1)
-
-
 class UserRead(ORMModel):
     id: int
     email: EmailStr

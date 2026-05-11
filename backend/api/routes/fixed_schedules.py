@@ -1,10 +1,11 @@
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session
 
 from backend.api.deps import get_current_user, require_owned_resource
+from backend.core.timezone import normalize_optional_to_kst_naive, normalize_to_kst_naive
 from backend.db.session import get_db_session
 from backend.models.fixed_schedule import FixedSchedule
 from backend.models.user import User
@@ -13,14 +14,6 @@ from backend.schemas.schedules import FixedScheduleCreate, FixedScheduleRead, Fi
 from backend.services.recurrence import SUPPORTED_RECURRENCE_RULES, normalize_recurrence_rule
 
 router = APIRouter(prefix="/schedules/fixed", tags=["fixed-schedules"])
-
-KST = timezone(timedelta(hours=9))
-
-
-def _normalize_local_datetime(value: datetime) -> datetime:
-    if value.tzinfo is None:
-        return value
-    return value.astimezone(KST).replace(tzinfo=None)
 
 
 def _validate_window(start_at: datetime, end_at: datetime) -> None:
@@ -52,8 +45,8 @@ def create_fixed_schedule(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_db_session),
 ) -> FixedSchedule:
-    start_at = _normalize_local_datetime(payload.start_at)
-    end_at = _normalize_local_datetime(payload.end_at)
+    start_at = normalize_to_kst_naive(payload.start_at)
+    end_at = normalize_to_kst_naive(payload.end_at)
     _validate_window(start_at, end_at)
     recurrence_rule = _validate_recurrence_rule(payload.recurrence_rule, payload.day_of_week)
 
@@ -78,6 +71,8 @@ def list_fixed_schedules(
     session: Session = Depends(get_db_session),
 ) -> list[FixedSchedule]:
     user_id = current_user.id
+    start = normalize_optional_to_kst_naive(start)
+    end = normalize_optional_to_kst_naive(end)
     conditions = [FixedSchedule.user_id == user_id]
     if start or end:
         non_recurring_conditions = [FixedSchedule.recurrence_rule.is_(None)]
@@ -98,6 +93,21 @@ def list_fixed_schedules(
     return session.scalars(query).all()
 
 
+@router.get("/{schedule_id}", response_model=FixedScheduleRead)
+def get_fixed_schedule(
+    schedule_id: int,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_db_session),
+) -> FixedSchedule:
+    return require_owned_resource(
+        session,
+        FixedSchedule,
+        schedule_id,
+        current_user.id,
+        detail="Fixed schedule not found.",
+    )
+
+
 @router.patch("/{schedule_id}", response_model=FixedScheduleRead)
 def update_fixed_schedule(
     schedule_id: int,
@@ -115,9 +125,9 @@ def update_fixed_schedule(
 
     updates = payload.model_dump(exclude_unset=True)
     if "start_at" in updates:
-        updates["start_at"] = _normalize_local_datetime(updates["start_at"])
+        updates["start_at"] = normalize_to_kst_naive(updates["start_at"])
     if "end_at" in updates:
-        updates["end_at"] = _normalize_local_datetime(updates["end_at"])
+        updates["end_at"] = normalize_to_kst_naive(updates["end_at"])
     next_start = updates.get("start_at", schedule.start_at)
     next_end = updates.get("end_at", schedule.end_at)
     _validate_window(next_start, next_end)

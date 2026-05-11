@@ -286,6 +286,11 @@
         color: var(--warm);
       }
 
+      .danger {
+        background: var(--danger-soft);
+        color: var(--danger);
+      }
+
       .link-btn {
         display: inline-flex;
         align-items: center;
@@ -658,7 +663,7 @@
         <div class="hero-copy">
           <span class="eyebrow">Developer Flow</span>
           <h1>Goal Intake Lab</h1>
-          <p>유저 생성부터 목표 분석, 질문 답변, 계획 생성, 자동 배치, 캘린더 확인까지를 단계별 API 카드로 나눠서 테스트합니다. 입력은 각 단계 옆에 바로 붙여두고, 오른쪽에는 상태와 request/response를 고정해 개발 중 확인하기 쉽게 구성했습니다.</p>
+          <p>가입/로그인부터 목표 분석, 질문 답변, 계획 생성, 자동 배치, 캘린더 확인까지를 단계별 API 카드로 나눠서 테스트합니다. 입력은 각 단계 옆에 바로 붙여두고, 오른쪽에는 상태와 request/response를 고정해 개발 중 확인하기 쉽게 구성했습니다.</p>
         </div>
         <div class="hero-tools">
           <div class="hero-links">
@@ -678,10 +683,10 @@
             <div class="panel-head">
               <div>
                 <span class="eyebrow">Step 1</span>
-                <h2>유저 생성</h2>
-                <p>`user_id`를 먼저 확보한 뒤 이후 모든 일정/목표 요청에서 재사용합니다.</p>
+                <h2>가입/로그인</h2>
+                <p>테스트 계정을 만들고 로그인 토큰을 저장합니다. 이후 보호된 API에는 Authorization 헤더가 자동으로 붙습니다.</p>
               </div>
-              <span class="endpoint">POST /api/v1/users</span>
+              <span class="endpoint" id="auth-status">토큰 없음</span>
             </div>
             <div class="field-grid">
               <label>
@@ -692,13 +697,19 @@
                 이메일
                 <input id="user-email" value="user-flow-{timestamp}@example.com" />
               </label>
+              <label>
+                비밀번호
+                <input id="user-password" type="password" value="userflow123" />
+              </label>
               <label class="field-full">
                 타임존
                 <input id="user-timezone" value="Asia/Seoul" />
               </label>
             </div>
             <div class="inline-actions" style="margin-top:14px;">
-              <button class="primary" id="step-user" type="button">유저 생성</button>
+              <button class="primary" id="step-user" type="button">가입 후 로그인</button>
+              <button class="secondary" id="login-button" type="button">로그인</button>
+              <button class="danger" id="clear-token-button" type="button">토큰 지우기</button>
             </div>
           </section>
 
@@ -1042,8 +1053,8 @@
               <article class="workflow-item" id="stage-user">
                 <span class="step-number">01</span>
                 <div class="workflow-copy">
-                  <strong>유저 생성</strong>
-                  <small>아직 유저가 없습니다.</small>
+                  <strong>가입/로그인</strong>
+                  <small>아직 로그인하지 않았습니다.</small>
                 </div>
               </article>
               <article class="workflow-item" id="stage-schedule">
@@ -1102,6 +1113,9 @@
     </main>
 
     <script>
+      const AUTH_TOKEN_KEY = "now-what-api-playground-token";
+      const AUTH_USER_KEY = "now-what-api-playground-user";
+
       const state = {
         userId: null,
         scheduleId: null,
@@ -1118,10 +1132,14 @@
       const requestOutput = byId("request-output");
       const responseOutput = byId("response-output");
       const answersPreview = byId("answers-preview");
+      let authToken = localStorage.getItem(AUTH_TOKEN_KEY) || "";
+      let authUser = readStoredUser();
 
       byId("run-all-button").onclick = () => runStep(runFullFlow);
       byId("reset-button").onclick = () => resetState(true);
       byId("step-user").onclick = () => runStep(createUser);
+      byId("login-button").onclick = () => runStep(loginUser);
+      byId("clear-token-button").onclick = clearToken;
       byId("step-schedule").onclick = () => runStep(addFixedSchedule);
       byId("step-task").onclick = () => runStep(addFlexibleTask);
       byId("analyze-button").onclick = () => runStep(analyzeGoal);
@@ -1134,12 +1152,24 @@
 
       async function request(method, path, body) {
         const payload = body === undefined ? null : body;
-        requestOutput.textContent = JSON.stringify({ method, path, body: payload }, null, 2);
+        requestOutput.textContent = JSON.stringify({
+          method,
+          path,
+          headers: authToken ? { Authorization: "Bearer <stored-token>" } : {},
+          body: payload
+        }, null, 2);
 
-        const options = { method };
+        const headers = {};
+        const options = { method, headers };
         if (payload !== null) {
-          options.headers = { "Content-Type": "application/json" };
+          headers["Content-Type"] = "application/json";
           options.body = JSON.stringify(payload);
+        }
+        if (authToken) {
+          headers.Authorization = `Bearer ${authToken}`;
+        }
+        if (!Object.keys(headers).length) {
+          delete options.headers;
         }
 
         const response = await fetch(path, options);
@@ -1153,25 +1183,78 @@
       }
 
       async function createUser() {
+        await registerAndLogin();
+      }
+
+      async function registerAndLogin() {
         const email = normalizedUserEmail();
-        const payload = await request("POST", "/api/v1/users", {
+        const registerPayload = {
           email,
           name: byId("user-name").value.trim() || "데모 사용자",
+          password: byId("user-password").value,
           timezone: byId("user-timezone").value.trim() || "Asia/Seoul",
-        });
+        };
 
-        state.userId = payload.id;
-        renderSummary();
-        updateStage("user", true, `user_id=${payload.id} · ${payload.email}`);
-        message(`유저가 생성되었습니다. 이제 user_id ${payload.id}를 이어서 사용합니다.`);
+        requestOutput.textContent = JSON.stringify({
+          method: "POST",
+          path: "/api/v1/users/register",
+          body: registerPayload
+        }, null, 2);
+
+        const response = await fetch("/api/v1/users/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(registerPayload),
+        });
+        const payload = await response.json().catch(() => ({}));
+        responseOutput.textContent = JSON.stringify(payload, null, 2);
+        if (response.status !== 409 && !response.ok) {
+          throw new Error(formatApiError(payload, "회원가입에 실패했습니다."));
+        }
+
+        await loginUser({ quiet: true });
+
+        const accountState = response.status === 409 ? "이미 있는 계정으로 로그인했습니다." : "계정을 만들고 로그인했습니다.";
+        updateStage("user", true, `user_id=${state.userId} · ${byId("user-email").value.trim()}`);
+        message(`${accountState} 이후 요청에는 Authorization 헤더가 자동으로 붙습니다.`);
+      }
+
+      async function loginUser(options = {}) {
+        const email = normalizedUserEmail();
+        const loginPayload = {
+          email,
+          password: byId("user-password").value,
+        };
+
+        requestOutput.textContent = JSON.stringify({
+          method: "POST",
+          path: "/api/v1/users/login",
+          body: loginPayload
+        }, null, 2);
+
+        const response = await fetch("/api/v1/users/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(loginPayload),
+        });
+        const payload = await response.json().catch(() => ({}));
+        responseOutput.textContent = JSON.stringify(payload, null, 2);
+        if (!response.ok) {
+          throw new Error(formatApiError(payload, "로그인에 실패했습니다."));
+        }
+
+        storeAuth(payload);
+        updateStage("user", true, `user_id=${state.userId} · ${payload.user.email}`);
+        if (!options.quiet) {
+          message("로그인했습니다. 이후 요청에는 Authorization 헤더가 자동으로 붙습니다.");
+        }
       }
 
       async function addFixedSchedule() {
-        ensure(state.userId, "먼저 유저를 생성하세요.");
+        ensureLoggedIn();
 
         const isRecurring = byId("schedule-kind").value === "recurring";
         const payload = await request("POST", "/api/v1/schedules/fixed", {
-          user_id: state.userId,
           title: byId("schedule-title").value.trim(),
           description: emptyToNull(byId("schedule-description").value),
           location: emptyToNull(byId("schedule-location").value),
@@ -1188,11 +1271,10 @@
       }
 
       async function addFlexibleTask() {
-        ensure(state.userId, "먼저 유저를 생성하세요.");
+        ensureLoggedIn();
 
         const dueAt = byId("task-due-at").value.trim();
         const payload = await request("POST", "/api/v1/tasks/flexible", {
-          user_id: state.userId,
           title: byId("task-title").value.trim(),
           description: emptyToNull(byId("task-description").value),
           estimated_minutes: numericValue("task-estimated-minutes"),
@@ -1231,13 +1313,12 @@
       }
 
       async function saveGoalAndGeneratePlan() {
-        ensure(state.userId, "먼저 유저를 생성하세요.");
+        ensureLoggedIn();
         if (!state.parsedGoal) {
           await analyzeGoal();
         }
 
         const payload = await request("POST", "/api/v1/goals/complete", {
-          user_id: state.userId,
           text: byId("goal-text").value.trim(),
           category: selectedGoalCategory(),
           answers_json: collectAnswers(),
@@ -1253,14 +1334,13 @@
       }
 
       async function allocateAndLoadCalendar() {
-        ensure(state.userId, "먼저 유저를 생성하세요.");
+        ensureLoggedIn();
         ensure(state.goalId, "먼저 목표 저장 + 계획 생성을 완료하세요.");
 
         const rangeStart = byId("range-start").value.trim();
         const rangeEnd = byId("range-end").value.trim();
 
         await request("POST", "/api/v1/planner/allocate", {
-          user_id: state.userId,
           range_start: rangeStart,
           range_end: rangeEnd,
           clear_existing: byId("clear-existing-allocation").checked,
@@ -1272,13 +1352,13 @@
       }
 
       async function loadCalendarOnly() {
-        ensure(state.userId, "먼저 유저를 생성하세요.");
+        ensureLoggedIn();
 
         const rangeStart = byId("range-start").value.trim();
         const rangeEnd = byId("range-end").value.trim();
         const calendar = await request(
           "GET",
-          `/api/v1/calendar?user_id=${encodeURIComponent(state.userId)}&start=${encodeURIComponent(rangeStart)}&end=${encodeURIComponent(rangeEnd)}`
+          `/api/v1/calendar?start=${encodeURIComponent(rangeStart)}&end=${encodeURIComponent(rangeEnd)}`
         );
 
         renderCalendar(calendar.events || []);
@@ -1482,6 +1562,57 @@
         byId("goal-id-view").textContent = state.goalId ?? "-";
       }
 
+      function storeAuth(payload) {
+        if (!payload || !payload.access_token) {
+          return;
+        }
+        authToken = payload.access_token;
+        authUser = payload.user || null;
+        localStorage.setItem(AUTH_TOKEN_KEY, authToken);
+        if (authUser) {
+          localStorage.setItem(AUTH_USER_KEY, JSON.stringify(authUser));
+          state.userId = authUser.id;
+          byId("user-email").value = authUser.email || byId("user-email").value;
+          byId("user-name").value = authUser.name || byId("user-name").value;
+        }
+        renderSummary();
+        updateAuthStatus();
+      }
+
+      function clearToken() {
+        authToken = "";
+        authUser = null;
+        state.userId = null;
+        localStorage.removeItem(AUTH_TOKEN_KEY);
+        localStorage.removeItem(AUTH_USER_KEY);
+        renderSummary();
+        updateAuthStatus();
+        updateStage("user", false, "아직 로그인하지 않았습니다.");
+        message("저장된 로그인 토큰을 지웠습니다.");
+      }
+
+      function hydrateStoredAuth() {
+        if (!authToken || !authUser) {
+          updateAuthStatus();
+          return;
+        }
+        state.userId = authUser.id;
+        byId("user-email").value = authUser.email || byId("user-email").value;
+        byId("user-name").value = authUser.name || byId("user-name").value;
+        renderSummary();
+        updateStage("user", true, `user_id=${authUser.id} · ${authUser.email}`);
+        updateAuthStatus();
+      }
+
+      function updateAuthStatus() {
+        const status = byId("auth-status");
+        if (authToken) {
+          status.textContent = authUser ? `로그인됨 #${authUser.id}` : "토큰 있음";
+          return;
+        }
+        status.textContent = "토큰 없음";
+      }
+
       function updateStage(key, done, text) {
         const node = byId(`stage-${key}`);
         node.classList.toggle("done", Boolean(done));
@@ -1512,7 +1643,7 @@
         responseOutput.textContent = JSON.stringify({ hint: "가장 최근 API 응답이 여기에 표시됩니다." }, null, 2);
         answersPreview.textContent = "{}";
 
-        updateStage("user", false, "아직 유저가 없습니다.");
+        updateStage("user", false, "아직 로그인하지 않았습니다.");
         updateStage("schedule", false, "아직 등록되지 않았습니다.");
         updateStage("task", false, "아직 등록되지 않았습니다.");
         updateStage("analysis", false, "분석 결과가 아직 없습니다.");
@@ -1523,6 +1654,7 @@
         byId("schedule-kind").value = "one-time";
         byId("schedule-recurrence").value = "weekly";
         syncRecurrenceUI();
+        hydrateStoredAuth();
 
         if (showMessage) {
           message("실행 상태를 초기화했습니다.");
@@ -1568,6 +1700,21 @@
         return email;
       }
 
+      function readStoredUser() {
+        try {
+          return JSON.parse(localStorage.getItem(AUTH_USER_KEY) || "null");
+        } catch {
+          return null;
+        }
+      }
+
+      function formatApiError(payload, fallback) {
+        if (payload && payload.detail) {
+          return Array.isArray(payload.detail) ? JSON.stringify(payload.detail) : String(payload.detail);
+        }
+        return fallback;
+      }
+
       function numericValue(id) {
         return Number(byId(id).value);
       }
@@ -1581,6 +1728,11 @@
         if (!value) {
           throw new Error(text);
         }
+      }
+
+      function ensureLoggedIn() {
+        ensure(authToken, "먼저 가입/로그인을 완료하세요.");
+        ensure(state.userId, "로그인한 유저 정보를 찾을 수 없습니다. 다시 로그인하세요.");
       }
 
       function formatDay(day) {

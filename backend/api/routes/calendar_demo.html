@@ -9,22 +9,36 @@
       body {
         margin: 0;
         font-family: "Segoe UI", "Noto Sans KR", sans-serif;
-        background: linear-gradient(180deg, #f8fafc 0%, #eef3f8 100%);
+        background: #f5f8fb;
         color: #172033;
       }
       main { max-width: 1180px; margin: 0 auto; padding: 24px 16px 40px; }
       h1, h2, p { margin: 0; }
       p { color: #5b667a; line-height: 1.6; }
-      .layout { display: grid; grid-template-columns: 320px 1fr; gap: 16px; margin-top: 20px; }
+      code {
+        padding: 2px 5px;
+        border-radius: 6px;
+        background: #edf2f7;
+        color: #334155;
+      }
+      .layout { display: grid; grid-template-columns: 340px 1fr; gap: 16px; margin-top: 20px; }
       .card {
-        background: rgba(255, 255, 255, 0.94);
+        background: rgba(255, 255, 255, 0.96);
         border: 1px solid #d9e2ec;
-        border-radius: 18px;
+        border-radius: 16px;
         padding: 16px;
-        box-shadow: 0 14px 36px rgba(15, 23, 42, 0.06);
+        box-shadow: 0 12px 28px rgba(15, 23, 42, 0.05);
       }
       .stack, .days { display: grid; gap: 12px; }
-      label { display: grid; gap: 6px; font-size: 13px; font-weight: 700; }
+      .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+      .head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 12px;
+      }
+      label { display: grid; gap: 6px; font-size: 13px; font-weight: 800; }
       input, button { font: inherit; }
       input {
         width: 100%;
@@ -32,21 +46,39 @@
         border-radius: 10px;
         border: 1px solid #c9d5e4;
         background: white;
+        color: #172033;
       }
-      .actions, .filters { display: flex; gap: 8px; flex-wrap: wrap; }
       button {
         border: 0;
         border-radius: 10px;
         padding: 10px 14px;
         cursor: pointer;
-        font-weight: 700;
+        font-weight: 800;
       }
+      button:disabled { cursor: not-allowed; opacity: 0.55; }
+      .actions, .filters { display: flex; gap: 8px; flex-wrap: wrap; }
       .primary { background: #0f766e; color: white; }
       .secondary { background: #e7eef7; color: #1f2937; }
+      .danger { background: #fef2f2; color: #b91c1c; }
       .filter { background: #f5f8fb; color: #475569; border: 1px solid #d7e0eb; }
       .filter.active { background: #e6fffb; color: #0f766e; border-color: rgba(15, 118, 110, 0.28); }
+      .quick-buttons button { padding: 8px 10px; font-size: 12px; background: #eef6ff; color: #1d4ed8; }
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 28px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: #e8f7f4;
+        color: #0f766e;
+        font-size: 12px;
+        font-weight: 800;
+        white-space: nowrap;
+      }
+      .pill.warn { background: #fff7ed; color: #b45309; }
       .summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
-      .summary-card { padding: 12px; border-radius: 14px; background: #f8fbff; border: 1px solid #dde7f1; }
+      .summary-card { padding: 12px; border-radius: 12px; background: #f8fbff; border: 1px solid #dde7f1; }
       .summary-card strong { display: block; margin-bottom: 6px; font-size: 12px; color: #66758a; text-transform: uppercase; }
       .summary-card span { font-size: 24px; font-weight: 800; }
       .legend { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
@@ -57,12 +89,13 @@
       .dot.plan { background: #b45309; }
       .info { padding: 12px; border-radius: 12px; background: #eef6ff; color: #1d4ed8; font-size: 13px; line-height: 1.6; margin-bottom: 16px; }
       .info.error { background: #fef2f2; color: #b91c1c; }
-      .day { border: 1px solid #dbe4ee; border-radius: 16px; background: white; overflow: hidden; }
+      .muted { color: #66758a; font-size: 12px; line-height: 1.5; }
+      .day { border: 1px solid #dbe4ee; border-radius: 14px; background: white; overflow: hidden; }
       .day-header { padding: 14px 16px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; }
       .day-header strong { display: block; font-size: 16px; }
       .day-header span { color: #66758a; font-size: 13px; }
       .events { display: grid; gap: 10px; padding: 14px; }
-      .event { border-radius: 14px; padding: 12px 14px; border-left: 4px solid transparent; background: #fbfdff; border: 1px solid #e6edf5; }
+      .event { border-radius: 12px; padding: 12px 14px; border-left: 4px solid transparent; background: #fbfdff; border: 1px solid #e6edf5; }
       .event.fixed_schedule { border-left-color: #2563eb; background: rgba(37, 99, 235, 0.05); }
       .event.allocated_task { border-left-color: #0f766e; background: rgba(15, 118, 110, 0.06); }
       .event.ai_plan_item { border-left-color: #b45309; background: rgba(180, 83, 9, 0.07); }
@@ -71,29 +104,56 @@
       .event-time { white-space: nowrap; font-size: 12px; color: #475569; font-weight: 700; }
       .event-meta { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
       .tag { padding: 5px 8px; border-radius: 999px; background: rgba(255,255,255,.82); border: 1px solid rgba(23,32,51,.08); font-size: 12px; color: #475569; }
-      details { margin-top: 16px; border: 1px solid #dbe4ee; border-radius: 14px; overflow: hidden; background: white; }
-      summary { cursor: pointer; padding: 12px 14px; font-weight: 700; }
+      details { margin-top: 16px; border: 1px solid #dbe4ee; border-radius: 12px; overflow: hidden; background: white; }
+      summary { cursor: pointer; padding: 12px 14px; font-weight: 800; }
       pre { margin: 0; padding: 14px; background: #0f172a; color: #dbeafe; overflow: auto; min-height: 180px; font-family: "Cascadia Code", "Consolas", monospace; font-size: 13px; line-height: 1.55; }
-      .empty { padding: 24px; text-align: center; color: #64748b; border: 1px dashed #cfd8e3; border-radius: 14px; background: #fbfdff; }
+      .empty { padding: 24px; text-align: center; color: #64748b; border: 1px dashed #cfd8e3; border-radius: 12px; background: #fbfdff; }
       @media (max-width: 960px) { .layout { grid-template-columns: 1fr; } .summary { grid-template-columns: 1fr 1fr; } }
-      @media (max-width: 640px) { .summary { grid-template-columns: 1fr; } }
+      @media (max-width: 640px) { .summary, .row { grid-template-columns: 1fr; } }
     </style>
   </head>
   <body data-page="calendar-demo">
     <main>
       <h1>캘린더 데모</h1>
-      <p>고정 일정, 자동 배치된 가변 일정, AI 계획 항목을 한 번에 확인하는 화면입니다.</p>
+      <p>고정 일정, 자동 배치된 가변 일정, AI 계획 항목을 한 번에 확인하는 화면입니다. 로그인 토큰은 API playground와 공유됩니다.</p>
 
       <div class="layout">
         <section class="card">
           <div class="stack">
-            <label>User ID<input id="user-id" type="number" min="1" value="1" /></label>
-            <label>Start<input id="start" value="2026-04-13T09:00:00+09:00" /></label>
-            <label>End<input id="end" value="2026-04-20T21:00:00+09:00" /></label>
-            <div class="actions">
-              <button class="primary" id="load-button" type="button">캘린더 불러오기</button>
-              <button class="secondary" id="week-button" type="button">이번 주 값 채우기</button>
+            <div>
+              <div class="head"><h2>로그인</h2><span class="pill warn" id="auth-pill">토큰 없음</span></div>
+              <div class="stack">
+                <label>Email<input id="auth-email" type="email" value="playground@example.com" /></label>
+                <div class="row">
+                  <label>Password<input id="auth-password" type="password" value="playground123" /></label>
+                  <label>Name<input id="auth-name" value="Playground User" /></label>
+                </div>
+                <div class="actions">
+                  <button class="primary" id="register-login-button" type="button">가입 후 로그인</button>
+                  <button class="secondary" id="login-button" type="button">로그인</button>
+                  <button class="danger" id="clear-token-button" type="button">토큰 지우기</button>
+                </div>
+                <div class="info" id="auth-message">처음이면 가입 후 로그인을 누르세요. 저장된 토큰이 있으면 바로 캘린더를 불러올 수 있습니다.</div>
+              </div>
             </div>
+
+            <div>
+              <div class="head"><h2>조회 조건</h2><span class="pill" id="user-pill">User -</span></div>
+              <div class="stack">
+                <label>Start<input id="start" type="datetime-local" /></label>
+                <label>End<input id="end" type="datetime-local" /></label>
+                <div class="actions quick-buttons">
+                  <button type="button" data-range="this-week">이번 주</button>
+                  <button type="button" data-range="next-7">오늘부터 7일</button>
+                  <button type="button" data-range="next-week">다음 주</button>
+                </div>
+                <p class="muted">전송할 때 <code>+09:00</code> 시간대를 자동으로 붙입니다.</p>
+                <div class="actions">
+                  <button class="primary" id="load-button" type="button">캘린더 불러오기</button>
+                </div>
+              </div>
+            </div>
+
             <div class="filters">
               <button class="filter active" type="button" data-filter="fixed_schedule">고정 일정</button>
               <button class="filter active" type="button" data-filter="allocated_task">가변 일정</button>
@@ -121,7 +181,7 @@
             <span class="legend-item"><span class="dot plan"></span>AI 계획 항목</span>
           </div>
 
-          <div class="info" id="message-box">사용자와 기간을 입력한 뒤 캘린더를 불러오세요.</div>
+          <div class="info" id="message-box">로그인한 뒤 기간을 선택하고 캘린더를 불러오세요.</div>
           <div class="days" id="days-container"><div class="empty">아직 캘린더를 불러오지 않았습니다.</div></div>
 
           <details>
@@ -135,12 +195,17 @@
     </main>
 
     <script>
+      const AUTH_TOKEN_KEY = "now-what-api-playground-token";
+      const AUTH_USER_KEY = "now-what-api-playground-user";
+      const KST_OFFSET = "+09:00";
       const filters = { fixed_schedule: true, allocated_task: true, ai_plan_item: true };
       const byId = (id) => document.getElementById(id);
       const daysContainer = byId("days-container");
       const rawOutput = byId("raw-output");
       const messageBox = byId("message-box");
       const statusPill = byId("status-pill");
+      let authToken = localStorage.getItem(AUTH_TOKEN_KEY) || "";
+      let authUser = readStoredUser();
 
       document.querySelectorAll("[data-filter]").forEach((button) => {
         button.addEventListener("click", () => {
@@ -151,30 +216,35 @@
         });
       });
 
-      byId("load-button").addEventListener("click", loadCalendar);
-      byId("week-button").addEventListener("click", setThisWeek);
-      setThisWeek();
+      document.querySelectorAll("[data-range]").forEach((button) => {
+        button.addEventListener("click", () => setRange(button.dataset.range));
+      });
 
-      function setThisWeek() {
-        byId("start").value = "2026-04-13T09:00:00+09:00";
-        byId("end").value = "2026-04-20T21:00:00+09:00";
-      }
+      byId("load-button").addEventListener("click", loadCalendar);
+      byId("login-button").addEventListener("click", loginFromForm);
+      byId("register-login-button").addEventListener("click", registerAndLogin);
+      byId("clear-token-button").addEventListener("click", clearToken);
+
+      hydrateAuthForm();
+      setRange("this-week");
+      updateAuthStatus();
 
       async function loadCalendar() {
-        const userId = byId("user-id").value.trim();
-        const start = byId("start").value.trim();
-        const end = byId("end").value.trim();
-        const path = `/api/v1/calendar?user_id=${encodeURIComponent(userId)}&start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`;
+        const start = toKstIso(byId("start").value.trim());
+        const end = toKstIso(byId("end").value.trim());
+        const path = `/api/v1/calendar?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`;
 
         statusPill.textContent = "불러오는 중";
         try {
-          const response = await fetch(path);
-          const payload = await response.json();
+          const headers = authToken ? { Authorization: `Bearer ${authToken}` } : {};
+          const response = await fetch(path, { headers });
+          const payload = await response.json().catch(() => ({}));
           window.__calendarPayload = payload;
           rawOutput.textContent = JSON.stringify(payload, null, 2);
           statusPill.textContent = String(response.status);
           if (!response.ok) {
-            message(payload.detail || "캘린더 요청이 실패했습니다.", true);
+            const authHint = response.status === 401 ? "로그인이 필요합니다. 왼쪽에서 로그인 후 다시 시도하세요." : "";
+            message(payload.detail || authHint || "캘린더 요청이 실패했습니다.", true);
             daysContainer.innerHTML = '<div class="empty">캘린더를 렌더링할 수 없습니다.</div>';
             return;
           }
@@ -183,9 +253,88 @@
           message("캘린더를 불러왔습니다.");
         } catch (error) {
           statusPill.textContent = "오류";
-          message("네트워크 오류가 발생했습니다.", true);
+          message(error.message || "네트워크 오류가 발생했습니다.", true);
           daysContainer.innerHTML = '<div class="empty">캘린더를 렌더링할 수 없습니다.</div>';
         }
+      }
+
+      async function registerAndLogin() {
+        setAuthBusy(true);
+        try {
+          const registerPayload = {
+            email: byId("auth-email").value.trim(),
+            name: byId("auth-name").value.trim() || "Playground User",
+            password: byId("auth-password").value,
+            timezone: "Asia/Seoul"
+          };
+          const registerResponse = await fetch("/api/v1/users/register", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(registerPayload)
+          });
+          const registerJson = await registerResponse.json().catch(() => ({}));
+          if (registerResponse.status !== 409 && !registerResponse.ok) {
+            throw new Error(formatApiError(registerJson, "회원가입에 실패했습니다."));
+          }
+          await loginFromForm({ quiet: true });
+          setAuthMessage(registerResponse.status === 409 ? "이미 있는 계정으로 로그인했습니다." : "계정을 만들고 로그인했습니다.");
+          message("로그인했습니다. 이제 캘린더를 불러올 수 있습니다.");
+        } catch (error) {
+          setAuthMessage(error.message || "가입/로그인에 실패했습니다.", true);
+        } finally {
+          setAuthBusy(false);
+        }
+      }
+
+      async function loginFromForm(options = {}) {
+        setAuthBusy(true);
+        try {
+          const response = await fetch("/api/v1/users/login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              email: byId("auth-email").value.trim(),
+              password: byId("auth-password").value
+            })
+          });
+          const payload = await response.json().catch(() => ({}));
+          if (!response.ok) {
+            throw new Error(formatApiError(payload, "로그인에 실패했습니다."));
+          }
+          storeAuth(payload);
+          rawOutput.textContent = JSON.stringify(payload, null, 2);
+          statusPill.textContent = String(response.status);
+          if (!options.quiet) {
+            setAuthMessage("로그인했습니다. 캘린더 요청에 토큰이 자동으로 붙습니다.");
+            message("로그인했습니다. 캘린더를 불러오세요.");
+          }
+        } finally {
+          setAuthBusy(false);
+        }
+      }
+
+      function storeAuth(payload) {
+        if (!payload || !payload.access_token) {
+          return;
+        }
+        authToken = payload.access_token;
+        authUser = payload.user || null;
+        localStorage.setItem(AUTH_TOKEN_KEY, authToken);
+        if (authUser) {
+          localStorage.setItem(AUTH_USER_KEY, JSON.stringify(authUser));
+          byId("auth-email").value = authUser.email || byId("auth-email").value;
+          byId("auth-name").value = authUser.name || byId("auth-name").value;
+        }
+        updateAuthStatus();
+      }
+
+      function clearToken() {
+        authToken = "";
+        authUser = null;
+        localStorage.removeItem(AUTH_TOKEN_KEY);
+        localStorage.removeItem(AUTH_USER_KEY);
+        updateAuthStatus();
+        setAuthMessage("저장된 토큰을 지웠습니다.");
       }
 
       function updateSummary(payload) {
@@ -197,23 +346,30 @@
       }
 
       function renderAgenda(payload) {
-        if (!payload || !Array.isArray(payload.events)) return;
+        if (!payload || !Array.isArray(payload.events)) {
+          return;
+        }
         const visibleEvents = payload.events.filter((event) => filters[event.source_type]);
         if (!visibleEvents.length) {
           daysContainer.innerHTML = '<div class="empty">현재 필터에서 보이는 일정이 없습니다.</div>';
+          updateSummary(payload);
           return;
         }
 
         const groups = new Map();
         visibleEvents.forEach((event) => {
           const key = event.start_at.slice(0, 10);
-          if (!groups.has(key)) groups.set(key, []);
+          if (!groups.has(key)) {
+            groups.set(key, []);
+          }
           groups.get(key).push(event);
         });
 
         daysContainer.innerHTML = [...groups.entries()].map(([dateKey, events]) => {
           const title = new Date(events[0].start_at).toLocaleDateString("ko-KR", {
-            weekday: "long", month: "long", day: "numeric"
+            weekday: "long",
+            month: "long",
+            day: "numeric"
           });
           const cards = events.map((event) => `
             <article class="event ${event.source_type}">
@@ -242,8 +398,126 @@
         }).join("");
       }
 
+      function setRange(range) {
+        const now = new Date();
+        let start;
+        let end;
+        if (range === "next-7") {
+          start = new Date(now);
+          setLocalTime(start, 9, 0);
+          end = addDays(start, 7);
+          setLocalTime(end, 21, 0);
+        } else if (range === "next-week") {
+          start = addDays(startOfWeek(now), 7);
+          setLocalTime(start, 9, 0);
+          end = addDays(start, 7);
+          setLocalTime(end, 21, 0);
+        } else {
+          start = startOfWeek(now);
+          setLocalTime(start, 9, 0);
+          end = addDays(start, 7);
+          setLocalTime(end, 21, 0);
+        }
+        byId("start").value = toDateTimeLocalValue(start);
+        byId("end").value = toDateTimeLocalValue(end);
+      }
+
+      function toKstIso(value) {
+        if (!value) {
+          return "";
+        }
+        if (/[zZ]$|[+-]\d{2}:\d{2}$/.test(value)) {
+          return value;
+        }
+        return `${value.length === 16 ? `${value}:00` : value}${KST_OFFSET}`;
+      }
+
+      function toDateTimeLocalValue(date) {
+        return [
+          date.getFullYear(),
+          "-",
+          pad(date.getMonth() + 1),
+          "-",
+          pad(date.getDate()),
+          "T",
+          pad(date.getHours()),
+          ":",
+          pad(date.getMinutes())
+        ].join("");
+      }
+
+      function startOfWeek(date) {
+        const value = new Date(date);
+        const day = value.getDay();
+        const diff = day === 0 ? -6 : 1 - day;
+        value.setDate(value.getDate() + diff);
+        return value;
+      }
+
+      function addDays(date, days) {
+        const value = new Date(date);
+        value.setDate(value.getDate() + days);
+        return value;
+      }
+
+      function setLocalTime(date, hours, minutes) {
+        date.setHours(hours, minutes, 0, 0);
+      }
+
+      function pad(value) {
+        return String(value).padStart(2, "0");
+      }
+
       function formatTime(value) {
         return new Date(value).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" });
+      }
+
+      function hydrateAuthForm() {
+        if (!authUser) {
+          return;
+        }
+        byId("auth-email").value = authUser.email || byId("auth-email").value;
+        byId("auth-name").value = authUser.name || byId("auth-name").value;
+      }
+
+      function readStoredUser() {
+        try {
+          return JSON.parse(localStorage.getItem(AUTH_USER_KEY) || "null");
+        } catch {
+          return null;
+        }
+      }
+
+      function updateAuthStatus() {
+        const authPill = byId("auth-pill");
+        const userPill = byId("user-pill");
+        if (authToken) {
+          authPill.textContent = authUser ? `로그인됨 #${authUser.id}` : "토큰 있음";
+          authPill.classList.remove("warn");
+          userPill.textContent = authUser ? `User ${authUser.id}` : "User -";
+          return;
+        }
+        authPill.textContent = "토큰 없음";
+        authPill.classList.add("warn");
+        userPill.textContent = "User -";
+      }
+
+      function setAuthBusy(isBusy) {
+        byId("login-button").disabled = isBusy;
+        byId("register-login-button").disabled = isBusy;
+      }
+
+      function setAuthMessage(text, isError = false) {
+        const element = byId("auth-message");
+        element.textContent = text;
+        element.classList.toggle("error", Boolean(isError));
+      }
+
+      function formatApiError(payload, fallback) {
+        if (payload && payload.detail) {
+          return Array.isArray(payload.detail) ? JSON.stringify(payload.detail) : String(payload.detail);
+        }
+        return fallback;
       }
 
       function message(text, isError = false) {

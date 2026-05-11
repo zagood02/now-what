@@ -9,20 +9,26 @@
       body {
         margin: 0;
         font-family: "Segoe UI", "Noto Sans KR", sans-serif;
-        background: linear-gradient(180deg, #f7fafc 0%, #edf3f8 100%);
+        background: #f5f8fb;
         color: #162031;
       }
       main { max-width: 1240px; margin: 0 auto; padding: 24px 16px 40px; }
       h1, h2, h3, p { margin: 0; }
       p { color: #566579; line-height: 1.6; }
+      code {
+        padding: 2px 5px;
+        border-radius: 6px;
+        background: #edf2f7;
+        color: #334155;
+      }
       .hero, .card {
-        background: rgba(255, 255, 255, 0.95);
+        background: rgba(255, 255, 255, 0.96);
         border: 1px solid #d8e2ec;
-        border-radius: 20px;
-        box-shadow: 0 14px 34px rgba(15, 23, 42, 0.05);
+        border-radius: 16px;
+        box-shadow: 0 12px 28px rgba(15, 23, 42, 0.05);
       }
       .hero { padding: 22px; }
-      .layout { display: grid; grid-template-columns: 400px 1fr; gap: 16px; margin-top: 18px; }
+      .layout { display: grid; grid-template-columns: 410px 1fr; gap: 16px; margin-top: 18px; }
       .left { display: grid; gap: 16px; align-content: start; }
       .card { padding: 16px; }
       .head {
@@ -36,21 +42,26 @@
         display: inline-flex;
         align-items: center;
         justify-content: center;
+        min-height: 28px;
         padding: 6px 10px;
         border-radius: 999px;
         background: #e8f7f4;
         color: #0f766e;
         font-size: 12px;
-        font-weight: 700;
+        font-weight: 800;
+        white-space: nowrap;
       }
+      .pill.warn { background: #fff7ed; color: #b45309; }
+      .pill.ok { background: #e8f7f4; color: #0f766e; }
       .stack, .grid, .history { display: grid; gap: 12px; }
       .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-      label { display: grid; gap: 6px; font-size: 13px; font-weight: 700; }
+      .time-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+      label { display: grid; gap: 6px; font-size: 13px; font-weight: 800; }
       input, select, textarea, button { font: inherit; }
       input, select, textarea {
         width: 100%;
         padding: 10px 12px;
-        border-radius: 12px;
+        border-radius: 10px;
         border: 1px solid #c8d4e2;
         background: #fff;
         color: #162031;
@@ -64,19 +75,25 @@
       }
       button {
         border: 0;
-        border-radius: 12px;
+        border-radius: 10px;
         padding: 10px 14px;
         cursor: pointer;
-        font-weight: 700;
+        font-weight: 800;
+      }
+      button:disabled {
+        cursor: not-allowed;
+        opacity: 0.55;
       }
       .primary { background: #0f766e; color: #fff; }
       .secondary { background: #e9eff7; color: #162031; }
       .ghost { background: #fff7ed; color: #b45309; }
+      .danger { background: #fef2f2; color: #b91c1c; }
       .actions, .quick-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
-      .quick-buttons button { background: #eefaf7; color: #0f766e; }
+      .quick-buttons button { background: #eef6ff; color: #1d4ed8; }
+      .quick-buttons.compact button { padding: 8px 10px; font-size: 12px; }
       .guide, .summary, .history-item {
         padding: 12px;
-        border-radius: 14px;
+        border-radius: 12px;
         border: 1px solid #dce5ef;
         background: #fbfdff;
       }
@@ -101,16 +118,17 @@
       }
       .info {
         padding: 12px;
-        border-radius: 14px;
+        border-radius: 12px;
         background: #eef6ff;
         color: #1d4ed8;
         font-size: 13px;
         line-height: 1.6;
       }
       .info.error { background: #fef2f2; color: #b91c1c; }
+      .muted { color: #66758a; font-size: 12px; line-height: 1.5; }
       details {
         margin-top: 12px;
-        border-radius: 14px;
+        border-radius: 12px;
         border: 1px solid #dce5ef;
         overflow: hidden;
         background: #fff;
@@ -118,7 +136,7 @@
       summary {
         cursor: pointer;
         padding: 12px 14px;
-        font-weight: 700;
+        font-weight: 800;
       }
       pre {
         margin: 0;
@@ -131,13 +149,13 @@
         font-size: 13px;
         line-height: 1.55;
       }
-      .history-item small { color: #66758a; }
+      .history-item small { display: block; margin-top: 4px; color: #66758a; }
       @media (max-width: 980px) {
         .layout { grid-template-columns: 1fr; }
         .summary-grid { grid-template-columns: 1fr 1fr; }
       }
       @media (max-width: 640px) {
-        .row, .summary-grid { grid-template-columns: 1fr; }
+        .row, .time-grid, .summary-grid { grid-template-columns: 1fr; }
       }
     </style>
   </head>
@@ -145,7 +163,7 @@
     <main>
       <section class="hero">
         <h1>API 테스트 페이지</h1>
-        <p>Swagger보다 빠르게 핵심 API를 눌러보는 용도입니다. 특히 목표 흐름은 이제 <code>POST /goals/intake</code>와 <code>POST /goals/complete</code> 두 단계만 테스트하면 됩니다.</p>
+        <p>Swagger보다 빠르게 핵심 API를 눌러보는 용도입니다. 로그인 토큰은 이 페이지에서 자동 저장하고, 시간 값은 한국 시간 기준 ISO 문자열로 변환해서 전송합니다.</p>
       </section>
 
       <div class="layout">
@@ -154,7 +172,7 @@
             <div class="head"><h2>빠른 시작</h2><span class="pill">추천 순서</span></div>
             <div class="quick-buttons">
               <button type="button" data-jump="health">1. 헬스체크</button>
-              <button type="button" data-jump="create-user">2. 유저 생성</button>
+              <button type="button" data-auth-action="register-login">2. 가입/로그인</button>
               <button type="button" data-jump="create-fixed-once">3. 고정 일정</button>
               <button type="button" data-jump="create-task">4. 가변 일정</button>
               <button type="button" data-jump="goal-intake">5. 목표 분석</button>
@@ -162,7 +180,24 @@
               <button type="button" data-jump="allocate">7. 자동 배치</button>
               <button type="button" data-jump="calendar">8. 캘린더 확인</button>
             </div>
-            <p class="info" id="message-box">왼쪽에서 프리셋을 고른 뒤 요청을 보내면 됩니다. 응답에서 얻은 <code>user_id</code>와 <code>goal_id</code>는 아래 입력칸에 자동 반영됩니다.</p>
+            <p class="info" id="message-box">먼저 가입/로그인을 누르면 이후 보호된 API 요청에 Authorization 헤더가 자동으로 붙습니다.</p>
+          </section>
+
+          <section class="card">
+            <div class="head"><h2>로그인</h2><span class="pill warn" id="auth-pill">토큰 없음</span></div>
+            <div class="stack">
+              <label>Email<input id="authEmail" type="email" value="playground@example.com" /></label>
+              <div class="row">
+                <label>Password<input id="authPassword" type="password" value="playground123" /></label>
+                <label>Name<input id="authName" value="Playground User" /></label>
+              </div>
+              <div class="actions">
+                <button class="primary" id="register-login-button" type="button">가입 후 로그인</button>
+                <button class="secondary" id="login-button" type="button">로그인</button>
+                <button class="danger" id="clear-token-button" type="button">토큰 지우기</button>
+              </div>
+              <p class="info" id="auth-message">처음이면 가입 후 로그인을 누르세요. 이미 만든 계정이면 로그인만 누르면 됩니다.</p>
+            </div>
           </section>
 
           <section class="card">
@@ -170,7 +205,7 @@
             <div class="grid">
               <div class="guide"><strong id="preset-title">GET /health</strong><span id="preset-help">서버 상태를 빠르게 확인합니다.</span></div>
               <div class="guide"><strong>필요한 값</strong><span id="preset-requires">없음</span></div>
-              <div class="guide"><strong>다음 추천</strong><span id="preset-next">정상이라면 유저 생성으로 넘어가세요.</span></div>
+              <div class="guide"><strong>다음 추천</strong><span id="preset-next">정상이라면 로그인으로 넘어가세요.</span></div>
             </div>
           </section>
 
@@ -185,10 +220,19 @@
                 <label>Schedule ID<input id="scheduleId" type="number" min="1" value="1" /></label>
                 <label>Task ID<input id="taskId" type="number" min="1" value="1" /></label>
               </div>
-              <div class="row">
-                <label>Start<input id="start" value="2026-04-13T09:00:00+09:00" /></label>
-                <label>End<input id="end" value="2026-04-20T21:00:00+09:00" /></label>
+              <div class="time-grid">
+                <label>일정 시작<input id="eventStart" type="datetime-local" /></label>
+                <label>일정 종료<input id="eventEnd" type="datetime-local" /></label>
+                <label>조회/배정 시작<input id="rangeStart" type="datetime-local" /></label>
+                <label>조회/배정 종료<input id="rangeEnd" type="datetime-local" /></label>
               </div>
+              <div class="quick-buttons compact">
+                <button type="button" data-time-preset="event-tomorrow">내일 14-15시</button>
+                <button type="button" data-time-preset="event-evening">오늘 저녁 2시간</button>
+                <button type="button" data-time-preset="range-week">이번 주 범위</button>
+                <button type="button" data-time-preset="range-next7">오늘부터 7일</button>
+              </div>
+              <p class="muted">본문에서는 <code>{eventStart}</code>, <code>{eventEnd}</code>, <code>{rangeStart}</code>, <code>{rangeEnd}</code> 토큰이 자동으로 <code>+09:00</code> 시간대 문자열로 바뀝니다.</p>
               <label>Method<input id="method" /></label>
               <label>Path<input id="path" /></label>
               <label>JSON Body<textarea id="body"></textarea></label>
@@ -236,6 +280,10 @@
     </main>
 
     <script>
+      const AUTH_TOKEN_KEY = "now-what-api-playground-token";
+      const AUTH_USER_KEY = "now-what-api-playground-user";
+      const KST_OFFSET = "+09:00";
+
       const presets = [
         {
           key: "health",
@@ -246,7 +294,7 @@
           body: "",
           help: "서버 상태를 빠르게 확인합니다.",
           requires: "없음",
-          next: "정상이라면 유저 생성으로 넘어가세요."
+          next: "정상이라면 가입/로그인을 진행하세요."
         },
         {
           key: "list-users",
@@ -257,18 +305,37 @@
           body: "",
           help: "현재 등록된 유저 목록을 확인합니다.",
           requires: "없음",
-          next: "유저가 없다면 생성부터 진행하세요."
+          next: "유저가 없다면 로그인 카드에서 가입 후 로그인을 누르세요."
         },
         {
-          key: "create-user",
-          group: "유저",
-          label: "POST /users",
+          key: "login-user",
+          group: "인증",
+          label: "POST /users/login",
           method: "POST",
-          path: "/api/v1/users",
-          body: "{\n  \"email\": \"playground-{timestamp}@example.com\",\n  \"name\": \"API Playground User\"\n}",
-          help: "새 유저를 만듭니다. 최소 필드만 사용합니다.",
-          requires: "없음",
-          next: "응답의 user_id가 자동 반영됩니다."
+          path: "/api/v1/users/login",
+          body: `{
+  "email": "{authEmail}",
+  "password": "{authPassword}"
+}`,
+          help: "이메일/비밀번호로 로그인하고 access_token을 저장합니다.",
+          requires: "email, password",
+          next: "토큰이 저장되면 보호된 API 요청에 자동으로 Authorization 헤더가 붙습니다."
+        },
+        {
+          key: "register-user",
+          group: "인증",
+          label: "POST /users/register",
+          method: "POST",
+          path: "/api/v1/users/register",
+          body: `{
+  "email": "{authEmail}",
+  "name": "{authName}",
+  "password": "{authPassword}",
+  "timezone": "Asia/Seoul"
+}`,
+          help: "테스트용 계정을 생성합니다. 생성 후에는 로그인 요청으로 토큰을 받아야 합니다.",
+          requires: "email, name, password",
+          next: "로그인 카드의 로그인 버튼을 누르세요."
         },
         {
           key: "create-fixed-once",
@@ -276,9 +343,13 @@
           label: "POST /schedules/fixed (1회)",
           method: "POST",
           path: "/api/v1/schedules/fixed",
-          body: "{\n  \"user_id\": {userId},\n  \"title\": \"발표 리허설\",\n  \"start_at\": \"2026-04-14T14:00:00+09:00\",\n  \"end_at\": \"2026-04-14T15:00:00+09:00\"\n}",
+          body: `{
+  "title": "발표 리허설",
+  "start_at": "{eventStart}",
+  "end_at": "{eventEnd}"
+}`,
           help: "한 번만 있는 고정 일정을 등록합니다.",
-          requires: "userId",
+          requires: "로그인 토큰, 일정 시작/종료",
           next: "반복 일정이 필요하면 다음 프리셋을 사용하세요."
         },
         {
@@ -287,9 +358,14 @@
           label: "POST /schedules/fixed (반복)",
           method: "POST",
           path: "/api/v1/schedules/fixed",
-          body: "{\n  \"user_id\": {userId},\n  \"title\": \"주간 팀 미팅\",\n  \"start_at\": \"2026-04-14T14:00:00+09:00\",\n  \"end_at\": \"2026-04-14T15:00:00+09:00\",\n  \"recurrence_rule\": \"weekly\"\n}",
+          body: `{
+  "title": "주간 팀 미팅",
+  "start_at": "{eventStart}",
+  "end_at": "{eventEnd}",
+  "recurrence_rule": "weekly"
+}`,
           help: "반복 고정 일정을 등록합니다.",
-          requires: "userId",
+          requires: "로그인 토큰, 일정 시작/종료",
           next: "recurrence_rule에는 daily, weekly, biweekly를 사용할 수 있습니다."
         },
         {
@@ -298,9 +374,17 @@
           label: "POST /tasks/flexible",
           method: "POST",
           path: "/api/v1/tasks/flexible",
-          body: "{\n  \"user_id\": {userId},\n  \"title\": \"이번 주 공부 5시간\",\n  \"estimated_minutes\": 300\n}",
+          body: `{
+  "title": "이번 주 공부 5시간",
+  "estimated_minutes": 300,
+  "min_session_minutes": 60,
+  "preferred_session_minutes": 120,
+  "max_minutes_per_day": 180,
+  "priority": 3,
+  "due_at": "{rangeEnd}"
+}`,
           help: "가변 일정 하나를 등록합니다.",
-          requires: "userId",
+          requires: "로그인 토큰",
           next: "이후 자동 배치에서 빈 시간에 들어갑니다."
         },
         {
@@ -309,7 +393,9 @@
           label: "POST /goals/intake",
           method: "POST",
           path: "/api/v1/goals/intake",
-          body: "{\n  \"text\": \"캡스톤 데모 페이지를 4월 25일까지 완성하고 싶어요. 주당 8시간 정도 가능하고 평일 저녁에 작업하기 좋습니다.\"\n}",
+          body: `{
+  "text": "캡스톤 데모 페이지를 4월 25일까지 완성하고 싶어요. 주당 8시간 정도 가능하고 평일 저녁에 작업하기 좋습니다."
+}`,
           help: "자연어 목표를 분석해서 제목, 카테고리, 추가 질문을 만듭니다.",
           requires: "없음",
           next: "질문 답을 채운 뒤 goals/complete로 이어가세요."
@@ -320,9 +406,15 @@
           label: "POST /goals/complete",
           method: "POST",
           path: "/api/v1/goals/complete",
-          body: "{\n  \"user_id\": {userId},\n  \"text\": \"캡스톤 데모 페이지를 4월 25일까지 완성하고 싶어요. 주당 8시간 정도 가능하고 평일 저녁에 작업하기 좋습니다.\",\n  \"answers_json\": {\n    \"weekly_available_hours\": 8,\n    \"constraints\": \"평일 저녁에만 가능합니다.\"\n  }\n}",
+          body: `{
+  "text": "캡스톤 데모 페이지를 4월 25일까지 완성하고 싶어요. 주당 8시간 정도 가능하고 평일 저녁에 작업하기 좋습니다.",
+  "answers_json": {
+    "weekly_available_hours": 8,
+    "constraints": "평일 저녁에만 가능합니다."
+  }
+}`,
           help: "자연어 목표와 추가 답변을 받아 목표 저장과 계획 생성을 한 번에 처리합니다.",
-          requires: "userId",
+          requires: "로그인 토큰",
           next: "응답에서 goal과 plan을 받은 뒤 planner/allocate를 호출하세요."
         },
         {
@@ -331,9 +423,12 @@
           label: "POST /planner/allocate",
           method: "POST",
           path: "/api/v1/planner/allocate",
-          body: "{\n  \"user_id\": {userId},\n  \"range_start\": \"2026-04-13T09:00:00+09:00\",\n  \"range_end\": \"2026-04-20T21:00:00+09:00\"\n}",
+          body: `{
+  "range_start": "{rangeStart}",
+  "range_end": "{rangeEnd}"
+}`,
           help: "고정 일정과 목표 계획을 제외한 빈 시간에 작업을 배치합니다.",
-          requires: "userId, range_start, range_end",
+          requires: "로그인 토큰, 조회/배정 시작/종료",
           next: "마지막으로 calendar를 조회하면 결과를 한 번에 확인할 수 있습니다."
         },
         {
@@ -341,10 +436,10 @@
           group: "캘린더",
           label: "GET /calendar",
           method: "GET",
-          path: "/api/v1/calendar?user_id={userId}&start={start}&end={end}",
+          path: "/api/v1/calendar?start={rangeStart}&end={rangeEnd}",
           body: "",
           help: "통합 시간표를 조회합니다.",
-          requires: "userId, start, end",
+          requires: "로그인 토큰, 조회 시작/종료",
           next: "캘린더 전용 데모 페이지와 같이 보면 더 보기 좋습니다."
         }
       ];
@@ -359,6 +454,8 @@
       const responseOutput = byId("response-output");
       const statusPill = byId("status-pill");
       const messageBox = byId("message-box");
+      let authToken = localStorage.getItem(AUTH_TOKEN_KEY) || "";
+      let authUser = readStoredUser();
 
       presets.forEach((preset, index) => {
         const option = document.createElement("option");
@@ -377,15 +474,44 @@
         });
       });
 
+      document.querySelectorAll("[data-auth-action]").forEach((button) => {
+        button.addEventListener("click", registerAndLogin);
+      });
+
+      document.querySelectorAll("[data-time-preset]").forEach((button) => {
+        button.addEventListener("click", () => applyTimePreset(button.dataset.timePreset));
+      });
+
       presetSelect.addEventListener("change", loadSelectedPreset);
       byId("reload-button").addEventListener("click", loadSelectedPreset);
       byId("send-button").addEventListener("click", sendRequest);
       byId("copy-body-button").addEventListener("click", copyBody);
+      byId("login-button").addEventListener("click", loginFromForm);
+      byId("register-login-button").addEventListener("click", registerAndLogin);
+      byId("clear-token-button").addEventListener("click", clearToken);
 
-      ["userId", "goalId", "scheduleId", "taskId", "start", "end", "method", "path", "body"].forEach((id) => {
+      [
+        "userId",
+        "goalId",
+        "scheduleId",
+        "taskId",
+        "eventStart",
+        "eventEnd",
+        "rangeStart",
+        "rangeEnd",
+        "authEmail",
+        "authPassword",
+        "authName",
+        "method",
+        "path",
+        "body"
+      ].forEach((id) => {
         byId(id).addEventListener("input", refreshPreview);
       });
 
+      initializeTimeInputs();
+      hydrateAuthForm();
+      updateAuthStatus();
       loadSelectedPreset();
       renderHistory();
 
@@ -407,13 +533,22 @@
       }
 
       function tokenMap() {
+        const rangeStart = toKstIso(byId("rangeStart").value.trim());
+        const rangeEnd = toKstIso(byId("rangeEnd").value.trim());
         return {
           "{userId}": byId("userId").value.trim(),
           "{goalId}": byId("goalId").value.trim(),
           "{scheduleId}": byId("scheduleId").value.trim(),
           "{taskId}": byId("taskId").value.trim(),
-          "{start}": byId("start").value.trim(),
-          "{end}": byId("end").value.trim(),
+          "{eventStart}": toKstIso(byId("eventStart").value.trim()),
+          "{eventEnd}": toKstIso(byId("eventEnd").value.trim()),
+          "{rangeStart}": rangeStart,
+          "{rangeEnd}": rangeEnd,
+          "{start}": rangeStart,
+          "{end}": rangeEnd,
+          "{authEmail}": byId("authEmail").value.trim(),
+          "{authPassword}": byId("authPassword").value,
+          "{authName}": byId("authName").value.trim(),
           "{timestamp}": String(Date.now())
         };
       }
@@ -452,19 +587,27 @@
         byId("summary-user-id").textContent = byId("userId").value || "-";
         byId("summary-goal-id").textContent = byId("goalId").value || "-";
         requestPreview.textContent = resolvedBody || '{\n  "hint": "이 API는 본문이 필요 없습니다."\n}';
+        updateAuthStatus();
       }
 
       async function sendRequest() {
         const method = methodInput.value.trim().toUpperCase();
         const path = buildRequestPath(pathInput.value.trim());
         const rawBody = replaceTokens(bodyInput.value);
-        const options = { method };
+        const headers = {};
+        const options = { method, headers };
 
         statusPill.textContent = "실행 중";
         try {
           if (rawBody.trim()) {
-            options.headers = { "Content-Type": "application/json" };
+            headers["Content-Type"] = "application/json";
             options.body = rawBody;
+          }
+          if (authToken) {
+            headers.Authorization = `Bearer ${authToken}`;
+          }
+          if (!Object.keys(headers).length) {
+            delete options.headers;
           }
 
           const response = await fetch(path, options);
@@ -478,7 +621,7 @@
             message(payload.detail || "요청 처리에 실패했습니다.", true);
             return;
           }
-          message("요청이 정상 처리되었습니다.");
+          message(authToken ? "요청이 정상 처리되었습니다. Authorization 헤더도 함께 전송했습니다." : "요청이 정상 처리되었습니다.");
         } catch (error) {
           statusPill.textContent = "오류";
           byId("summary-status").textContent = "오류";
@@ -487,8 +630,100 @@
         }
       }
 
+      async function registerAndLogin() {
+        setAuthBusy(true);
+        try {
+          const registerPayload = {
+            email: byId("authEmail").value.trim(),
+            name: byId("authName").value.trim() || "Playground User",
+            password: byId("authPassword").value,
+            timezone: "Asia/Seoul"
+          };
+
+          const registerResponse = await fetch("/api/v1/users/register", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(registerPayload)
+          });
+          const registerJson = await registerResponse.json().catch(() => ({}));
+          if (registerResponse.ok && registerJson.id) {
+            byId("userId").value = String(registerJson.id);
+          } else if (registerResponse.status !== 409) {
+            throw new Error(formatApiError(registerJson, "회원가입에 실패했습니다."));
+          }
+
+          await loginFromForm({ quiet: true });
+          setAuthMessage(registerResponse.status === 409 ? "이미 있는 계정으로 로그인했습니다." : "계정을 만들고 로그인했습니다.");
+        } catch (error) {
+          setAuthMessage(error.message || "가입/로그인에 실패했습니다.", true);
+        } finally {
+          setAuthBusy(false);
+        }
+      }
+
+      async function loginFromForm(options = {}) {
+        setAuthBusy(true);
+        try {
+          const response = await fetch("/api/v1/users/login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              email: byId("authEmail").value.trim(),
+              password: byId("authPassword").value
+            })
+          });
+          const payload = await response.json().catch(() => ({}));
+          if (!response.ok) {
+            throw new Error(formatApiError(payload, "로그인에 실패했습니다."));
+          }
+          storeAuth(payload);
+          responseOutput.textContent = JSON.stringify(payload, null, 2);
+          byId("summary-status").textContent = String(response.status);
+          statusPill.textContent = String(response.status);
+          addHistory("POST", "/api/v1/users/login", response.status);
+          if (!options.quiet) {
+            setAuthMessage("로그인했습니다. 이제 API 요청에 토큰이 자동으로 붙습니다.");
+            message("로그인했습니다. 보호된 API 테스트를 바로 진행할 수 있습니다.");
+          }
+        } finally {
+          setAuthBusy(false);
+        }
+      }
+
+      function storeAuth(payload) {
+        if (!payload || !payload.access_token) {
+          return;
+        }
+        authToken = payload.access_token;
+        authUser = payload.user || null;
+        localStorage.setItem(AUTH_TOKEN_KEY, authToken);
+        if (authUser) {
+          localStorage.setItem(AUTH_USER_KEY, JSON.stringify(authUser));
+          byId("userId").value = String(authUser.id);
+          byId("authEmail").value = authUser.email || byId("authEmail").value;
+          byId("authName").value = authUser.name || byId("authName").value;
+        }
+        updateAuthStatus();
+        refreshPreview();
+      }
+
+      function clearToken() {
+        authToken = "";
+        authUser = null;
+        localStorage.removeItem(AUTH_TOKEN_KEY);
+        localStorage.removeItem(AUTH_USER_KEY);
+        updateAuthStatus();
+        setAuthMessage("저장된 토큰을 지웠습니다.");
+      }
+
       function captureIds(payload) {
         if (payload && typeof payload === "object") {
+          if (payload.access_token) {
+            storeAuth(payload);
+          }
+          if (payload.user && payload.user.id) {
+            byId("userId").value = String(payload.user.id);
+          }
           if (payload.id && payload.email) {
             byId("userId").value = String(payload.id);
           }
@@ -506,6 +741,163 @@
           }
         }
         refreshPreview();
+      }
+
+      function initializeTimeInputs() {
+        const now = new Date();
+        const tomorrow = addDays(now, 1);
+        setLocalTime(tomorrow, 14, 0);
+        const tomorrowEnd = new Date(tomorrow);
+        setLocalTime(tomorrowEnd, 15, 0);
+
+        const rangeStart = startOfWeek(now);
+        setLocalTime(rangeStart, 9, 0);
+        const rangeEnd = addDays(rangeStart, 7);
+        setLocalTime(rangeEnd, 21, 0);
+
+        byId("eventStart").value = toDateTimeLocalValue(tomorrow);
+        byId("eventEnd").value = toDateTimeLocalValue(tomorrowEnd);
+        byId("rangeStart").value = toDateTimeLocalValue(rangeStart);
+        byId("rangeEnd").value = toDateTimeLocalValue(rangeEnd);
+      }
+
+      function applyTimePreset(preset) {
+        const now = new Date();
+        if (preset === "event-tomorrow") {
+          const start = addDays(now, 1);
+          setLocalTime(start, 14, 0);
+          const end = new Date(start);
+          setLocalTime(end, 15, 0);
+          setEventWindow(start, end);
+        }
+        if (preset === "event-evening") {
+          const start = new Date(now);
+          setLocalTime(start, 19, 0);
+          const end = new Date(start);
+          setLocalTime(end, 21, 0);
+          setEventWindow(start, end);
+        }
+        if (preset === "range-week") {
+          const start = startOfWeek(now);
+          setLocalTime(start, 9, 0);
+          const end = addDays(start, 7);
+          setLocalTime(end, 21, 0);
+          setRangeWindow(start, end);
+        }
+        if (preset === "range-next7") {
+          const start = new Date(now);
+          setLocalTime(start, 9, 0);
+          const end = addDays(start, 7);
+          setLocalTime(end, 21, 0);
+          setRangeWindow(start, end);
+        }
+        refreshPreview();
+      }
+
+      function setEventWindow(start, end) {
+        byId("eventStart").value = toDateTimeLocalValue(start);
+        byId("eventEnd").value = toDateTimeLocalValue(end);
+      }
+
+      function setRangeWindow(start, end) {
+        byId("rangeStart").value = toDateTimeLocalValue(start);
+        byId("rangeEnd").value = toDateTimeLocalValue(end);
+      }
+
+      function toKstIso(value) {
+        if (!value) {
+          return "";
+        }
+        if (/[zZ]$|[+-]\d{2}:\d{2}$/.test(value)) {
+          return value;
+        }
+        return `${value.length === 16 ? `${value}:00` : value}${KST_OFFSET}`;
+      }
+
+      function toDateTimeLocalValue(date) {
+        return [
+          date.getFullYear(),
+          "-",
+          pad(date.getMonth() + 1),
+          "-",
+          pad(date.getDate()),
+          "T",
+          pad(date.getHours()),
+          ":",
+          pad(date.getMinutes())
+        ].join("");
+      }
+
+      function startOfWeek(date) {
+        const value = new Date(date);
+        const day = value.getDay();
+        const diff = day === 0 ? -6 : 1 - day;
+        value.setDate(value.getDate() + diff);
+        return value;
+      }
+
+      function addDays(date, days) {
+        const value = new Date(date);
+        value.setDate(value.getDate() + days);
+        return value;
+      }
+
+      function setLocalTime(date, hours, minutes) {
+        date.setHours(hours, minutes, 0, 0);
+      }
+
+      function pad(value) {
+        return String(value).padStart(2, "0");
+      }
+
+      function hydrateAuthForm() {
+        if (!authUser) {
+          return;
+        }
+        byId("authEmail").value = authUser.email || byId("authEmail").value;
+        byId("authName").value = authUser.name || byId("authName").value;
+        if (authUser.id) {
+          byId("userId").value = String(authUser.id);
+        }
+      }
+
+      function readStoredUser() {
+        try {
+          return JSON.parse(localStorage.getItem(AUTH_USER_KEY) || "null");
+        } catch {
+          return null;
+        }
+      }
+
+      function updateAuthStatus() {
+        const pill = byId("auth-pill");
+        if (authToken) {
+          pill.textContent = authUser ? `로그인됨 #${authUser.id}` : "토큰 있음";
+          pill.classList.remove("warn");
+          pill.classList.add("ok");
+          return;
+        }
+        pill.textContent = "토큰 없음";
+        pill.classList.add("warn");
+        pill.classList.remove("ok");
+      }
+
+      function setAuthBusy(isBusy) {
+        byId("login-button").disabled = isBusy;
+        byId("register-login-button").disabled = isBusy;
+      }
+
+      function setAuthMessage(text, isError = false) {
+        const element = byId("auth-message");
+        element.textContent = text;
+        element.classList.toggle("error", Boolean(isError));
+      }
+
+      function formatApiError(payload, fallback) {
+        if (payload && payload.detail) {
+          return Array.isArray(payload.detail) ? JSON.stringify(payload.detail) : String(payload.detail);
+        }
+        return fallback;
       }
 
       function addHistory(method, path, status) {

@@ -192,8 +192,6 @@ export const authAPI = {
   me: () => apiClient.get<User>("/auth/me"),
   loginWithGoogle: (credential: string) =>
     apiClient.post<LoginResponse>("/auth/google", { credential }),
-  loginWithKakao: (accessToken: string) =>
-    apiClient.post<LoginResponse>("/auth/kakao", { access_token: accessToken }),
 };
 
 export const userAPI = {

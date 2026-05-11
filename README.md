@@ -114,6 +114,9 @@ The application uses PostgreSQL with the following main tables:
 
 ## API Endpoints
 
+Backend API inventory and capstone cleanup priorities are organized in [docs/backend-api-list.md](docs/backend-api-list.md).
+Generated API reference is available at [docs/api-reference.md](docs/api-reference.md).
+
 ### Main Endpoints
 - `POST /api/v1/users` - Create user
 - `GET /api/v1/users` - List users
