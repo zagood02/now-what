@@ -8,6 +8,7 @@ from backend.models.ai_plan import AIPlan, AIPlanItem
 from backend.models.enums import GoalStatus, PlanStatus
 from backend.models.goal import Goal
 from backend.models.user import User
+from backend.schemas.base import Message
 from backend.schemas.goals import AIPlanRead, GoalCreate, GoalDetailRead, GoalRead, GoalUpdate
 from backend.schemas.planning import (
     GoalCompleteRequest,
@@ -85,6 +86,18 @@ def update_goal(
     session.commit()
     session.refresh(goal)
     return goal
+
+
+@router.delete("/goals/{goal_id}", response_model=Message)
+def delete_goal(
+    goal_id: int,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_db_session),
+) -> Message:
+    goal = require_owned_resource(session, Goal, goal_id, current_user.id, detail="Goal not found.")
+    session.delete(goal)
+    session.commit()
+    return Message(detail="Goal deleted.")
 
 
 @router.post("/goals/intake", response_model=GoalIntakeResponse)

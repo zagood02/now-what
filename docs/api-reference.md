@@ -58,12 +58,14 @@ Parameters:
 | --- | --- | --- | --- | --- | --- | --- |
 | `GET` | `/api/v1/tasks/flexible` | Required | - | `list[FlexibleTaskRead]` | `200` | List Flexible Tasks |
 | `POST` | `/api/v1/tasks/flexible` | Required | `FlexibleTaskCreate` | `FlexibleTaskRead` | `201` | Create Flexible Task |
+| `DELETE` | `/api/v1/tasks/flexible/allocations/{allocation_id}` | Required | - | `Message` | `200` | Delete Allocated Task |
 | `GET` | `/api/v1/tasks/flexible/{task_id}` | Required | - | `FlexibleTaskRead` | `200` | Get Flexible Task |
 | `PATCH` | `/api/v1/tasks/flexible/{task_id}` | Required | `FlexibleTaskUpdate` | `FlexibleTaskRead` | `200` | Update Flexible Task |
 | `DELETE` | `/api/v1/tasks/flexible/{task_id}` | Required | - | `Message` | `200` | Delete Flexible Task |
 
 Parameters:
 
+- `DELETE /api/v1/tasks/flexible/allocations/{allocation_id}`: `allocation_id` (path, required, integer)
 - `GET /api/v1/tasks/flexible/{task_id}`: `task_id` (path, required, integer)
 - `PATCH /api/v1/tasks/flexible/{task_id}`: `task_id` (path, required, integer)
 - `DELETE /api/v1/tasks/flexible/{task_id}`: `task_id` (path, required, integer)
@@ -78,11 +80,13 @@ Parameters:
 | `POST` | `/api/v1/goals/intake` | Public | `GoalIntakeRequest` | `GoalIntakeResponse` | `200` | Intake Goal |
 | `GET` | `/api/v1/goals/{goal_id}` | Required | - | `GoalDetailRead` | `200` | Get Goal |
 | `PATCH` | `/api/v1/goals/{goal_id}` | Required | `GoalUpdate` | `GoalRead` | `200` | Update Goal |
+| `DELETE` | `/api/v1/goals/{goal_id}` | Required | - | `Message` | `200` | Delete Goal |
 
 Parameters:
 
 - `GET /api/v1/goals/{goal_id}`: `goal_id` (path, required, integer)
 - `PATCH /api/v1/goals/{goal_id}`: `goal_id` (path, required, integer)
+- `DELETE /api/v1/goals/{goal_id}`: `goal_id` (path, required, integer)
 
 ### health
 
@@ -102,6 +106,13 @@ Parameters:
 | Method | Path | Auth | Request | Response | Status | Summary |
 | --- | --- | --- | --- | --- | --- | --- |
 | `POST` | `/api/v1/planner/allocate` | Required | `AllocateRequest` | `AllocateResponse` | `200` | Allocate Schedule |
+| `DELETE` | `/api/v1/planner/plan-items/{item_id}/schedule` | Required | - | `AIPlanItemRead` | `200` | Unschedule Plan Item |
+| `POST` | `/api/v1/planner/plan-items/{item_id}/skip` | Required | - | `AIPlanItemRead` | `200` | Skip Plan Item |
+
+Parameters:
+
+- `DELETE /api/v1/planner/plan-items/{item_id}/schedule`: `item_id` (path, required, integer)
+- `POST /api/v1/planner/plan-items/{item_id}/skip`: `item_id` (path, required, integer)
 
 ### users
 
@@ -119,6 +130,28 @@ Parameters:
 
 ## Referenced Schemas
 
+### `AIPlanItemRead`
+
+| Field | Type | Required |
+| --- | --- | --- |
+| `id` | `integer` | yes |
+| `ai_plan_id` | `integer` | yes |
+| `goal_id` | `integer` | yes |
+| `user_id` | `integer` | yes |
+| `title` | `string` | yes |
+| `description` | `string or null` | yes |
+| `item_type` | `string` | yes |
+| `estimated_minutes` | `integer` | yes |
+| `priority` | `integer` | yes |
+| `target_date` | `string or null` | yes |
+| `is_schedulable` | `boolean` | yes |
+| `scheduled_start` | `string or null` | yes |
+| `scheduled_end` | `string or null` | yes |
+| `status` | `PlanItemStatus` | yes |
+| `metadata_json` | `dict[str, Any]` | yes |
+| `created_at` | `string` | yes |
+| `updated_at` | `string` | yes |
+
 ### `AllocateRequest`
 
 | Field | Type | Required |
@@ -128,6 +161,8 @@ Parameters:
 | `range_end` | `string` | yes |
 | `day_start` | `string or null` | no |
 | `day_end` | `string or null` | no |
+| `buffer_minutes` | `integer or null` | no |
+| `max_auto_minutes_per_day` | `integer or null` | no |
 | `clear_existing` | `boolean` | no |
 
 ### `AllocateResponse`

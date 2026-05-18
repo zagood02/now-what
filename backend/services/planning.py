@@ -119,34 +119,45 @@ class PlanningService:
         GoalCategory.habit: ("습관", "루틴", "수면", "독서", "기록", "일기"),
     }
     COMMON_QUESTIONS: list[GoalQuestion] = [
-        GoalQuestion(key="target_date", prompt="What is your target date?", answer_type="date", help_text="Include a final deadline or milestone."),
-        GoalQuestion(key="weekly_available_hours", prompt="How many hours per week can you invest?", answer_type="number", help_text="Use a realistic number you can sustain."),
-        GoalQuestion(key="constraints", prompt="Any schedule or energy constraints?", answer_type="text", required=False, help_text="Examples: busy weekdays, commuting, low-energy evenings."),
+        GoalQuestion(key="target_date", prompt="언제까지 완료해야 하나요?", answer_type="date", help_text="최종 마감일이나 중간 점검일이 있으면 적어주세요."),
+        GoalQuestion(key="weekly_available_hours", prompt="일주일에 현실적으로 몇 시간 정도 투자할 수 있나요?", answer_type="number", help_text="꾸준히 지킬 수 있는 시간을 숫자로 입력해주세요."),
+        GoalQuestion(key="preferred_work_times", prompt="집중하기 좋은 시간대는 언제인가요?", answer_type="text", required=False, help_text="예: 평일 저녁 7-10시, 주말 오전, 점심시간 30분"),
+        GoalQuestion(key="unavailable_times", prompt="일정에서 피해야 할 시간대가 있나요?", answer_type="text", required=False, help_text="예: 화/목 수업 직후, 출퇴근 시간, 늦은 밤"),
+        GoalQuestion(
+            key="session_preference",
+            prompt="작업 세션은 어떤 방식이 가장 잘 맞나요?",
+            answer_type="select",
+            required=False,
+            help_text="자동 배정 시 작업을 너무 잘게 쪼개지 않도록 참고합니다.",
+            options=["짧게 자주", "보통 길이로 균형 있게", "길게 몰아서"],
+        ),
+        GoalQuestion(key="constraints", prompt="체력, 집중력, 이동, 생활 패턴상 꼭 고려해야 할 제약이 있나요?", answer_type="text", required=False, help_text="예: 평일은 에너지가 낮음, 고정 일정 직후에는 쉬어야 함"),
     ]
     CATEGORY_QUESTIONS: dict[GoalCategory, list[GoalQuestion]] = {
         GoalCategory.study: [
-            GoalQuestion(key="current_level", prompt="What is your current level or score?", answer_type="text"),
-            GoalQuestion(key="strong_weak_topics", prompt="What topics are strong and weak?", answer_type="text"),
-            GoalQuestion(key="materials", prompt="What materials are you already using?", answer_type="text", required=False),
+            GoalQuestion(key="current_level", prompt="현재 수준이나 최근 점수는 어느 정도인가요?", answer_type="text"),
+            GoalQuestion(key="strong_weak_topics", prompt="강한 부분과 약한 부분은 무엇인가요?", answer_type="text", help_text="예: 개념은 이해하지만 문제풀이 속도가 느림"),
+            GoalQuestion(key="materials", prompt="이미 사용 중인 교재, 강의, 자료가 있나요?", answer_type="text", required=False),
         ],
         GoalCategory.health: [
-            GoalQuestion(key="current_state", prompt="What is your current condition?", answer_type="text"),
-            GoalQuestion(key="target_metric", prompt="What metric are you aiming for?", answer_type="text"),
-            GoalQuestion(key="diet_constraints", prompt="Any diet or recovery constraints?", answer_type="text", required=False),
+            GoalQuestion(key="current_state", prompt="현재 몸 상태나 운동 경험은 어떤가요?", answer_type="text"),
+            GoalQuestion(key="target_metric", prompt="목표로 삼는 지표가 있나요?", answer_type="text", help_text="예: 체중, 체지방률, 러닝 거리, 주당 운동 횟수"),
+            GoalQuestion(key="diet_constraints", prompt="식단, 회복, 부상 관련 제약이 있나요?", answer_type="text", required=False),
         ],
         GoalCategory.work: [
-            GoalQuestion(key="current_progress", prompt="How far along are you now?", answer_type="text"),
-            GoalQuestion(key="deliverables", prompt="What final deliverables do you need?", answer_type="text"),
-            GoalQuestion(key="review_cycle", prompt="How often can you get feedback?", answer_type="text", required=False),
+            GoalQuestion(key="current_progress", prompt="현재 어디까지 진행되어 있나요?", answer_type="text"),
+            GoalQuestion(key="deliverables", prompt="최종 산출물은 무엇이어야 하나요?", answer_type="text", help_text="예: 발표 자료, 데모, 보고서, 포트폴리오 페이지"),
+            GoalQuestion(key="review_cycle", prompt="피드백이나 검토를 받을 수 있는 주기는 어떻게 되나요?", answer_type="text", required=False),
         ],
         GoalCategory.habit: [
-            GoalQuestion(key="current_pattern", prompt="What does your current routine look like?", answer_type="text"),
-            GoalQuestion(key="trigger", prompt="What cue could trigger the habit?", answer_type="text"),
-            GoalQuestion(key="obstacles", prompt="What has been getting in the way?", answer_type="text"),
+            GoalQuestion(key="current_pattern", prompt="현재 루틴은 어떻게 흘러가고 있나요?", answer_type="text"),
+            GoalQuestion(key="trigger", prompt="습관을 시작하게 만들 신호나 계기는 무엇이 좋을까요?", answer_type="text", help_text="예: 아침 식사 후, 퇴근 직후, 잠들기 전"),
+            GoalQuestion(key="obstacles", prompt="지금까지 이 습관을 방해한 요인은 무엇인가요?", answer_type="text"),
         ],
         GoalCategory.general: [
-            GoalQuestion(key="current_state", prompt="Briefly describe your current situation.", answer_type="text"),
-            GoalQuestion(key="success_definition", prompt="How will you know this goal is successful?", answer_type="text"),
+            GoalQuestion(key="current_state", prompt="현재 상황을 간단히 설명해주세요.", answer_type="text"),
+            GoalQuestion(key="success_definition", prompt="이 목표가 성공했다고 판단할 기준은 무엇인가요?", answer_type="text"),
+            GoalQuestion(key="first_milestone", prompt="가장 먼저 끝내야 할 중간 목표가 있나요?", answer_type="text", required=False),
         ],
     }
     BLUEPRINTS: dict[GoalCategory, dict[str, list[str] | list[tuple[str, str, str, int, int]]]] = {
@@ -325,6 +336,9 @@ class PlanningService:
             "focus_areas": blueprint["focus_areas"],
             "routines": blueprint["routines"],
             "constraints": answers.get("constraints"),
+            "preferred_work_times": answers.get("preferred_work_times"),
+            "unavailable_times": answers.get("unavailable_times"),
+            "session_preference": answers.get("session_preference"),
         }
         recommendations_json = {
             "materials": blueprint["materials"],

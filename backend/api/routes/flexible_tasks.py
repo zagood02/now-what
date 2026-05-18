@@ -1,10 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from backend.api.deps import get_current_user, require_owned_resource
 from backend.core.timezone import normalize_optional_to_kst_naive
 from backend.db.session import get_db_session
+from backend.models.allocated_task import AllocatedTask
+from backend.models.enums import FlexibleTaskStatus
 from backend.models.flexible_task import FlexibleTask
 from backend.models.user import User
 from backend.schemas.base import Message
@@ -67,6 +69,34 @@ def list_flexible_tasks(
         .order_by(FlexibleTask.priority.desc(), FlexibleTask.id.asc())
     )
     return session.scalars(query).all()
+
+
+@router.delete("/allocations/{allocation_id}", response_model=Message)
+def delete_allocated_task(
+    allocation_id: int,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_db_session),
+) -> Message:
+    allocation = require_owned_resource(
+        session,
+        AllocatedTask,
+        allocation_id,
+        current_user.id,
+        detail="Allocated task not found.",
+    )
+    task_id = allocation.flexible_task_id
+    session.delete(allocation)
+    session.flush()
+
+    task = session.get(FlexibleTask, task_id)
+    if task and task.status not in {FlexibleTaskStatus.completed, FlexibleTaskStatus.cancelled}:
+        remaining_allocations = session.scalar(
+            select(func.count(AllocatedTask.id)).where(AllocatedTask.flexible_task_id == task_id)
+        )
+        task.status = FlexibleTaskStatus.scheduled if remaining_allocations else FlexibleTaskStatus.pending
+
+    session.commit()
+    return Message(detail="Allocated task deleted.")
 
 
 @router.get("/{task_id}", response_model=FlexibleTaskRead)

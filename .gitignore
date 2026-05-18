@@ -12,6 +12,7 @@
 
 # testing
 /coverage
+pytest-cache-files-*/
 
 # next.js
 /.next/
@@ -23,6 +24,9 @@
 # misc
 .DS_Store
 *.pem
+.vscode/
+*.backup
+*.broken
 
 # debug
 npm-debug.log*

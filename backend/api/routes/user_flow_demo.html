@@ -3,26 +3,28 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Goal Intake Lab</title>
+    <title>User Flow Demo</title>
     <style>
       :root {
-        --bg-0: #f4efe6;
-        --bg-1: #e8f0ef;
-        --panel: rgba(255, 255, 255, 0.92);
+        --bg-0: #f6f7f9;
+        --bg-1: #eef3f5;
+        --panel: #ffffff;
         --panel-strong: #ffffff;
-        --line: #d8ddd4;
-        --line-strong: #b7c4bc;
-        --text: #18211d;
-        --muted: #5b675f;
-        --accent: #14532d;
-        --accent-soft: #e6f4ea;
+        --line: #dbe3ea;
+        --line-strong: #b8c5d1;
+        --text: #172033;
+        --muted: #637083;
+        --accent: #0f766e;
+        --accent-soft: #e6f7f4;
+        --info: #2563eb;
+        --info-soft: #eaf2ff;
         --warm: #b45309;
-        --warm-soft: #fff4e5;
+        --warm-soft: #fff5e8;
         --danger: #b91c1c;
         --danger-soft: #fef2f2;
-        --shadow: 0 18px 40px rgba(19, 30, 24, 0.08);
-        --radius: 22px;
-        --radius-sm: 16px;
+        --shadow: 0 8px 22px rgba(23, 32, 51, 0.06);
+        --radius: 10px;
+        --radius-sm: 8px;
         --mono: "IBM Plex Mono", "Cascadia Code", "Consolas", monospace;
       }
 
@@ -32,10 +34,7 @@
         margin: 0;
         color: var(--text);
         font-family: "IBM Plex Sans KR", "Pretendard Variable", "Segoe UI", sans-serif;
-        background:
-          radial-gradient(circle at top right, rgba(20, 83, 45, 0.12), transparent 28%),
-          radial-gradient(circle at top left, rgba(180, 83, 9, 0.09), transparent 24%),
-          linear-gradient(180deg, var(--bg-0) 0%, var(--bg-1) 100%);
+        background: linear-gradient(180deg, var(--bg-0) 0%, var(--bg-1) 100%);
       }
 
       a { color: inherit; }
@@ -69,7 +68,7 @@
       }
 
       .hero {
-        border-radius: calc(var(--radius) + 4px);
+        border-radius: var(--radius);
         padding: 28px;
         display: flex;
         justify-content: space-between;
@@ -94,14 +93,14 @@
         color: var(--accent);
         font-size: 12px;
         font-weight: 700;
-        letter-spacing: 0.04em;
+        letter-spacing: 0;
         text-transform: uppercase;
       }
 
       .hero h1 {
         font-size: clamp(2rem, 3vw, 3rem);
         line-height: 1.05;
-        letter-spacing: -0.03em;
+        letter-spacing: 0;
       }
 
       .hero p {
@@ -114,6 +113,42 @@
         display: grid;
         gap: 10px;
         min-width: 300px;
+      }
+
+      .hero-meta,
+      .policy-grid,
+      .calendar-summary {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .hero-meta {
+        margin-top: 2px;
+      }
+
+      .policy-grid {
+        margin-top: 12px;
+      }
+
+      .policy-item {
+        min-width: 118px;
+        padding: 10px 12px;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--line);
+        background: #f8fafc;
+      }
+
+      .policy-item strong {
+        display: block;
+        margin-bottom: 4px;
+        color: var(--muted);
+        font-size: 11px;
+        text-transform: uppercase;
+      }
+
+      .policy-item span {
+        font-weight: 800;
       }
 
       .hero-links,
@@ -242,7 +277,7 @@
       textarea {
         width: 100%;
         padding: 12px 14px;
-        border-radius: 14px;
+        border-radius: var(--radius-sm);
         border: 1px solid var(--line-strong);
         background: var(--panel-strong);
         color: var(--text);
@@ -264,11 +299,16 @@
       button,
       .link-btn {
         border: 0;
-        border-radius: 14px;
+        border-radius: var(--radius-sm);
         padding: 11px 15px;
         cursor: pointer;
         font-weight: 700;
         text-decoration: none;
+      }
+
+      button:disabled {
+        cursor: not-allowed;
+        opacity: 0.55;
       }
 
       .primary {
@@ -277,7 +317,7 @@
       }
 
       .secondary {
-        background: #ecf2ef;
+        background: #edf3f7;
         color: #22302a;
       }
 
@@ -394,7 +434,7 @@
         color: var(--muted);
         font-size: 12px;
         text-transform: uppercase;
-        letter-spacing: 0.04em;
+        letter-spacing: 0;
       }
 
       .metric-value {
@@ -410,7 +450,7 @@
       }
 
       .workflow-item {
-        border-radius: 16px;
+        border-radius: var(--radius-sm);
         padding: 12px 14px;
         display: grid;
         grid-template-columns: auto 1fr;
@@ -429,7 +469,7 @@
         justify-content: center;
         width: 30px;
         height: 30px;
-        border-radius: 10px;
+        border-radius: var(--radius-sm);
         background: #f4f6f5;
         border: 1px solid var(--line);
         font-size: 12px;
@@ -486,7 +526,7 @@
       .question-card,
       .plan-item,
       .preview-shell {
-        border-radius: 18px;
+        border-radius: var(--radius-sm);
         padding: 14px;
       }
 
@@ -501,13 +541,13 @@
         font-size: 12px;
         color: var(--muted);
         text-transform: uppercase;
-        letter-spacing: 0.04em;
+        letter-spacing: 0;
         margin-bottom: 6px;
       }
 
       .reasoning {
         padding: 14px;
-        border-radius: 18px;
+        border-radius: var(--radius-sm);
         background: #f7faf8;
         border: 1px solid var(--line);
         color: #33413a;
@@ -540,7 +580,7 @@
         align-items: center;
         gap: 6px;
         padding: 5px 9px;
-        border-radius: 999px;
+        border-radius: var(--radius-sm);
         font-size: 11px;
         background: #f6f8f7;
         border: 1px solid var(--line);
@@ -554,7 +594,7 @@
 
       .empty {
         padding: 26px 18px;
-        border-radius: 18px;
+        border-radius: var(--radius-sm);
         border: 1px dashed var(--line-strong);
         background: rgba(255, 255, 255, 0.7);
         text-align: center;
@@ -589,7 +629,7 @@
       }
 
       .day {
-        border-radius: 18px;
+        border-radius: var(--radius-sm);
         overflow: hidden;
       }
 
@@ -606,7 +646,7 @@
       }
 
       .event {
-        border-radius: 16px;
+        border-radius: var(--radius-sm);
         padding: 14px;
         border-left: 4px solid transparent;
       }
@@ -614,6 +654,20 @@
       .event.fixed_schedule { border-left-color: #2563eb; }
       .event.allocated_task { border-left-color: var(--accent); }
       .event.ai_plan_item { border-left-color: var(--warm); }
+
+      .calendar-summary {
+        align-items: center;
+        padding: 12px;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--line);
+        background: #f8fafc;
+        color: var(--muted);
+        margin-bottom: 12px;
+      }
+
+      .calendar-summary strong {
+        color: var(--text);
+      }
 
       .event p {
         margin-top: 6px;
@@ -661,9 +715,15 @@
     <main>
       <section class="hero">
         <div class="hero-copy">
-          <span class="eyebrow">Developer Flow</span>
-          <h1>Goal Intake Lab</h1>
-          <p>가입/로그인부터 목표 분석, 질문 답변, 계획 생성, 자동 배치, 캘린더 확인까지를 단계별 API 카드로 나눠서 테스트합니다. 입력은 각 단계 옆에 바로 붙여두고, 오른쪽에는 상태와 request/response를 고정해 개발 중 확인하기 쉽게 구성했습니다.</p>
+          <span class="eyebrow">Backend Demo Flow</span>
+          <h1>User Flow Demo</h1>
+          <p>가입, 고정 일정, 가변 작업, 목표 분석, 계획 생성, 자동 배정, 캘린더 확인까지 한 화면에서 검증합니다. 샘플 날짜는 페이지를 열 때마다 KST 기준 오늘 날짜로 자동 갱신됩니다.</p>
+          <div class="hero-meta">
+            <span class="tag">KST 기준</span>
+            <span class="tag">09:00-22:00 배정</span>
+            <span class="tag">30분 버퍼</span>
+            <span class="tag">하루 360분 상한</span>
+          </div>
         </div>
         <div class="hero-tools">
           <div class="hero-links">
@@ -672,6 +732,7 @@
           </div>
           <div class="hero-actions">
             <button class="primary" id="run-all-button" type="button">샘플 흐름 끝까지 실행</button>
+            <button class="secondary" id="refresh-sample-times-button" type="button">오늘 기준 샘플 갱신</button>
             <button class="secondary" id="reset-button" type="button">상태 초기화</button>
           </div>
         </div>
@@ -735,23 +796,23 @@
                 <div class="field-grid">
                   <label>
                     제목
-                    <input id="schedule-title" value="수업 또는 팀 미팅" />
+                    <input id="schedule-title" value="캡스톤 팀 회의" />
                   </label>
                   <label>
                     위치
-                    <input id="schedule-location" value="캠퍼스" />
+                    <input id="schedule-location" value="스터디룸" />
                   </label>
                   <label class="field-full">
                     설명
-                    <textarea id="schedule-description">발표 준비나 팀 협업으로 고정된 시간입니다.</textarea>
+                    <textarea id="schedule-description">자동배정이 피해야 하는 고정 일정입니다.</textarea>
                   </label>
                   <label>
                     시작
-                    <input id="schedule-start" value="2026-04-14T19:00:00+09:00" />
+                    <input id="schedule-start" value="2026-05-14T14:00:00+09:00" />
                   </label>
                   <label>
                     종료
-                    <input id="schedule-end" value="2026-04-14T20:30:00+09:00" />
+                    <input id="schedule-end" value="2026-05-14T15:00:00+09:00" />
                   </label>
                   <label>
                     반복 유형
@@ -766,6 +827,19 @@
                       <option value="daily">매일</option>
                       <option value="weekly" selected>매주</option>
                       <option value="biweekly">격주</option>
+                    </select>
+                  </label>
+                  <label id="schedule-weekday-field" hidden>
+                    요일
+                    <select id="schedule-day-of-week" disabled>
+                      <option value="">요일 선택</option>
+                      <option value="0">일요일</option>
+                      <option value="1">월요일</option>
+                      <option value="2">화요일</option>
+                      <option value="3">수요일</option>
+                      <option value="4">목요일</option>
+                      <option value="5">금요일</option>
+                      <option value="6">토요일</option>
                     </select>
                   </label>
                 </div>
@@ -789,29 +863,29 @@
                 <div class="field-grid">
                   <label>
                     제목
-                    <input id="task-title" value="이번 주 공부 5시간" />
+                    <input id="task-title" value="프로토타입 QA 및 발표 준비" />
                   </label>
                   <label>
                     마감
-                    <input id="task-due-at" value="2026-04-20T21:00:00+09:00" />
+                    <input id="task-due-at" value="2026-05-20T21:00:00+09:00" />
                   </label>
                   <label class="field-full">
                     설명
-                    <textarea id="task-description">목표 계획과 별개로 매주 확보해야 하는 공부 시간입니다.</textarea>
+                    <textarea id="task-description">고정 일정 사이 빈 시간에 자동으로 배치될 작업입니다.</textarea>
                   </label>
                 </div>
                 <div class="field-grid three" style="margin-top:12px;">
                   <label>
                     총 예상 시간(분)
-                    <input id="task-estimated-minutes" type="number" min="1" value="300" />
+                    <input id="task-estimated-minutes" type="number" min="1" value="240" />
                   </label>
                   <label>
                     최소 세션(분)
-                    <input id="task-min-session" type="number" min="1" value="30" />
+                    <input id="task-min-session" type="number" min="1" value="60" />
                   </label>
                   <label>
                     선호 세션(분)
-                    <input id="task-preferred-session" type="number" min="1" value="60" />
+                    <input id="task-preferred-session" type="number" min="1" value="90" />
                   </label>
                   <label>
                     하루 최대(분)
@@ -819,7 +893,7 @@
                   </label>
                   <label>
                     우선순위(1-3)
-                    <input id="task-priority" type="number" min="1" max="3" value="2" />
+                    <input id="task-priority" type="number" min="1" max="3" value="3" />
                   </label>
                 </div>
                 <div class="inline-actions" style="margin-top:14px;">
@@ -850,7 +924,7 @@
                 <div class="field-grid">
                   <label class="field-full">
                     자연어 목표
-                    <textarea id="goal-text">캡스톤 데모 페이지를 4월 25일까지 완성하고 싶어요. 주당 8시간 정도 가능하고 평일 저녁에 작업하기 좋습니다.</textarea>
+                    <textarea id="goal-text">캡스톤 발표용 데모를 5월 20일까지 완성하고 싶어요. 주당 8시간 정도 가능하고, 평일 저녁과 주말 오후에 작업하기 좋습니다.</textarea>
                   </label>
                   <label>
                     카테고리 강제 지정
@@ -880,16 +954,21 @@
                 <div class="field-grid">
                   <label>
                     캘린더 시작
-                    <input id="range-start" value="2026-04-13T09:00:00+09:00" />
+                    <input id="range-start" value="2026-05-13T09:00:00+09:00" />
                   </label>
                   <label>
                     캘린더 종료
-                    <input id="range-end" value="2026-04-20T21:00:00+09:00" />
+                    <input id="range-end" value="2026-05-20T22:00:00+09:00" />
                   </label>
+                </div>
+                <div class="policy-grid">
+                  <div class="policy-item"><strong>배정 시간</strong><span>09:00-22:00</span></div>
+                  <div class="policy-item"><strong>자동 버퍼</strong><span>30분</span></div>
+                  <div class="policy-item"><strong>하루 상한</strong><span>360분</span></div>
                 </div>
                 <div class="toggle-row" style="margin-top:12px;">
                   <label><input id="replace-existing-plan" type="checkbox" checked /> 기존 active plan archive 후 새 plan 생성</label>
-                  <label><input id="clear-existing-allocation" type="checkbox" /> 기존 배치 결과 지우고 다시 allocate</label>
+                  <label><input id="clear-existing-allocation" type="checkbox" checked /> 기존 배치 결과 지우고 다시 allocate</label>
                 </div>
                 <div class="helper" style="margin-top:12px;">
                   질문 답변 입력 후 `목표 저장 + 계획 생성`을 누르고, 그 다음 `배치 + 캘린더 조회`를 실행하세요.
@@ -1012,6 +1091,9 @@
               <span class="endpoint">POST /api/v1/planner/allocate · GET /api/v1/calendar</span>
             </div>
 
+            <div class="calendar-summary" id="calendar-summary">
+              아직 캘린더를 조회하지 않았습니다.
+            </div>
             <div class="calendar-stack" id="agenda">
               <div class="empty">아직 시간표를 불러오지 않았습니다.</div>
             </div>
@@ -1115,6 +1197,8 @@
     <script>
       const AUTH_TOKEN_KEY = "now-what-api-playground-token";
       const AUTH_USER_KEY = "now-what-api-playground-user";
+      const DEFAULT_BUFFER_MINUTES = 30;
+      const DEFAULT_MAX_AUTO_MINUTES_PER_DAY = 360;
 
       const state = {
         userId: null,
@@ -1127,6 +1211,7 @@
       };
 
       const byId = (id) => document.getElementById(id);
+      const actionButtons = Array.from(document.querySelectorAll("button"));
       const statusPill = byId("status-pill");
       const messageBox = byId("message-box");
       const requestOutput = byId("request-output");
@@ -1136,6 +1221,11 @@
       let authUser = readStoredUser();
 
       byId("run-all-button").onclick = () => runStep(runFullFlow);
+      byId("refresh-sample-times-button").onclick = () => {
+        applyFreshDemoDefaults();
+        resetState(false);
+        message("오늘 기준 샘플 입력값을 다시 채웠습니다.");
+      };
       byId("reset-button").onclick = () => resetState(true);
       byId("step-user").onclick = () => runStep(createUser);
       byId("login-button").onclick = () => runStep(loginUser);
@@ -1147,8 +1237,32 @@
       byId("allocate-button").onclick = () => runStep(allocateAndLoadCalendar);
       byId("refresh-calendar-button").onclick = () => runStep(loadCalendarOnly);
       byId("schedule-kind").onchange = syncRecurrenceUI;
+      byId("schedule-recurrence").onchange = syncRecurrenceUI;
+      byId("schedule-start").onchange = () => setDefaultScheduleWeekday(false);
       byId("question-list").addEventListener("input", renderAnswersPreview);
       byId("question-list").addEventListener("change", renderAnswersPreview);
+
+      function applyFreshDemoDefaults() {
+        const dueLabel = formatKoreanDate(7);
+        byId("schedule-title").value = "캡스톤 팀 회의";
+        byId("schedule-location").value = "스터디룸";
+        byId("schedule-description").value = "자동배정이 피해야 하는 고정 일정입니다.";
+        byId("schedule-start").value = kstIso(1, 14);
+        byId("schedule-end").value = kstIso(1, 15);
+
+        byId("task-title").value = "프로토타입 QA 및 발표 준비";
+        byId("task-due-at").value = kstIso(7, 21);
+        byId("task-description").value = "고정 일정 사이 빈 시간에 자동으로 배치될 작업입니다.";
+        byId("task-estimated-minutes").value = "240";
+        byId("task-min-session").value = "60";
+        byId("task-preferred-session").value = "90";
+        byId("task-max-per-day").value = "180";
+        byId("task-priority").value = "3";
+
+        byId("range-start").value = kstIso(0, 9);
+        byId("range-end").value = kstIso(7, 22);
+        byId("goal-text").value = `캡스톤 발표용 데모를 ${dueLabel}까지 완성하고 싶어요. 주당 8시간 정도 가능하고, 평일 저녁과 주말 오후에 작업하기 좋습니다.`;
+      }
 
       async function request(method, path, body) {
         const payload = body === undefined ? null : body;
@@ -1254,6 +1368,9 @@
         ensureLoggedIn();
 
         const isRecurring = byId("schedule-kind").value === "recurring";
+        const recurrenceRule = isRecurring ? byId("schedule-recurrence").value : null;
+        const needsWeekday = recurrenceRule === "weekly" || recurrenceRule === "biweekly";
+        const dayOfWeek = needsWeekday ? selectedScheduleWeekday() : null;
         const payload = await request("POST", "/api/v1/schedules/fixed", {
           title: byId("schedule-title").value.trim(),
           description: emptyToNull(byId("schedule-description").value),
@@ -1261,7 +1378,8 @@
           start_at: byId("schedule-start").value.trim(),
           end_at: byId("schedule-end").value.trim(),
           is_all_day: byId("schedule-all-day").checked,
-          recurrence_rule: isRecurring ? byId("schedule-recurrence").value : null,
+          recurrence_rule: recurrenceRule,
+          day_of_week: dayOfWeek,
         });
 
         state.scheduleId = payload.id;
@@ -1343,6 +1461,8 @@
         await request("POST", "/api/v1/planner/allocate", {
           range_start: rangeStart,
           range_end: rangeEnd,
+          buffer_minutes: DEFAULT_BUFFER_MINUTES,
+          max_auto_minutes_per_day: DEFAULT_MAX_AUTO_MINUTES_PER_DAY,
           clear_existing: byId("clear-existing-allocation").checked,
         });
 
@@ -1390,8 +1510,8 @@
         byId("question-list").innerHTML = questions.map((question, index) => {
           const key = escapeHtml(question.key);
           const value = defaults[question.key] ?? "";
-          const required = question.required ? "required" : "optional";
-          const typeLabel = question.answer_type || "text";
+          const required = question.required ? "필수" : "선택";
+          const typeLabel = questionTypeLabel(question.answer_type);
           const help = question.help_text ? `<div class="helper">${escapeHtml(question.help_text)}</div>` : "";
           return `
             <article class="question-card">
@@ -1411,6 +1531,17 @@
         }).join("");
 
         renderAnswersPreview();
+      }
+
+      function questionTypeLabel(type) {
+        const labels = {
+          text: "서술형",
+          number: "숫자",
+          date: "날짜",
+          boolean: "예/아니오",
+          select: "선택형",
+        };
+        return labels[type] || type || "서술형";
       }
 
       function renderQuestionField(question, value) {
@@ -1510,6 +1641,7 @@
       }
 
       function renderCalendar(events) {
+        renderCalendarSummary(events);
         if (!events.length) {
           byId("agenda").innerHTML = '<div class="empty">표시할 일정이 없습니다.</div>';
           return;
@@ -1543,7 +1675,7 @@
                       <div class="muted-inline">${formatTime(event.start_at)} - ${formatTime(event.end_at)}</div>
                     </div>
                     <div class="tiny-actions" style="margin-top:10px;">
-                      <span class="tag">${escapeHtml(event.source_type)}</span>
+                      <span class="tag">${escapeHtml(sourceLabel(event.source_type))}</span>
                       <span class="tag">${escapeHtml(event.status)}</span>
                     </div>
                   </article>
@@ -1553,6 +1685,19 @@
           `).join("");
 
         byId("agenda").innerHTML = html;
+      }
+
+      function renderCalendarSummary(events) {
+        const counts = events.reduce((acc, event) => {
+          acc[event.source_type] = (acc[event.source_type] || 0) + 1;
+          return acc;
+        }, {});
+        byId("calendar-summary").innerHTML = `
+          <strong>총 ${events.length}개</strong>
+          <span>고정 ${counts.fixed_schedule || 0}</span>
+          <span>가변 ${counts.allocated_task || 0}</span>
+          <span>AI 계획 ${counts.ai_plan_item || 0}</span>
+        `;
       }
 
       function renderSummary() {
@@ -1637,6 +1782,7 @@
         byId("question-list").innerHTML = "";
         byId("plan-empty").hidden = false;
         byId("plan-content").hidden = true;
+        byId("calendar-summary").textContent = "아직 캘린더를 조회하지 않았습니다.";
         byId("agenda").innerHTML = '<div class="empty">아직 시간표를 불러오지 않았습니다.</div>';
 
         requestOutput.textContent = JSON.stringify({ hint: "가장 최근에 보낸 요청이 여기에 표시됩니다." }, null, 2);
@@ -1664,14 +1810,27 @@
       }
 
       async function runStep(fn) {
+        if (document.body.classList.contains("is-busy")) {
+          return;
+        }
         setStatus("running", "실행 중");
+        setBusy(true);
         try {
           await fn();
           setStatus("done", "완료");
         } catch (error) {
           setStatus("error", "오류");
           message(error.message || "알 수 없는 오류가 발생했습니다.", true);
+        } finally {
+          setBusy(false);
         }
+      }
+
+      function setBusy(isBusy) {
+        document.body.classList.toggle("is-busy", isBusy);
+        actionButtons.forEach((button) => {
+          button.disabled = isBusy;
+        });
       }
 
       function setStatus(kind, text) {
@@ -1690,7 +1849,56 @@
 
       function syncRecurrenceUI() {
         const recurring = byId("schedule-kind").value === "recurring";
+        const recurrence = byId("schedule-recurrence").value;
+        const needsWeekday = recurring && (recurrence === "weekly" || recurrence === "biweekly");
         byId("schedule-recurrence").disabled = !recurring;
+        byId("schedule-weekday-field").hidden = !needsWeekday;
+        byId("schedule-day-of-week").disabled = !needsWeekday;
+        if (!recurring) {
+          byId("schedule-day-of-week").value = "";
+          return;
+        }
+        if (needsWeekday) {
+          setDefaultScheduleWeekday(false);
+        }
+      }
+
+      function selectedScheduleWeekday() {
+        const raw = byId("schedule-day-of-week").value;
+        if (raw !== "") {
+          return Number(raw);
+        }
+        return weekdayFromIso(byId("schedule-start").value.trim());
+      }
+
+      function setDefaultScheduleWeekday(force) {
+        const field = byId("schedule-day-of-week");
+        if (!force && field.value !== "") {
+          return;
+        }
+        const weekday = weekdayFromIso(byId("schedule-start").value.trim());
+        field.value = weekday === null ? "" : String(weekday);
+      }
+
+      function weekdayFromIso(value) {
+        const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
+        if (!match) {
+          return null;
+        }
+
+        const year = Number(match[1]);
+        const month = Number(match[2]);
+        const day = Number(match[3]);
+        const parsed = new Date(Date.UTC(year, month - 1, day));
+        if (
+          Number.isNaN(parsed.getTime()) ||
+          parsed.getUTCFullYear() !== year ||
+          parsed.getUTCMonth() !== month - 1 ||
+          parsed.getUTCDate() !== day
+        ) {
+          return null;
+        }
+        return parsed.getUTCDay();
       }
 
       function normalizedUserEmail() {
@@ -1735,6 +1943,29 @@
         ensure(state.userId, "로그인한 유저 정보를 찾을 수 없습니다. 다시 로그인하세요.");
       }
 
+      function kstIso(daysFromToday, hour, minute = 0) {
+        const day = kstDate(daysFromToday);
+        return `${day.getUTCFullYear()}-${pad(day.getUTCMonth() + 1)}-${pad(day.getUTCDate())}T${pad(hour)}:${pad(minute)}:00+09:00`;
+      }
+
+      function kstDate(daysFromToday) {
+        const parts = new Intl.DateTimeFormat("en-CA", {
+          timeZone: "Asia/Seoul",
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+        }).formatToParts(new Date());
+        const year = Number(parts.find((part) => part.type === "year").value);
+        const month = Number(parts.find((part) => part.type === "month").value);
+        const day = Number(parts.find((part) => part.type === "day").value);
+        return new Date(Date.UTC(year, month - 1, day + daysFromToday));
+      }
+
+      function formatKoreanDate(daysFromToday) {
+        const day = kstDate(daysFromToday);
+        return `${day.getUTCMonth() + 1}월 ${day.getUTCDate()}일`;
+      }
+
       function formatDay(day) {
         return new Date(`${day}T00:00:00`).toLocaleDateString("ko-KR", {
           month: "long",
@@ -1750,6 +1981,23 @@
         });
       }
 
+      function sourceLabel(sourceType) {
+        if (sourceType === "fixed_schedule") {
+          return "고정 일정";
+        }
+        if (sourceType === "allocated_task") {
+          return "가변 작업";
+        }
+        if (sourceType === "ai_plan_item") {
+          return "AI 계획";
+        }
+        return sourceType;
+      }
+
+      function pad(value) {
+        return String(value).padStart(2, "0");
+      }
+
       function escapeHtml(value) {
         return String(value)
           .replaceAll("&", "&amp;")
@@ -1759,6 +2007,7 @@
           .replaceAll("'", "&#39;");
       }
 
+      applyFreshDemoDefaults();
       renderSummary();
       syncRecurrenceUI();
       resetState(false);

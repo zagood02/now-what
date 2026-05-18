@@ -17,8 +17,10 @@ class Settings(BaseSettings):
     seed_demo_user: bool = False
     demo_user_email: str = "demo@example.com"
     demo_user_name: str = "Demo User"
-    default_day_start: str = "06:00"
-    default_day_end: str = "23:00"
+    default_day_start: str = "09:00"
+    default_day_end: str = "22:00"
+    default_buffer_minutes: int = 30
+    default_max_auto_minutes_per_day: int = 360
     gemini_api_key: str | None = None
     google_client_id: str | None = None
     llm_model: str = "gemini-2.5-flash-lite"

@@ -99,14 +99,15 @@ def expand_fixed_schedule(
 
     if recurrence_rule == "monthly":
         occurrences: list[ScheduleOccurrence] = []
-        current_start = start_at
-        current_end = end_at
+        occurrence_index = 0
+        current_start = add_months(start_at, occurrence_index)
+        current_end = add_months(end_at, occurrence_index)
 
         while current_end <= range_start:
-            current_start = add_months(current_start, 1)
-            current_end = add_months(current_end, 1)
+            occurrence_index += 1
+            current_start = add_months(start_at, occurrence_index)
+            current_end = add_months(end_at, occurrence_index)
 
-        occurrence_index = 0
         while current_start < range_end:
             if current_end > range_start:
                 occurrences.append(
@@ -116,9 +117,9 @@ def expand_fixed_schedule(
                         occurrence_index=occurrence_index,
                     )
                 )
-            current_start = add_months(current_start, 1)
-            current_end = add_months(current_end, 1)
             occurrence_index += 1
+            current_start = add_months(start_at, occurrence_index)
+            current_end = add_months(end_at, occurrence_index)
 
         return occurrences
 

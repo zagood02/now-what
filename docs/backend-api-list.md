@@ -3,6 +3,12 @@
 This document is the backend-facing API inventory for the capstone demo.
 The priority is a stable demo flow: login, create schedules/tasks/goals, allocate, and show the calendar.
 
+Implementation source of truth:
+
+- Treat `backend/` as the canonical FastAPI backend for the demo and API documentation.
+- Legacy compatibility fields may remain in schemas, but new backend behavior should be implemented and verified against `backend/`.
+- The Next.js `app/` directory is frontend-only; the old Python/FastAPI backend duplicate under `app/` was removed to avoid split ownership.
+
 Base URL:
 
 - Local API: `http://127.0.0.1:8000/api/v1`
@@ -19,6 +25,8 @@ Authentication:
 - Most user data APIs should use `Authorization: Bearer <access_token>`.
 - The token is issued by `/users/login` or `/auth/google`.
 - Request body fields named `user_id` are legacy compatibility fields. The backend should prefer the authenticated user from the token.
+- Create and mutation routes must not allow a request body `user_id` to transfer ownership away from the token user.
+- Cross-user reads and mutations should return `404` for owned resources so resource existence is not leaked.
 
 ## Demo-Critical Flow
 
@@ -84,6 +92,11 @@ Recommended capstone stance:
 | `PATCH` | `/schedules/fixed/{schedule_id}` | Required | Update fixed schedule | OK |
 | `DELETE` | `/schedules/fixed/{schedule_id}` | Required | Delete fixed schedule | OK |
 
+Notes:
+
+- `recurrence_rule` supports `daily`, `weekly`, `biweekly`, and `monthly`.
+- `weekly` and `biweekly` require `day_of_week` (`0=Sunday`, ..., `6=Saturday`).
+
 ### Flexible Tasks
 
 | Method | Path | Auth | Purpose | Status |
@@ -93,6 +106,12 @@ Recommended capstone stance:
 | `GET` | `/tasks/flexible/{task_id}` | Required | Get flexible task | OK |
 | `PATCH` | `/tasks/flexible/{task_id}` | Required | Update flexible task | OK |
 | `DELETE` | `/tasks/flexible/{task_id}` | Required | Delete flexible task | OK |
+| `DELETE` | `/tasks/flexible/allocations/{allocation_id}` | Required | Remove one auto-allocated flexible task calendar block | OK |
+
+Deletion behavior:
+
+- Deleting a flexible task removes the task source and its allocated calendar blocks.
+- Deleting an allocation removes only that scheduled block. The original flexible task remains and can be allocated again later.
 
 ### Goals and AI Plans
 
@@ -102,6 +121,7 @@ Recommended capstone stance:
 | `GET` | `/goals` | Required | List current user's goals | OK |
 | `GET` | `/goals/{goal_id}` | Required | Get goal detail with plans/items | OK |
 | `PATCH` | `/goals/{goal_id}` | Required | Update goal fields | OK |
+| `DELETE` | `/goals/{goal_id}` | Required | Delete goal with generated plans and plan items | OK |
 | `POST` | `/goals/intake` | Public | Parse freeform goal and return questions | OK, but can call LLM |
 | `POST` | `/goals/complete` | Required | Save parsed goal and generate plan | OK |
 
@@ -115,6 +135,8 @@ Recommended capstone stance:
 | Method | Path | Auth | Purpose | Status |
 | --- | --- | --- | --- | --- |
 | `POST` | `/planner/allocate` | Required | Allocate flexible tasks and AI plan items into free time | OK, basic stability cleanup applied |
+| `DELETE` | `/planner/plan-items/{item_id}/schedule` | Required | Remove one AI plan item from the calendar but keep it suggested | OK |
+| `POST` | `/planner/plan-items/{item_id}/skip` | Required | Mark an AI plan item as skipped and clear its schedule | OK |
 
 Current request shape:
 
@@ -122,9 +144,11 @@ Current request shape:
 {
   "range_start": "2026-05-08T00:00:00+09:00",
   "range_end": "2026-05-15T00:00:00+09:00",
-  "day_start": "06:00",
-  "day_end": "23:00",
-  "clear_existing": false
+  "day_start": "09:00",
+  "day_end": "22:00",
+  "buffer_minutes": 30,
+  "max_auto_minutes_per_day": 360,
+  "clear_existing": true
 }
 ```
 
@@ -132,6 +156,11 @@ Notes:
 
 - `user_id` is still present in the schema but should be ignored in favor of the auth token.
 - Planner inputs are normalized to the same Asia/Seoul local time policy as calendar and schedule APIs.
+- By default, allocation preserves fixed schedules and rebuilds existing auto-allocated flexible tasks / AI plan item slots inside the requested range.
+- Default allocation hours are `09:00` to `22:00`.
+- `buffer_minutes` defaults to `30` and is applied around occupied time so auto blocks are not packed back-to-back.
+- `max_auto_minutes_per_day` defaults to `360` to keep daily auto allocation from overwhelming the timetable.
+- Slot selection is score-based now: it prefers fuller session chunks, lighter days/time buckets, and mid-day candidates over simple first-fit scheduling.
 
 ### Calendar
 

@@ -58,7 +58,9 @@ class AllocateRequest(BaseModel):
     range_end: datetime
     day_start: time | None = None
     day_end: time | None = None
-    clear_existing: bool = False
+    buffer_minutes: int | None = Field(default=None, ge=0)
+    max_auto_minutes_per_day: int | None = Field(default=None, gt=0)
+    clear_existing: bool = True
 
 
 class AllocateResponse(BaseModel):

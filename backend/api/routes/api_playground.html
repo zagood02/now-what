@@ -362,11 +362,12 @@
   "title": "주간 팀 미팅",
   "start_at": "{eventStart}",
   "end_at": "{eventEnd}",
-  "recurrence_rule": "weekly"
+  "recurrence_rule": "weekly",
+  "day_of_week": 2
 }`,
           help: "반복 고정 일정을 등록합니다.",
           requires: "로그인 토큰, 일정 시작/종료",
-          next: "recurrence_rule에는 daily, weekly, biweekly를 사용할 수 있습니다."
+          next: "recurrence_rule에는 daily, weekly, biweekly, monthly를 사용할 수 있고 weekly/biweekly는 day_of_week가 필요합니다."
         },
         {
           key: "create-task",
@@ -410,7 +411,10 @@
   "text": "캡스톤 데모 페이지를 4월 25일까지 완성하고 싶어요. 주당 8시간 정도 가능하고 평일 저녁에 작업하기 좋습니다.",
   "answers_json": {
     "weekly_available_hours": 8,
-    "constraints": "평일 저녁에만 가능합니다."
+    "preferred_work_times": "평일 저녁과 주말 오후",
+    "unavailable_times": "수업 직후 1시간",
+    "session_preference": "보통 길이로 균형 있게",
+    "constraints": "평일 저녁에 집중력이 가장 좋습니다."
   }
 }`,
           help: "자연어 목표와 추가 답변을 받아 목표 저장과 계획 생성을 한 번에 처리합니다.",
@@ -425,9 +429,12 @@
           path: "/api/v1/planner/allocate",
           body: `{
   "range_start": "{rangeStart}",
-  "range_end": "{rangeEnd}"
+  "range_end": "{rangeEnd}",
+  "buffer_minutes": 30,
+  "max_auto_minutes_per_day": 360,
+  "clear_existing": true
 }`,
-          help: "고정 일정과 목표 계획을 제외한 빈 시간에 작업을 배치합니다.",
+          help: "고정 일정은 유지하고 기존 자동 배정 결과는 지운 뒤 30분 버퍼와 하루 6시간 상한을 적용해 다시 작업을 배치합니다.",
           requires: "로그인 토큰, 조회/배정 시작/종료",
           next: "마지막으로 calendar를 조회하면 결과를 한 번에 확인할 수 있습니다."
         },
