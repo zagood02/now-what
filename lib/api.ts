@@ -3,13 +3,14 @@ import axios, { type AxiosInstance } from "axios";
 const normalizeUrl = (url: string) => url.replace(/\/+$/, "");
 
 const rawApiUrl = process.env.NEXT_PUBLIC_API_URL?.trim() || "";
-const defaultApiUrl = typeof window !== "undefined"
-  ? `${window.location.protocol}//${window.location.hostname}:8000`
-  : "http://localhost:8000";
+const defaultApiUrl =
+  typeof window !== "undefined"
+    ? `${window.location.protocol}//${window.location.hostname}:8000`
+    : "http://localhost:8000";
 const API_BASE_URL = normalizeUrl(rawApiUrl || defaultApiUrl);
 const API_V1_PREFIX = "/api/v1";
+const ACCESS_TOKEN_STORAGE_KEY = "now_what_access_token";
 
-// Axios 인스턴스 생성
 export const apiClient: AxiosInstance = axios.create({
   baseURL: `${API_BASE_URL}${API_V1_PREFIX}`,
   headers: {
@@ -17,7 +18,34 @@ export const apiClient: AxiosInstance = axios.create({
   },
 });
 
-// Types
+export const getStoredAccessToken = () => {
+  if (typeof window === "undefined") return null;
+  return window.localStorage.getItem(ACCESS_TOKEN_STORAGE_KEY);
+};
+
+export const setApiAccessToken = (token: string | null) => {
+  if (token) {
+    apiClient.defaults.headers.common.Authorization = `Bearer ${token}`;
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(ACCESS_TOKEN_STORAGE_KEY, token);
+    }
+    return;
+  }
+
+  delete apiClient.defaults.headers.common.Authorization;
+  if (typeof window !== "undefined") {
+    window.localStorage.removeItem(ACCESS_TOKEN_STORAGE_KEY);
+  }
+};
+
+apiClient.interceptors.request.use((config) => {
+  const token = getStoredAccessToken();
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
 export interface User {
   id: number;
   email: string;
@@ -30,7 +58,14 @@ export interface User {
 export interface CreateUserRequest {
   email: string;
   name: string;
+  password: string;
   timezone: string;
+}
+
+export interface LoginResponse {
+  access_token: string;
+  token_type: "bearer";
+  user: User;
 }
 
 export interface FixedSchedule {
@@ -49,7 +84,6 @@ export interface FixedSchedule {
 }
 
 export interface CreateFixedScheduleRequest {
-  user_id: number;
   title: string;
   description?: string;
   location?: string;
@@ -89,7 +123,6 @@ export interface FlexibleTask {
 }
 
 export interface CreateFlexibleTaskRequest {
-  user_id: number;
   title: string;
   description?: string;
   estimated_minutes: number;
@@ -116,7 +149,6 @@ export interface Goal {
 }
 
 export interface CreateGoalRequest {
-  user_id: number;
   title: string;
   description?: string;
   category: "study" | "health" | "work" | "habit" | "general";
@@ -156,87 +188,81 @@ export interface CalendarResponse {
   totals: Record<string, number>;
 }
 
-// User APIs
+export const authAPI = {
+  me: () => apiClient.get<User>("/auth/me"),
+  loginWithGoogle: (credential: string) =>
+    apiClient.post<LoginResponse>("/auth/google", { credential }),
+};
+
 export const userAPI = {
   create: (data: CreateUserRequest) => apiClient.post<User>("/users", data),
   list: () => apiClient.get<User[]>("/users"),
   get: (userId: number) => apiClient.get<User>(`/users/${userId}`),
 };
 
-// Fixed Schedule APIs
 export const fixedScheduleAPI = {
   create: (data: CreateFixedScheduleRequest) =>
     apiClient.post<FixedSchedule>("/schedules/fixed", data),
-  list: (params?: { user_id?: number }) =>
+  list: (params?: { start?: string; end?: string }) =>
     apiClient.get<FixedSchedule[]>("/schedules/fixed", { params }),
-  get: (scheduleId: number, userId: number) =>
-    apiClient.get<FixedSchedule>(
-      `/schedules/fixed/${scheduleId}?user_id=${userId}`
-    ),
-  update: (scheduleId: number, userId: number, data: UpdateFixedScheduleRequest) =>
-    apiClient.patch<FixedSchedule>(
-      `/schedules/fixed/${scheduleId}?user_id=${userId}`,
-      data
-    ),
-  delete: (scheduleId: number, userId: number) =>
-    apiClient.delete(`/schedules/fixed/${scheduleId}?user_id=${userId}`),
+  get: (scheduleId: number) => apiClient.get<FixedSchedule>(`/schedules/fixed/${scheduleId}`),
+  update: (scheduleId: number, data: UpdateFixedScheduleRequest) =>
+    apiClient.patch<FixedSchedule>(`/schedules/fixed/${scheduleId}`, data),
+  delete: (scheduleId: number) => apiClient.delete(`/schedules/fixed/${scheduleId}`),
 };
 
-// Flexible Task APIs
 export const flexibleTaskAPI = {
   create: (data: CreateFlexibleTaskRequest) =>
     apiClient.post<FlexibleTask>("/tasks/flexible", data),
-  list: (params?: { user_id?: number }) =>
-    apiClient.get<FlexibleTask[]>("/tasks/flexible", { params }),
-  get: (taskId: number, userId: number) =>
-    apiClient.get<FlexibleTask>(`/tasks/flexible/${taskId}?user_id=${userId}`),
-  update: (taskId: number, userId: number, data: Partial<CreateFlexibleTaskRequest>) =>
-    apiClient.patch<FlexibleTask>(
-      `/tasks/flexible/${taskId}?user_id=${userId}`,
-      data
-    ),
-  delete: (taskId: number, userId: number) =>
-    apiClient.delete(`/tasks/flexible/${taskId}?user_id=${userId}`),
+  list: () => apiClient.get<FlexibleTask[]>("/tasks/flexible"),
+  get: (taskId: number) => apiClient.get<FlexibleTask>(`/tasks/flexible/${taskId}`),
+  update: (taskId: number, data: Partial<CreateFlexibleTaskRequest>) =>
+    apiClient.patch<FlexibleTask>(`/tasks/flexible/${taskId}`, data),
+  delete: (taskId: number) => apiClient.delete(`/tasks/flexible/${taskId}`),
 };
 
-// Goal APIs
 export const goalAPI = {
-  create: (data: CreateGoalRequest) =>
-    apiClient.post<Goal>("/goals", data),
-  list: (params?: { user_id?: number }) =>
-    apiClient.get<Goal[]>("/goals", { params }),
-  get: (goalId: number, userId: number) =>
-    apiClient.get<Goal>(`/goals/${goalId}?user_id=${userId}`),
-  update: (goalId: number, userId: number, data: Partial<CreateGoalRequest>) =>
-    apiClient.patch<Goal>(`/goals/${goalId}?user_id=${userId}`, data),
-  intake: (data: { user_id: number; goal_title: string }) =>
+  create: (data: CreateGoalRequest) => apiClient.post<Goal>("/goals", data),
+  list: () => apiClient.get<Goal[]>("/goals"),
+  get: (goalId: number) => apiClient.get<Goal>(`/goals/${goalId}`),
+  update: (goalId: number, data: Partial<CreateGoalRequest>) =>
+    apiClient.patch<Goal>(`/goals/${goalId}`, data),
+  intake: (data: { text: string; category?: Goal["category"] }) =>
     apiClient.post("/goals/intake", data),
+  complete: (data: {
+    text: string;
+    category?: Goal["category"];
+    answers_json?: Record<string, unknown>;
+    replace_existing?: boolean;
+  }) => apiClient.post("/goals/complete", data),
 };
 
-// Calendar APIs
 export const calendarAPI = {
-  get: (params: { user_id: number; start: string; end: string }) =>
+  get: (params: { start: string; end: string }) =>
     apiClient.get<CalendarResponse>("/calendar", { params }),
 };
 
-// Planner APIs
 export const plannerAPI = {
-  allocate: (data: { user_id: number }) =>
-    apiClient.post("/planner/allocate", data),
+  allocate: (data: {
+    range_start: string;
+    range_end: string;
+    day_start?: string;
+    day_end?: string;
+    clear_existing?: boolean;
+  }) => apiClient.post("/planner/allocate", data),
 };
 
-// Health check
 export const healthAPI = {
   check: () => apiClient.get("/health"),
   checkDB: () => apiClient.get("/health/db"),
 };
 
-// Error handling utility
 export const handleApiError = (error: unknown): string => {
   if (axios.isAxiosError(error)) {
     if (error.response) {
       return error.response.data?.detail || "서버 오류가 발생했습니다.";
-    } else if (error.request) {
+    }
+    if (error.request) {
       return "서버에 연결할 수 없습니다.";
     }
   }

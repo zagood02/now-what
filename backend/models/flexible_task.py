@@ -20,7 +20,7 @@ class FlexibleTask(Base, TimestampMixin):
     preferred_session_minutes: Mapped[int] = mapped_column(default=60, nullable=False)
     max_minutes_per_day: Mapped[int] = mapped_column(default=180, nullable=False)
     priority: Mapped[int] = mapped_column(default=2, nullable=False)
-    due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True, nullable=True)
+    due_at: Mapped[datetime | None] = mapped_column(DateTime(), index=True, nullable=True)
     status: Mapped[FlexibleTaskStatus] = mapped_column(
         Enum(FlexibleTaskStatus),
         default=FlexibleTaskStatus.pending,

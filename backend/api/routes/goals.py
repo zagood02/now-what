@@ -1,13 +1,15 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from backend.api.deps import require_owned_resource, require_user
+from backend.api.deps import get_current_user, require_owned_resource
 from backend.db.session import get_db_session
 from backend.models.ai_plan import AIPlan, AIPlanItem
 from backend.models.enums import GoalStatus, PlanStatus
 from backend.models.goal import Goal
-from backend.schemas.goals import AIPlanRead, GoalDetailRead, GoalRead, GoalUpdate
+from backend.models.user import User
+from backend.schemas.base import Message
+from backend.schemas.goals import AIPlanRead, GoalCreate, GoalDetailRead, GoalRead, GoalUpdate
 from backend.schemas.planning import (
     GoalCompleteRequest,
     GoalCompleteResponse,
@@ -22,26 +24,46 @@ planning_service = PlanningService()
 
 @router.get("/goals", response_model=list[GoalRead])
 def list_goals(
-    user_id: int = Query(...),
+    current_user: User = Depends(get_current_user),
     session: Session = Depends(get_db_session),
 ) -> list[Goal]:
-    require_user(session, user_id)
     return session.scalars(
-        select(Goal).where(Goal.user_id == user_id).order_by(Goal.created_at.desc())
+        select(Goal).where(Goal.user_id == current_user.id).order_by(Goal.created_at.desc())
     ).all()
+
+
+@router.post("/goals", response_model=GoalRead, status_code=status.HTTP_201_CREATED)
+def create_goal(
+    payload: GoalCreate,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_db_session),
+) -> Goal:
+    goal = Goal(
+        user_id=current_user.id,
+        title=payload.title,
+        description=payload.description,
+        category=payload.category,
+        status=payload.status,
+        target_date=payload.target_date,
+        details_json=payload.details_json,
+        answers_json=payload.answers_json,
+    )
+    session.add(goal)
+    session.commit()
+    session.refresh(goal)
+    return goal
 
 
 @router.get("/goals/{goal_id}", response_model=GoalDetailRead)
 def get_goal(
     goal_id: int,
-    user_id: int = Query(...),
+    current_user: User = Depends(get_current_user),
     session: Session = Depends(get_db_session),
 ) -> Goal:
-    require_user(session, user_id)
     goal = session.scalar(
         select(Goal)
         .options(selectinload(Goal.plans).selectinload(AIPlan.items))
-        .where(Goal.id == goal_id, Goal.user_id == user_id)
+        .where(Goal.id == goal_id, Goal.user_id == current_user.id)
     )
     if not goal:
         raise HTTPException(status_code=404, detail="Goal not found.")
@@ -53,10 +75,10 @@ def get_goal(
 def update_goal(
     goal_id: int,
     payload: GoalUpdate,
-    user_id: int = Query(...),
+    current_user: User = Depends(get_current_user),
     session: Session = Depends(get_db_session),
 ) -> Goal:
-    goal = require_owned_resource(session, Goal, goal_id, user_id, detail="Goal not found.")
+    goal = require_owned_resource(session, Goal, goal_id, current_user.id, detail="Goal not found.")
 
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(goal, field, value)
@@ -64,6 +86,18 @@ def update_goal(
     session.commit()
     session.refresh(goal)
     return goal
+
+
+@router.delete("/goals/{goal_id}", response_model=Message)
+def delete_goal(
+    goal_id: int,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_db_session),
+) -> Message:
+    goal = require_owned_resource(session, Goal, goal_id, current_user.id, detail="Goal not found.")
+    session.delete(goal)
+    session.commit()
+    return Message(detail="Goal deleted.")
 
 
 @router.post("/goals/intake", response_model=GoalIntakeResponse)
@@ -74,11 +108,11 @@ def intake_goal(payload: GoalIntakeRequest) -> GoalIntakeResponse:
 @router.post("/goals/complete", response_model=GoalCompleteResponse, status_code=status.HTTP_201_CREATED)
 def complete_goal(
     payload: GoalCompleteRequest,
+    current_user: User = Depends(get_current_user),
     session: Session = Depends(get_db_session),
 ) -> GoalCompleteResponse:
-    require_user(session, payload.user_id)
     parsed = planning_service.parse_goal_input(GoalIntakeRequest(text=payload.text, category=payload.category))
-    goal = _create_goal_from_parsed(session, payload, parsed)
+    goal = _create_goal_from_parsed(session, payload, parsed, user_id=current_user.id)
     plan, llm_mode = _generate_plan_for_goal(
         session,
         goal=goal,
@@ -98,11 +132,13 @@ def _create_goal_from_parsed(
     session: Session,
     payload: GoalCompleteRequest,
     parsed: GoalIntakeResponse,
+    *,
+    user_id: int,
 ) -> Goal:
     merged_answers = {**parsed.goal.answers_json, **payload.answers_json}
     target_date = _parse_target_date(merged_answers.get("target_date"))
     goal = Goal(
-        user_id=payload.user_id,
+        user_id=user_id,
         title=parsed.goal.title,
         description=parsed.goal.description,
         category=payload.category or parsed.goal.category,

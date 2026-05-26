@@ -36,7 +36,7 @@ class GoalIntakeResponse(BaseModel):
 
 
 class GoalCompleteRequest(BaseModel):
-    user_id: int
+    user_id: int | None = None
     text: str = Field(min_length=1)
     category: GoalCategory | None = None
     answers_json: dict = Field(default_factory=dict)
@@ -53,12 +53,14 @@ class GoalCompleteResponse(BaseModel):
 
 
 class AllocateRequest(BaseModel):
-    user_id: int
+    user_id: int | None = None
     range_start: datetime
     range_end: datetime
     day_start: time | None = None
     day_end: time | None = None
-    clear_existing: bool = False
+    buffer_minutes: int | None = Field(default=None, ge=0)
+    max_auto_minutes_per_day: int | None = Field(default=None, gt=0)
+    clear_existing: bool = True
 
 
 class AllocateResponse(BaseModel):

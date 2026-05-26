@@ -39,8 +39,8 @@ class AIPlanItem(Base, TimestampMixin):
     priority: Mapped[int] = mapped_column(default=2, nullable=False)
     target_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     is_schedulable: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    scheduled_start: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True, nullable=True)
-    scheduled_end: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True, nullable=True)
+    scheduled_start: Mapped[datetime | None] = mapped_column(DateTime(), index=True, nullable=True)
+    scheduled_end: Mapped[datetime | None] = mapped_column(DateTime(), index=True, nullable=True)
     status: Mapped[PlanItemStatus] = mapped_column(
         Enum(PlanItemStatus),
         default=PlanItemStatus.suggested,

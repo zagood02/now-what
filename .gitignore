@@ -12,6 +12,7 @@
 
 # testing
 /coverage
+pytest-cache-files-*/
 
 # next.js
 /.next/
@@ -23,6 +24,9 @@
 # misc
 .DS_Store
 *.pem
+.vscode/
+*.backup
+*.broken
 
 # debug
 npm-debug.log*
@@ -40,15 +44,7 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# 백엔드 가상환경 및 환경변수
-.venv/
-.env
-
-# 프론트엔드 임시 파일
-.next/
-node_modules/
-
-# 파이썬 캐시(임시) 파일
+# python
 __pycache__/
 *.pyc
 *.py[cod]
@@ -57,6 +53,5 @@ __pycache__/
 .ruff_cache/
 .venv/
 venv/
-.env
 planner.db
 alembic/versions/*.pyc

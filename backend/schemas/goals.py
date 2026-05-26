@@ -7,7 +7,7 @@ from backend.schemas.base import ORMModel
 
 
 class GoalCreate(BaseModel):
-    user_id: int
+    user_id: int | None = None
     title: str = Field(min_length=1, max_length=200)
     description: str | None = None
     category: GoalCategory

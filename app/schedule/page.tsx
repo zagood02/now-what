@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/app/contexts/AuthContext";
 import { calendarAPI, type CalendarEvent } from "@/lib/api";
 
 type CalendarCell = {
@@ -12,6 +13,7 @@ type CalendarCell = {
 
 export default function CalendarPage() {
   const router = useRouter();
+  const { user, isLoading: isAuthLoading } = useAuth();
   const [currentDate, setCurrentDate] = useState(() => new Date(2026, 4, 1));  // 2026년 5월로 초기화
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -21,6 +23,16 @@ export default function CalendarPage() {
 
   useEffect(() => {
     const fetchCalendarData = async () => {
+      if (isAuthLoading) {
+        return;
+      }
+
+      if (!user) {
+        setCalendarEvents([]);
+        setLoading(false);
+        return;
+      }
+
       try {
         setLoading(true);
         const startDate = new Date(year, month, 1);
@@ -28,21 +40,21 @@ export default function CalendarPage() {
         endDate.setHours(23, 59, 59, 999);
 
         const response = await calendarAPI.get({
-          user_id: 1, // 테스트 유저 ID
           start: startDate.toISOString(),
           end: endDate.toISOString(),
         });
 
-        setCalendarEvents(response.data.events);
+        setCalendarEvents(response.data.events ?? []);
       } catch (error) {
         console.error("Failed to fetch calendar data:", error);
+        setCalendarEvents([]);
       } finally {
         setLoading(false);
       }
     };
 
     fetchCalendarData();
-  }, [year, month]);
+  }, [isAuthLoading, month, user, year]);
 
   const calendarCells = useMemo(() => {
     const getEventsForDate = (date: Date) => {
@@ -53,7 +65,6 @@ export default function CalendarPage() {
 
       return calendarEvents.filter((event) => {
         const eventStart = new Date(event.start_at);
-        const eventEnd = new Date(event.end_at);
         return eventStart >= dayStart && eventStart <= dayEnd;
       });
     };
@@ -114,6 +125,16 @@ export default function CalendarPage() {
       <div className="flex justify-center items-center h-64">
         <div className="text-lg" style={{ color: "var(--app-text-muted)" }}>
           월간 일정을 불러오는 중...
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="text-lg" style={{ color: "var(--app-text-muted)" }}>
+          로그인 후 시간표를 확인할 수 있습니다.
         </div>
       </div>
     );

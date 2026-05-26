@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { useAuth } from "@/app/contexts/AuthContext";
 import { AppSettings, readSettings } from "@/lib/settings";
 import { calendarAPI, type CalendarEvent } from "@/lib/api";
 
@@ -56,6 +57,7 @@ function getScheduleColorsByKey(colorKey: number) {
 
 export default function WeekPageClient() {
   const params = useSearchParams();
+  const { user, isLoading: isAuthLoading } = useAuth();
 
   const week = Number(params.get("week") ?? 0);
   const year = Number(params.get("year") ?? 2026);  // 기본값을 2026으로
@@ -81,6 +83,16 @@ export default function WeekPageClient() {
 
   useEffect(() => {
     const fetchCalendarData = async () => {
+      if (isAuthLoading) {
+        return;
+      }
+
+      if (!user) {
+        setCalendarEvents([]);
+        setLoading(false);
+        return;
+      }
+
       try {
         setLoading(true);
         setError(null);
@@ -90,14 +102,14 @@ export default function WeekPageClient() {
         endDate.setHours(23, 59, 59, 999);
 
         const response = await calendarAPI.get({
-          user_id: 1, // 테스트 유저 ID
           start: startDate.toISOString(),
           end: endDate.toISOString(),
         });
 
-        setCalendarEvents(response.data.events);
+        setCalendarEvents(response.data.events ?? []);
       } catch (err) {
         console.error("Failed to fetch calendar data:", err);
+        setCalendarEvents([]);
         setError("시간표 데이터를 불러오는데 실패했습니다.");
       } finally {
         setLoading(false);
@@ -107,7 +119,7 @@ export default function WeekPageClient() {
     if (weekDates.length > 0) {
       fetchCalendarData();
     }
-  }, [weekDates]);
+  }, [isAuthLoading, user, weekDates]);
 
   const { startHour, endHour, timeFormat } = settings;
   const hours = Array.from(
@@ -125,7 +137,6 @@ export default function WeekPageClient() {
       return calendarEvents
         .filter((event) => {
           const eventStart = new Date(event.start_at);
-          const eventEnd = new Date(event.end_at);
           return eventStart >= dayStart && eventStart <= dayEnd;
         })
         .sort((a, b) => {
@@ -151,6 +162,16 @@ export default function WeekPageClient() {
       <div className="flex justify-center items-center h-64">
         <div className="text-lg" style={{ color: "var(--app-text-muted)" }}>
           시간표를 불러오는 중...
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="text-lg" style={{ color: "var(--app-text-muted)" }}>
+          로그인 후 시간표를 확인할 수 있습니다.
         </div>
       </div>
     );

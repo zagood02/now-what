@@ -18,6 +18,10 @@ class UserLogin(BaseModel):
     password: str
 
 
+class GoogleLoginRequest(BaseModel):
+    credential: str = Field(min_length=1)
+
+
 class UserRead(ORMModel):
     id: int
     email: EmailStr

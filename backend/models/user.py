@@ -19,3 +19,4 @@ class User(Base, TimestampMixin):
     goals = relationship("Goal", back_populates="user", cascade="all, delete-orphan")
     ai_plans = relationship("AIPlan", back_populates="user", cascade="all, delete-orphan")
     ai_plan_items = relationship("AIPlanItem", back_populates="user", cascade="all, delete-orphan")
+    auth_accounts = relationship("AuthAccount", back_populates="user", cascade="all, delete-orphan")

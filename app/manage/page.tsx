@@ -4,13 +4,11 @@ import { useEffect, useMemo, useState } from "react";
 import {
   fixedScheduleAPI,
   flexibleTaskAPI,
-  userAPI,
   handleApiError,
   type FixedSchedule,
   type FlexibleTask,
-  type CreateFixedScheduleRequest,
-  type CreateFlexibleTaskRequest,
 } from "@/lib/api";
+import { useAuth } from "@/app/contexts/AuthContext";
 
 type FixedFormState = {
   title: string;
@@ -49,11 +47,11 @@ const variableInitialForm: VariableFormState = {
 };
 
 export default function ManagePage() {
+  const { user, isLoading: isAuthLoading } = useAuth();
   const [activeTab, setActiveTab] = useState<"fixed" | "variable">("fixed");
   const [fixedForm, setFixedForm] = useState<FixedFormState>(fixedInitialForm);
   const [variableForm, setVariableForm] = useState<VariableFormState>(variableInitialForm);
 
-  const [testUserId, setTestUserId] = useState<number | null>(null);
   const [isLoadingApi, setIsLoadingApi] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
   const [fixedSchedules, setFixedSchedules] = useState<FixedSchedule[]>([]);
@@ -62,30 +60,26 @@ export default function ManagePage() {
   // Initialize test user and load data from API
   useEffect(() => {
     const initializeData = async () => {
+      if (isAuthLoading) {
+        return;
+      }
+
+      if (!user) {
+        setFixedSchedules([]);
+        setFlexibleTasks([]);
+        setApiError(null);
+        return;
+      }
+
       try {
         setIsLoadingApi(true);
 
-        // Create or get test user
-        const userRes = await userAPI.list();
-        let userId = userRes.data[0]?.id;
-
-        if (!userId) {
-          const createRes = await userAPI.create({
-            email: "test@example.com",
-            name: "테스트 사용자",
-            timezone: "Asia/Seoul",
-          });
-          userId = createRes.data.id;
-        }
-
-        setTestUserId(userId);
-
         // Load schedules from API
-        const schedulesRes = await fixedScheduleAPI.list({ user_id: userId });
+        const schedulesRes = await fixedScheduleAPI.list();
         setFixedSchedules(schedulesRes.data);
 
         // Load flexible tasks from API
-        const tasksRes = await flexibleTaskAPI.list({ user_id: userId });
+        const tasksRes = await flexibleTaskAPI.list();
         setFlexibleTasks(tasksRes.data);
 
         setApiError(null);
@@ -100,7 +94,7 @@ export default function ManagePage() {
     };
 
     initializeData();
-  }, []);
+  }, [isAuthLoading, user]);
 
   const sortedFixedSchedules = useMemo(() => {
     return [...fixedSchedules].sort((a, b) => a.title.localeCompare(b.title));
@@ -139,8 +133,8 @@ export default function ManagePage() {
 
     if (!fixedForm.title.trim()) return;
     if (!fixedForm.start_time || !fixedForm.end_time) return;
-    if (!testUserId) {
-      setApiError("사용자 ID를 찾을 수 없습니다.");
+    if (!user) {
+      setApiError("로그인이 필요합니다.");
       return;
     }
 
@@ -176,7 +170,6 @@ export default function ManagePage() {
           : undefined;
 
       const response = await fixedScheduleAPI.create({
-        user_id: testUserId,
         title: fixedForm.title.trim(),
         start_at,
         end_at,
@@ -198,15 +191,15 @@ export default function ManagePage() {
   };
 
   const handleDeleteFixed = async (scheduleId: number) => {
-    if (!testUserId) {
-      setApiError("사용자 ID를 찾을 수 없습니다.");
+    if (!user) {
+      setApiError("로그인이 필요합니다.");
       return;
     }
 
     try {
       setIsLoadingApi(true);
       setApiError(null);
-      await fixedScheduleAPI.delete(scheduleId, testUserId);
+      await fixedScheduleAPI.delete(scheduleId);
       setFixedSchedules((prev) => prev.filter((schedule) => schedule.id !== scheduleId));
     } catch (error) {
       console.error("Failed to delete fixed schedule:", error);
@@ -221,8 +214,8 @@ export default function ManagePage() {
 
     if (!variableForm.title.trim()) return;
     if (!variableForm.estimated_time || Number(variableForm.estimated_time) <= 0) return;
-    if (!testUserId) {
-      setApiError("사용자 ID를 찾을 수 없습니다.");
+    if (!user) {
+      setApiError("로그인이 필요합니다.");
       return;
     }
 
@@ -233,7 +226,6 @@ export default function ManagePage() {
       const estimatedMinutes = Number(variableForm.estimated_time);
 
       const response = await flexibleTaskAPI.create({
-        user_id: testUserId,
         title: variableForm.title.trim(),
         estimated_minutes: estimatedMinutes,
         min_session_minutes: Math.max(15, Math.floor(estimatedMinutes / 4)),
@@ -257,9 +249,14 @@ export default function ManagePage() {
   };
 
   const handleDeleteVariable = async (id: string) => {
+    if (!user) {
+      setApiError("로그인이 필요합니다.");
+      return;
+    }
+
     try {
       const taskId = parseInt(id);
-      await flexibleTaskAPI.delete(taskId, testUserId!);
+      await flexibleTaskAPI.delete(taskId);
       setFlexibleTasks((prev) => prev.filter((item) => item.id !== taskId));
     } catch (error) {
       console.error("Failed to delete flexible task:", error);
@@ -282,6 +279,19 @@ export default function ManagePage() {
         </div>
       )}
 
+      {!isAuthLoading && !user && (
+        <div
+          className="rounded-xl border p-4"
+          style={{
+            background: "var(--app-surface)",
+            borderColor: "var(--app-border)",
+            color: "var(--app-text-muted)",
+          }}
+        >
+          로그인 후 일정과 작업을 관리할 수 있습니다.
+        </div>
+      )}
+
       {apiError && (
         <div
           className="rounded-xl border p-4"
@@ -292,19 +302,6 @@ export default function ManagePage() {
           }}
         >
           ⚠️ API 오류: {apiError}
-        </div>
-      )}
-
-      {testUserId && (
-        <div
-          className="rounded-xl border p-4 text-sm"
-          style={{
-            background: "var(--app-surface)",
-            borderColor: "var(--app-border)",
-            color: "var(--app-text-muted)",
-          }}
-        >
-          테스트 사용자 ID: {testUserId}
         </div>
       )}
 
