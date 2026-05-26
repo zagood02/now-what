@@ -1,11 +1,16 @@
-export type DayCode =
-  | "SUN"
-  | "MON"
-  | "TUE"
-  | "WED"
-  | "THU"
-  | "FRI"
-  | "SAT";
+export type DayCode = "SUN" | "MON" | "TUE" | "WED" | "THU" | "FRI" | "SAT";
+export type MonthRule = "START" | "MID" | "END" | "CUSTOM";
+export type RepeatType = "WEEKLY" | "BIWEEKLY" | "MONTHLY";
+export type VariableStatus = "pending" | "done" | "failed";
+
+export type FailReason =
+  | "TIME_SHORTAGE"
+  | "ENERGY_SHORTAGE"
+  | "TRAVEL_TIME_SHORTAGE"
+  | "TOOK_LONGER_THAN_EXPECTED"
+  | "SUDDEN_SCHEDULE"
+  | "LOW_FOCUS"
+  | "ETC";
 
 export type VariableSchedule = {
   id: string;
@@ -13,18 +18,18 @@ export type VariableSchedule = {
   title: string;
   estimated_time: number;
   is_done: boolean;
+  status: VariableStatus;
   level: number;
+  color_key: number;
   deadline: string;
   scheduled_start: string | null;
   scheduled_end: string | null;
-  fail_reason: string | null;
+  fail_reason: FailReason | null;
+  fail_reason_text: string | null;
   priority: number | null;
   created_at: string | null;
   updated_at: string | null;
 };
-
-export type MonthRule = "START" | "MID" | "END" | "CUSTOM";
-export type RepeatType = "WEEKLY" | "BIWEEKLY" | "MONTHLY";
 
 export type FixedScheduleRule = {
   id: string;
@@ -46,6 +51,7 @@ export type FixedScheduleSeries = {
   user_id: string;
   title: string;
   color_key: number;
+  level: number;
   created_at: string | null;
   updated_at: string | null;
   rules: FixedScheduleRule[];
@@ -59,8 +65,24 @@ export type WeekScheduleOccurrence = {
   start_time: string;
   end_time: string;
   color_key: number;
+  level: number;
   source_type: "fixed";
 };
+
+export type WeekVariableOccurrence = {
+  id: string;
+  title: string;
+  start_time: string;
+  end_time: string;
+  color_key: number;
+  level: number;
+  status: VariableStatus;
+  fail_reason: FailReason | null;
+  fail_reason_text: string | null;
+  source_type: "variable";
+};
+
+export type WeekOccurrence = WeekScheduleOccurrence | WeekVariableOccurrence;
 
 export type FixedScheduleDetailItem = {
   id: string;
@@ -101,31 +123,37 @@ export const dayLabelMap: Record<DayCode, string> = {
   SAT: "토",
 };
 
-export const dayOrder: DayCode[] = [
-  "SUN",
-  "MON",
-  "TUE",
-  "WED",
-  "THU",
-  "FRI",
-  "SAT",
-];
+export const dayOrder: DayCode[] = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 
-export const dayOptions: { code: DayCode; label: string }[] = [
-  { code: "SUN", label: "일" },
-  { code: "MON", label: "월" },
-  { code: "TUE", label: "화" },
-  { code: "WED", label: "수" },
-  { code: "THU", label: "목" },
-  { code: "FRI", label: "금" },
-  { code: "SAT", label: "토" },
-];
+export const dayOptions = dayOrder.map((code) => ({
+  code,
+  label: dayLabelMap[code],
+}));
 
 export const monthRuleOptions: { value: MonthRule; label: string }[] = [
   { value: "START", label: "매월 초" },
   { value: "MID", label: "매월 15일" },
   { value: "END", label: "매월 말일" },
-  { value: "CUSTOM", label: "기타" },
+  { value: "CUSTOM", label: "기타 날짜" },
+];
+
+export const colorOptions = [
+  { key: 0, label: "파랑" },
+  { key: 1, label: "초록" },
+  { key: 2, label: "노랑" },
+  { key: 3, label: "빨강" },
+  { key: 4, label: "보라" },
+  { key: 5, label: "분홍" },
+];
+
+export const failReasonOptions: { value: FailReason; label: string }[] = [
+  { value: "TIME_SHORTAGE", label: "시간 부족" },
+  { value: "ENERGY_SHORTAGE", label: "체력 부족" },
+  { value: "TRAVEL_TIME_SHORTAGE", label: "이동시간 부족" },
+  { value: "TOOK_LONGER_THAN_EXPECTED", label: "예상보다 오래 걸림" },
+  { value: "SUDDEN_SCHEDULE", label: "갑작스러운 일정 발생" },
+  { value: "LOW_FOCUS", label: "집중력 부족" },
+  { value: "ETC", label: "기타" },
 ];
 
 export const initialFixedScheduleSeries: FixedScheduleSeries[] = [
@@ -135,6 +163,7 @@ export const initialFixedScheduleSeries: FixedScheduleSeries[] = [
     user_id: "test_user",
     title: "알고리즘 수업",
     color_key: 0,
+    level: 5,
     created_at: null,
     updated_at: null,
     rules: [
@@ -153,91 +182,6 @@ export const initialFixedScheduleSeries: FixedScheduleSeries[] = [
       },
     ],
   },
-  {
-    id: "series-2",
-    series_id: "series-2",
-    user_id: "test_user",
-    title: "헬스장 운동",
-    color_key: 1,
-    created_at: null,
-    updated_at: null,
-    rules: [
-      {
-        id: "rule-2",
-        rule_id: "rule-2",
-        freq_type: "WEEKLY",
-        days: ["WED", "SAT"],
-        month_rule: null,
-        month_days: [],
-        biweekly_start_date: null,
-        start_time: "18:00:00",
-        end_time: "20:00:00",
-        created_at: null,
-        updated_at: null,
-      },
-    ],
-  },
-  {
-    id: "series-3",
-    series_id: "series-3",
-    user_id: "test_user",
-    title: "출근",
-    color_key: 2,
-    created_at: null,
-    updated_at: null,
-    rules: [
-      {
-        id: "rule-3",
-        rule_id: "rule-3",
-        freq_type: "WEEKLY",
-        days: ["MON", "TUE", "WED", "THU"],
-        month_rule: null,
-        month_days: [],
-        biweekly_start_date: null,
-        start_time: "09:00:00",
-        end_time: "17:00:00",
-        created_at: null,
-        updated_at: null,
-      },
-      {
-        id: "rule-4",
-        rule_id: "rule-4",
-        freq_type: "BIWEEKLY",
-        days: ["FRI"],
-        month_rule: null,
-        month_days: [],
-        biweekly_start_date: "2026-04-03",
-        start_time: "14:00:00",
-        end_time: "20:00:00",
-        created_at: null,
-        updated_at: null,
-      },
-    ],
-  },
-  {
-    id: "series-4",
-    series_id: "series-4",
-    user_id: "test_user",
-    title: "월간 상담",
-    color_key: 3,
-    created_at: null,
-    updated_at: null,
-    rules: [
-      {
-        id: "rule-5",
-        rule_id: "rule-5",
-        freq_type: "MONTHLY",
-        days: [],
-        month_rule: "MID",
-        month_days: [],
-        biweekly_start_date: null,
-        start_time: "16:00:00",
-        end_time: "17:00:00",
-        created_at: null,
-        updated_at: null,
-      },
-    ],
-  },
 ];
 
 export const initialVariableSchedules: VariableSchedule[] = [
@@ -247,42 +191,15 @@ export const initialVariableSchedules: VariableSchedule[] = [
     title: "네트워크 과제",
     estimated_time: 120,
     is_done: false,
+    status: "pending",
     level: 7,
-    deadline: "2026-04-17T23:59:00+09:00",
+    color_key: 3,
+    deadline: "2026-04-30T23:59:00+09:00",
     scheduled_start: null,
     scheduled_end: null,
     fail_reason: null,
+    fail_reason_text: null,
     priority: 1,
-    created_at: null,
-    updated_at: null,
-  },
-  {
-    id: "v2",
-    user_id: "test_user",
-    title: "캡스톤 발표 자료 수정",
-    estimated_time: 90,
-    is_done: false,
-    level: 8,
-    deadline: "2026-04-18T18:00:00+09:00",
-    scheduled_start: null,
-    scheduled_end: null,
-    fail_reason: null,
-    priority: 1,
-    created_at: null,
-    updated_at: null,
-  },
-  {
-    id: "v3",
-    user_id: "test_user",
-    title: "운영체제 복습",
-    estimated_time: 60,
-    is_done: true,
-    level: 5,
-    deadline: "2026-04-16T21:00:00+09:00",
-    scheduled_start: null,
-    scheduled_end: null,
-    fail_reason: null,
-    priority: 2,
     created_at: null,
     updated_at: null,
   },
@@ -293,32 +210,46 @@ export function timeToNumber(time: string) {
   return h + m / 60;
 }
 
+export function timeToMinutes(time: string) {
+  const [h, m] = time.split(":").map(Number);
+  return h * 60 + m;
+}
+
 export function formatTimeRange(startTime: string, endTime: string) {
   return `${startTime.slice(0, 5)}~${endTime.slice(0, 5)}`;
 }
 
 export function parseKstDateString(value: string) {
-  const normalized = value
-    .trim()
-    .replace(" ", "T")
-    .replace(/([+-]\d{2})$/, "$1:00");
-
-  return new Date(normalized);
+  return new Date(value.trim().replace(" ", "T").replace(/([+-]\d{2})$/, "$1:00"));
 }
 
 export function formatDeadline(value: string) {
   const date = parseKstDateString(value);
+  if (Number.isNaN(date.getTime())) return "-";
 
-  if (Number.isNaN(date.getTime())) {
-    return "-";
-  }
+  return `${date.getMonth() + 1}/${date.getDate()} ${String(date.getHours()).padStart(2, "0")}:${String(
+    date.getMinutes()
+  ).padStart(2, "0")}`;
+}
 
-  const month = date.getMonth() + 1;
-  const day = date.getDate();
-  const hour = String(date.getHours()).padStart(2, "0");
-  const minute = String(date.getMinutes()).padStart(2, "0");
+export function getDeadlineDiffText(value: string) {
+  const deadline = parseKstDateString(value);
+  if (Number.isNaN(deadline.getTime())) return "마감일 확인 필요";
 
-  return `${month}/${day} ${hour}:${minute}`;
+  const today = new Date();
+  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+  const deadlineStart = new Date(deadline.getFullYear(), deadline.getMonth(), deadline.getDate()).getTime();
+  const diff = Math.ceil((deadlineStart - todayStart) / (1000 * 60 * 60 * 24));
+
+  if (diff < 0) return `${Math.abs(diff)}일 지남`;
+  if (diff === 0) return "오늘 마감";
+  return `D-${diff}`;
+}
+
+export function isDeadlinePassed(value: string) {
+  const deadline = parseKstDateString(value);
+  if (Number.isNaN(deadline.getTime())) return false;
+  return deadline.getTime() < new Date().getTime();
 }
 
 export function getLevelLabel(level: number) {
@@ -328,15 +259,32 @@ export function getLevelLabel(level: number) {
   return "낮음";
 }
 
+export function getStatusLabel(status: VariableStatus) {
+  if (status === "done") return "완료";
+  if (status === "failed") return "실패";
+  return "미완료";
+}
+
+export function getFailReasonLabel(reason: FailReason | null) {
+  if (!reason) return null;
+  return failReasonOptions.find((item) => item.value === reason)?.label ?? "기타";
+}
+
+export function getEffectiveVariableStatus(schedule: VariableSchedule): VariableStatus {
+  if (schedule.status === "done") return "done";
+  if (schedule.status === "failed") return "failed";
+  if (schedule.is_done) return "done";
+  if (isDeadlinePassed(schedule.deadline)) return "failed";
+  return "pending";
+}
+
 export function toggleSelectedDay(days: DayCode[], target: DayCode) {
   if (days.includes(target)) {
     if (days.length === 1) return days;
     return days.filter((day) => day !== target);
   }
 
-  return [...days, target].sort(
-    (a, b) => dayOrder.indexOf(a) - dayOrder.indexOf(b)
-  );
+  return [...days, target].sort((a, b) => dayOrder.indexOf(a) - dayOrder.indexOf(b));
 }
 
 export function toggleSelectedMonthDay(days: number[], target: number) {
@@ -350,30 +298,20 @@ export function toggleSelectedMonthDay(days: number[], target: number) {
 
 export function getScheduleColorsByKey(colorKey: number) {
   const palette = [
-    {
-      bg: "var(--card-blue-bg)",
-      text: "var(--card-blue-text)",
-    },
-    {
-      bg: "var(--card-green-bg)",
-      text: "var(--card-green-text)",
-    },
-    {
-      bg: "var(--card-yellow-bg)",
-      text: "var(--card-yellow-text)",
-    },
-    {
-      bg: "var(--card-red-bg)",
-      text: "var(--card-red-text)",
-    },
+    { bg: "var(--card-blue-bg)", text: "var(--card-blue-text)", border: "var(--card-blue-border)" },
+    { bg: "var(--card-green-bg)", text: "var(--card-green-text)", border: "var(--card-green-border)" },
+    { bg: "var(--card-yellow-bg)", text: "var(--card-yellow-text)", border: "var(--card-yellow-border)" },
+    { bg: "var(--card-red-bg)", text: "var(--card-red-text)", border: "var(--card-red-border)" },
+    { bg: "var(--card-purple-bg)", text: "var(--card-purple-text)", border: "var(--card-purple-border)" },
+    { bg: "var(--card-pink-bg)", text: "var(--card-pink-text)", border: "var(--card-pink-border)" },
   ];
 
   return palette[((colorKey % palette.length) + palette.length) % palette.length];
 }
 
-export function getNextColorKey(seriesList: FixedScheduleSeries[]) {
-  if (seriesList.length === 0) return 0;
-  return Math.max(...seriesList.map((series) => series.color_key)) + 1;
+export function getNextColorKey(items: { color_key?: number }[]) {
+  if (items.length === 0) return 0;
+  return Math.max(...items.map((item) => item.color_key ?? 0)) + 1;
 }
 
 export function getLastDayOfMonth(date: Date) {
@@ -398,75 +336,38 @@ function isBiweeklyMatch(date: Date, rule: FixedScheduleRule) {
   const days = diffDays(date, start);
   if (days < 0) return false;
 
-  const weeks = Math.floor(days / 7);
-  return weeks % 2 === 0;
+  return Math.floor(days / 7) % 2 === 0;
 }
 
 function isMonthlyMatch(date: Date, rule: FixedScheduleRule) {
-  if (rule.month_rule === "START") {
-    return date.getDate() === 1;
-  }
-
-  if (rule.month_rule === "MID") {
-    return date.getDate() === 15;
-  }
-
-  if (rule.month_rule === "END") {
-    return date.getDate() === getLastDayOfMonth(date);
-  }
-
-  if (rule.month_rule === "CUSTOM") {
-    return rule.month_days.includes(date.getDate());
-  }
-
+  if (rule.month_rule === "START") return date.getDate() === 1;
+  if (rule.month_rule === "MID") return date.getDate() === 15;
+  if (rule.month_rule === "END") return date.getDate() === getLastDayOfMonth(date);
+  if (rule.month_rule === "CUSTOM") return rule.month_days.includes(date.getDate());
   return false;
 }
 
-function getMonthRuleLabel(
-  monthRule: MonthRule | null,
-  monthDays: number[],
-  includePrefix = true
-) {
+function getMonthRuleLabel(monthRule: MonthRule | null, monthDays: number[], includePrefix = true) {
   if (monthRule === "START") return includePrefix ? "매월 초" : "초";
   if (monthRule === "MID") return includePrefix ? "매월 15일" : "15일";
   if (monthRule === "END") return includePrefix ? "매월 말일" : "말일";
-  if (monthRule === "CUSTOM") {
-    return includePrefix
-      ? `매월 ${monthDays.join(", ")}일`
-      : `${monthDays.join(", ")}일`;
-  }
-
+  if (monthRule === "CUSTOM") return includePrefix ? `매월 ${monthDays.join(", ")}일` : `${monthDays.join(", ")}일`;
   return "-";
 }
 
 function compressDayLabels(days: DayCode[]) {
-  const sorted = [...days].sort(
-    (a, b) => dayOrder.indexOf(a) - dayOrder.indexOf(b)
-  );
-
-  const labels = sorted.map((day) => dayLabelMap[day]);
-  const indexes = sorted.map((day) => dayOrder.indexOf(day));
-
-  if (sorted.length >= 2) {
-    let isContinuous = true;
-    for (let i = 1; i < indexes.length; i++) {
-      if (indexes[i] !== indexes[i - 1] + 1) {
-        isContinuous = false;
-        break;
-      }
-    }
-
-    if (isContinuous) {
-      return `${labels[0]}~${labels[labels.length - 1]}`;
-    }
-  }
-
-  return labels.join(", ");
+  return [...days]
+    .sort((a, b) => dayOrder.indexOf(a) - dayOrder.indexOf(b))
+    .map((day) => dayLabelMap[day])
+    .join(", ");
 }
 
 export function formatRuleSummary(rule: FixedScheduleRule) {
   if (rule.freq_type === "MONTHLY") {
-    return `${getMonthRuleLabel(rule.month_rule, rule.month_days, true)} ${formatTimeRange(rule.start_time, rule.end_time)}`;
+    return `${getMonthRuleLabel(rule.month_rule, rule.month_days, true)} ${formatTimeRange(
+      rule.start_time,
+      rule.end_time
+    )}`;
   }
 
   const dayText = compressDayLabels(rule.days);
@@ -484,10 +385,7 @@ export function formatRuleSummary(rule: FixedScheduleRule) {
   return `격주 ${dayText} ${formatTimeRange(rule.start_time, rule.end_time)}${startText}`;
 }
 
-export function expandRuleToDetailItems(
-  series: FixedScheduleSeries,
-  rule: FixedScheduleRule
-): FixedScheduleDetailItem[] {
+export function expandRuleToDetailItems(series: FixedScheduleSeries, rule: FixedScheduleRule): FixedScheduleDetailItem[] {
   if (rule.freq_type === "MONTHLY") {
     if (rule.month_rule === "CUSTOM") {
       return rule.month_days.map((day) => ({
@@ -548,49 +446,76 @@ export function expandRuleToDetailItems(
 }
 
 function normalizeLegacyFixedData(parsed: unknown): FixedScheduleSeries[] {
-  if (!Array.isArray(parsed)) {
-    return initialFixedScheduleSeries;
-  }
+  if (!Array.isArray(parsed)) return initialFixedScheduleSeries;
+  if (parsed.length === 0) return [];
 
-  if (parsed.length === 0) {
-    return [];
-  }
+  return (parsed as Partial<FixedScheduleSeries>[]).map((series, seriesIndex) => ({
+    id: series.id ?? `series-${seriesIndex}`,
+    series_id: series.series_id ?? series.id ?? `series-${seriesIndex}`,
+    user_id: series.user_id ?? "test_user",
+    title: series.title ?? "제목 없음",
+    color_key: typeof series.color_key === "number" ? series.color_key : seriesIndex % colorOptions.length,
+    level: typeof series.level === "number" ? series.level : 5,
+    created_at: series.created_at ?? null,
+    updated_at: series.updated_at ?? null,
+    rules: Array.isArray(series.rules)
+      ? series.rules.map((rule, ruleIndex) => ({
+          id: rule.id ?? `rule-${seriesIndex}-${ruleIndex}`,
+          rule_id: rule.rule_id ?? rule.id ?? `rule-${seriesIndex}-${ruleIndex}`,
+          freq_type: rule.freq_type ?? "WEEKLY",
+          days: Array.isArray(rule.days) ? rule.days : [],
+          month_rule: rule.month_rule ?? null,
+          month_days: Array.isArray(rule.month_days) ? rule.month_days : [],
+          biweekly_start_date: rule.biweekly_start_date ?? null,
+          start_time: rule.start_time ?? "09:00:00",
+          end_time: rule.end_time ?? "10:00:00",
+          created_at: rule.created_at ?? null,
+          updated_at: rule.updated_at ?? null,
+        }))
+      : [],
+  }));
+}
 
-  const first = parsed[0] as Record<string, unknown>;
+function normalizeLegacyVariableData(parsed: unknown): VariableSchedule[] {
+  if (!Array.isArray(parsed)) return initialVariableSchedules;
 
-  if (Array.isArray(first.rules)) {
-    return (parsed as FixedScheduleSeries[]).map((series, seriesIndex) => ({
-      ...series,
-      series_id: series.series_id ?? series.id ?? `series-${seriesIndex}`,
-      color_key:
-        typeof series.color_key === "number" ? series.color_key : seriesIndex % 4,
-      created_at: series.created_at ?? null,
-      updated_at: series.updated_at ?? null,
-      rules: series.rules.map((rule, ruleIndex) => ({
-        ...rule,
-        rule_id: rule.rule_id ?? rule.id ?? `rule-${seriesIndex}-${ruleIndex}`,
-        start_time: rule.start_time ?? "09:00:00",
-        end_time: rule.end_time ?? "10:00:00",
-        created_at: rule.created_at ?? null,
-        updated_at: rule.updated_at ?? null,
-      })),
-    }));
-  }
+  return (parsed as Partial<VariableSchedule>[]).map((item, index) => {
+    const isDone = Boolean(item.is_done);
+    const status: VariableStatus =
+      item.status === "done" || item.status === "failed" || item.status === "pending"
+        ? item.status
+        : isDone
+          ? "done"
+          : "pending";
 
-  return initialFixedScheduleSeries;
+    return {
+      id: item.id ?? `variable-${index}`,
+      user_id: item.user_id ?? "test_user",
+      title: item.title ?? "제목 없음",
+      estimated_time: typeof item.estimated_time === "number" ? item.estimated_time : 60,
+      is_done: isDone,
+      status,
+      level: typeof item.level === "number" ? item.level : 5,
+      color_key: typeof item.color_key === "number" ? item.color_key : index % colorOptions.length,
+      deadline: item.deadline ?? new Date().toISOString(),
+      scheduled_start: item.scheduled_start ?? null,
+      scheduled_end: item.scheduled_end ?? null,
+      fail_reason: item.fail_reason ?? null,
+      fail_reason_text: item.fail_reason_text ?? null,
+      priority: item.priority ?? null,
+      created_at: item.created_at ?? null,
+      updated_at: item.updated_at ?? null,
+    };
+  });
 }
 
 export function getFixedScheduleSeries() {
-  if (typeof window === "undefined") {
-    return initialFixedScheduleSeries;
-  }
+  if (typeof window === "undefined") return initialFixedScheduleSeries;
 
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.fixedSeries);
     if (!raw) return initialFixedScheduleSeries;
-
-    const parsed = JSON.parse(raw);
-    return normalizeLegacyFixedData(parsed);
+    return normalizeLegacyFixedData(JSON.parse(raw));
   } catch {
     return initialFixedScheduleSeries;
   }
@@ -602,21 +527,12 @@ export function saveFixedScheduleSeries(seriesList: FixedScheduleSeries[]) {
 }
 
 export function getVariableSchedules() {
-  if (typeof window === "undefined") {
-    return initialVariableSchedules;
-  }
+  if (typeof window === "undefined") return initialVariableSchedules;
 
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.variableSchedules);
     if (!raw) return initialVariableSchedules;
-
-    const parsed = JSON.parse(raw);
-
-    if (!Array.isArray(parsed)) {
-      return initialVariableSchedules;
-    }
-
-    return parsed as VariableSchedule[];
+    return normalizeLegacyVariableData(JSON.parse(raw));
   } catch {
     return initialVariableSchedules;
   }
@@ -627,12 +543,8 @@ export function saveVariableSchedules(schedules: VariableSchedule[]) {
   localStorage.setItem(STORAGE_KEYS.variableSchedules, JSON.stringify(schedules));
 }
 
-export function getScheduleOccurrencesForDate(
-  date: Date,
-  seriesList: FixedScheduleSeries[]
-) {
+export function getScheduleOccurrencesForDate(date: Date, seriesList: FixedScheduleSeries[]) {
   const dayIndex = date.getDay();
-
   const occurrences: WeekScheduleOccurrence[] = [];
 
   seriesList.forEach((series) => {
@@ -643,13 +555,8 @@ export function getScheduleOccurrencesForDate(
         matched = isMonthlyMatch(date, rule);
       } else {
         const dayMatched = rule.days.some((day) => dayMap[day] === dayIndex);
-
         if (dayMatched) {
-          if (rule.freq_type === "WEEKLY") {
-            matched = true;
-          } else if (rule.freq_type === "BIWEEKLY") {
-            matched = isBiweeklyMatch(date, rule);
-          }
+          matched = rule.freq_type === "WEEKLY" ? true : isBiweeklyMatch(date, rule);
         }
       }
 
@@ -662,6 +569,7 @@ export function getScheduleOccurrencesForDate(
           start_time: rule.start_time,
           end_time: rule.end_time,
           color_key: series.color_key,
+          level: series.level ?? 5,
           source_type: "fixed",
         });
       }
@@ -671,126 +579,94 @@ export function getScheduleOccurrencesForDate(
   return occurrences;
 }
 
-export function flattenSeriesToDbRows(seriesList: FixedScheduleSeries[]) {
-  const rows: Array<{
-    id: string;
-    series_id: string;
-    rule_id: string;
-    user_id: string;
-    title: string;
-    freq_type: RepeatType;
-    by_day: DayCode | null;
-    by_month_day: number | null;
-    start_time: string;
-    end_time: string;
-    biweekly_start_date: string | null;
-    month_rule: MonthRule | null;
-    color_key: number;
-    created_at: string | null;
-    updated_at: string | null;
-  }> = [];
+function isSameDate(a: Date, b: Date) {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
 
-  seriesList.forEach((series) => {
-    series.rules.forEach((rule) => {
-      if (rule.freq_type === "MONTHLY") {
-        if (rule.month_rule === "START") {
-          rows.push({
-            id: `${series.series_id}-${rule.rule_id}-db-1`,
-            series_id: series.series_id,
-            rule_id: rule.rule_id,
-            user_id: series.user_id,
-            title: series.title,
-            freq_type: "MONTHLY",
-            by_day: null,
-            by_month_day: 1,
-            start_time: rule.start_time,
-            end_time: rule.end_time,
-            biweekly_start_date: rule.biweekly_start_date,
-            month_rule: rule.month_rule,
-            color_key: series.color_key,
-            created_at: rule.created_at,
-            updated_at: rule.updated_at,
-          });
-        } else if (rule.month_rule === "MID") {
-          rows.push({
-            id: `${series.series_id}-${rule.rule_id}-db-15`,
-            series_id: series.series_id,
-            rule_id: rule.rule_id,
-            user_id: series.user_id,
-            title: series.title,
-            freq_type: "MONTHLY",
-            by_day: null,
-            by_month_day: 15,
-            start_time: rule.start_time,
-            end_time: rule.end_time,
-            biweekly_start_date: rule.biweekly_start_date,
-            month_rule: rule.month_rule,
-            color_key: series.color_key,
-            created_at: rule.created_at,
-            updated_at: rule.updated_at,
-          });
-        } else if (rule.month_rule === "CUSTOM") {
-          rule.month_days.forEach((day) => {
-            rows.push({
-              id: `${series.series_id}-${rule.rule_id}-db-${day}`,
-              series_id: series.series_id,
-              rule_id: rule.rule_id,
-              user_id: series.user_id,
-              title: series.title,
-              freq_type: "MONTHLY",
-              by_day: null,
-              by_month_day: day,
-              start_time: rule.start_time,
-              end_time: rule.end_time,
-              biweekly_start_date: rule.biweekly_start_date,
-              month_rule: rule.month_rule,
-              color_key: series.color_key,
-              created_at: rule.created_at,
-              updated_at: rule.updated_at,
-            });
-          });
-        } else if (rule.month_rule === "END") {
-          rows.push({
-            id: `${series.series_id}-${rule.rule_id}-db-end`,
-            series_id: series.series_id,
-            rule_id: rule.rule_id,
-            user_id: series.user_id,
-            title: series.title,
-            freq_type: "MONTHLY",
-            by_day: null,
-            by_month_day: null,
-            start_time: rule.start_time,
-            end_time: rule.end_time,
-            biweekly_start_date: rule.biweekly_start_date,
-            month_rule: rule.month_rule,
-            color_key: series.color_key,
-            created_at: rule.created_at,
-            updated_at: rule.updated_at,
-          });
-        }
-      } else {
-        rule.days.forEach((day) => {
-          rows.push({
-            id: `${series.series_id}-${rule.rule_id}-db-${day}`,
-            series_id: series.series_id,
-            rule_id: rule.rule_id,
-            user_id: series.user_id,
-            title: series.title,
-            freq_type: rule.freq_type,
-            by_day: day,
-            by_month_day: null,
-            start_time: rule.start_time,
-            end_time: rule.end_time,
-            biweekly_start_date: rule.biweekly_start_date,
-            month_rule: rule.month_rule,
-            color_key: series.color_key,
-            created_at: rule.created_at,
-            updated_at: rule.updated_at,
-          });
-        });
-      }
+function toTimeStringFromDate(date: Date) {
+  return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}:00`;
+}
+
+export function getVariableOccurrencesForDate(date: Date, schedules: VariableSchedule[]) {
+  const occurrences: WeekVariableOccurrence[] = [];
+
+  schedules.forEach((schedule) => {
+    if (!schedule.scheduled_start || !schedule.scheduled_end) return;
+
+    const start = parseKstDateString(schedule.scheduled_start);
+    const end = parseKstDateString(schedule.scheduled_end);
+
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return;
+    if (!isSameDate(date, start)) return;
+
+    occurrences.push({
+      id: schedule.id,
+      title: schedule.title,
+      start_time: toTimeStringFromDate(start),
+      end_time: toTimeStringFromDate(end),
+      color_key: schedule.color_key,
+      level: schedule.level,
+      status: getEffectiveVariableStatus(schedule),
+      fail_reason: schedule.fail_reason,
+      fail_reason_text: schedule.fail_reason_text,
+      source_type: "variable",
     });
   });
 
-  return rows;
+  return occurrences;
+}
+
+export function flattenSeriesToDbRows(seriesList: FixedScheduleSeries[]) {
+  return seriesList.flatMap((series) =>
+    series.rules.flatMap((rule) => {
+      if (rule.freq_type === "MONTHLY") {
+        const monthDays =
+          rule.month_rule === "START"
+            ? [1]
+            : rule.month_rule === "MID"
+              ? [15]
+              : rule.month_rule === "CUSTOM"
+                ? rule.month_days
+                : [null];
+
+        return monthDays.map((day) => ({
+          id: `${series.series_id}-${rule.rule_id}-db-${day ?? "end"}`,
+          series_id: series.series_id,
+          rule_id: rule.rule_id,
+          user_id: series.user_id,
+          title: series.title,
+          freq_type: rule.freq_type,
+          by_day: null as DayCode | null,
+          by_month_day: day,
+          start_time: rule.start_time,
+          end_time: rule.end_time,
+          biweekly_start_date: rule.biweekly_start_date,
+          month_rule: rule.month_rule,
+          color_key: series.color_key,
+          level: series.level,
+          created_at: rule.created_at,
+          updated_at: rule.updated_at,
+        }));
+      }
+
+      return rule.days.map((day) => ({
+        id: `${series.series_id}-${rule.rule_id}-db-${day}`,
+        series_id: series.series_id,
+        rule_id: rule.rule_id,
+        user_id: series.user_id,
+        title: series.title,
+        freq_type: rule.freq_type,
+        by_day: day,
+        by_month_day: null as number | null,
+        start_time: rule.start_time,
+        end_time: rule.end_time,
+        biweekly_start_date: rule.biweekly_start_date,
+        month_rule: rule.month_rule,
+        color_key: series.color_key,
+        level: series.level,
+        created_at: rule.created_at,
+        updated_at: rule.updated_at,
+      }));
+    })
+  );
 }

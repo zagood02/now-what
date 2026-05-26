@@ -1,11 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import {
-  AppSettings,
-  readSettings,
-  saveSettings,
-} from "@/lib/settings";
+import { useEffect, useState } from "react";
+import { AppSettings, readSettings, saveSettings } from "@/lib/settings";
 import { applyThemeClass } from "@/components/ThemeInitializer";
 
 function ToggleSwitch({
@@ -19,10 +15,7 @@ function ToggleSwitch({
 }) {
   return (
     <div className="flex items-center justify-between">
-      <span
-        className="text-sm font-semibold"
-        style={{ color: "var(--app-text)" }}
-      >
+      <span className="text-sm font-semibold" style={{ color: "var(--app-text)" }}>
         {label}
       </span>
 
@@ -45,12 +38,15 @@ function ToggleSwitch({
 }
 
 export default function SettingsPage() {
+  const [mounted, setMounted] = useState(false);
   const [settings, setSettings] = useState<AppSettings>(() => readSettings());
 
-  const updateSettings = <K extends keyof AppSettings>(
-    key: K,
-    value: AppSettings[K]
-  ) => {
+  useEffect(() => {
+    setSettings(readSettings());
+    setMounted(true);
+  }, []);
+
+  const updateSettings = <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => {
     const next = { ...settings, [key]: value };
     setSettings(next);
     saveSettings(next);
@@ -58,12 +54,11 @@ export default function SettingsPage() {
     window.dispatchEvent(new Event("theme-refresh"));
   };
 
+  if (!mounted) return null;
+
   return (
     <div>
-      <h1
-        className="text-3xl font-bold mb-6"
-        style={{ color: "var(--app-text)" }}
-      >
+      <h1 className="text-3xl font-bold mb-6" style={{ color: "var(--app-text)" }}>
         설정
       </h1>
 
@@ -77,26 +72,19 @@ export default function SettingsPage() {
       >
         <div className="p-6 space-y-8">
           <div>
-            <h2
-              className="text-lg font-bold mb-4"
-              style={{ color: "var(--app-text)" }}
-            >
+            <h2 className="text-lg font-bold mb-4" style={{ color: "var(--app-text)" }}>
               시간 설정
             </h2>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label
-                  className="block text-sm font-semibold mb-2"
-                  style={{ color: "var(--app-text-muted)" }}
-                >
+                <label className="block text-sm font-semibold mb-2" style={{ color: "var(--app-text-muted)" }}>
                   시작 시간
                 </label>
+
                 <select
                   value={settings.startHour}
-                  onChange={(e) =>
-                    updateSettings("startHour", Number(e.target.value))
-                  }
+                  onChange={(e) => updateSettings("startHour", Number(e.target.value))}
                   className="w-full rounded-xl border px-3 py-2"
                   style={{
                     background: "var(--app-surface)",
@@ -113,17 +101,13 @@ export default function SettingsPage() {
               </div>
 
               <div>
-                <label
-                  className="block text-sm font-semibold mb-2"
-                  style={{ color: "var(--app-text-muted)" }}
-                >
+                <label className="block text-sm font-semibold mb-2" style={{ color: "var(--app-text-muted)" }}>
                   끝 시간
                 </label>
+
                 <select
                   value={settings.endHour}
-                  onChange={(e) =>
-                    updateSettings("endHour", Number(e.target.value))
-                  }
+                  onChange={(e) => updateSettings("endHour", Number(e.target.value))}
                   className="w-full rounded-xl border px-3 py-2"
                   style={{
                     background: "var(--app-surface)",
@@ -141,35 +125,23 @@ export default function SettingsPage() {
             </div>
 
             {settings.startHour >= settings.endHour && (
-              <p className="mt-3 text-sm font-medium text-red-500">
-                끝 시간은 시작 시간보다 뒤여야 합니다.
-              </p>
+              <p className="mt-3 text-sm font-medium text-red-500">끝 시간은 시작 시간보다 뒤여야 합니다.</p>
             )}
           </div>
 
           <div>
-            <h2
-              className="text-lg font-bold mb-4"
-              style={{ color: "var(--app-text)" }}
-            >
+            <h2 className="text-lg font-bold mb-4" style={{ color: "var(--app-text)" }}>
               시간 표시 설정
             </h2>
 
             <div>
-              <label
-                className="block text-sm font-semibold mb-2"
-                style={{ color: "var(--app-text-muted)" }}
-              >
+              <label className="block text-sm font-semibold mb-2" style={{ color: "var(--app-text-muted)" }}>
                 시간 표시 형식
               </label>
+
               <select
                 value={settings.timeFormat}
-                onChange={(e) =>
-                  updateSettings(
-                    "timeFormat",
-                    e.target.value as AppSettings["timeFormat"]
-                  )
-                }
+                onChange={(e) => updateSettings("timeFormat", e.target.value as AppSettings["timeFormat"])}
                 className="w-full rounded-xl border px-3 py-2"
                 style={{
                   background: "var(--app-surface)",
@@ -185,10 +157,7 @@ export default function SettingsPage() {
           </div>
 
           <div>
-            <h2
-              className="text-lg font-bold mb-4"
-              style={{ color: "var(--app-text)" }}
-            >
+            <h2 className="text-lg font-bold mb-4" style={{ color: "var(--app-text)" }}>
               화면 설정
             </h2>
 
