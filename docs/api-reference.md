@@ -77,16 +77,20 @@ Parameters:
 | `GET` | `/api/v1/goals` | Required | - | `list[GoalRead]` | `200` | List Goals |
 | `POST` | `/api/v1/goals` | Required | `GoalCreate` | `GoalRead` | `201` | Create Goal |
 | `POST` | `/api/v1/goals/complete` | Required | `GoalCompleteRequest` | `GoalCompleteResponse` | `201` | Complete Goal |
-| `POST` | `/api/v1/goals/intake` | Public | `GoalIntakeRequest` | `GoalIntakeResponse` | `200` | Intake Goal |
+| `POST` | `/api/v1/goals/intake` | Required | `GoalIntakeRequest` | `GoalIntakeResponse` | `200` | Intake Goal |
 | `GET` | `/api/v1/goals/{goal_id}` | Required | - | `GoalDetailRead` | `200` | Get Goal |
 | `PATCH` | `/api/v1/goals/{goal_id}` | Required | `GoalUpdate` | `GoalRead` | `200` | Update Goal |
 | `DELETE` | `/api/v1/goals/{goal_id}` | Required | - | `Message` | `200` | Delete Goal |
+| `POST` | `/api/v1/goals/{goal_id}/allocate` | Required | `AllocateRequest` | `AllocateResponse` | `200` | Allocate Goal Schedule |
+| `POST` | `/api/v1/goals/{goal_id}/clear-schedule` | Required | - | `Message` | `200` | Clear Goal Schedule |
 
 Parameters:
 
 - `GET /api/v1/goals/{goal_id}`: `goal_id` (path, required, integer)
 - `PATCH /api/v1/goals/{goal_id}`: `goal_id` (path, required, integer)
 - `DELETE /api/v1/goals/{goal_id}`: `goal_id` (path, required, integer)
+- `POST /api/v1/goals/{goal_id}/allocate`: `goal_id` (path, required, integer)
+- `POST /api/v1/goals/{goal_id}/clear-schedule`: `goal_id` (path, required, integer)
 
 ### health
 
@@ -118,11 +122,11 @@ Parameters:
 
 | Method | Path | Auth | Request | Response | Status | Summary |
 | --- | --- | --- | --- | --- | --- | --- |
-| `GET` | `/api/v1/users` | Public | - | `list[UserRead]` | `200` | List Users |
+| `GET` | `/api/v1/users` | Required | - | `list[UserRead]` | `200` | List Users |
 | `POST` | `/api/v1/users` | Public | `UserCreate` | `UserRead` | `201` | Create User |
 | `POST` | `/api/v1/users/login` | Public | `UserLogin` | `LoginResponse` | `200` | Login User |
 | `POST` | `/api/v1/users/register` | Public | `UserCreate` | `UserRead` | `201` | Register User |
-| `GET` | `/api/v1/users/{user_id}` | Public | - | `UserRead` | `200` | Get User |
+| `GET` | `/api/v1/users/{user_id}` | Required | - | `UserRead` | `200` | Get User |
 
 Parameters:
 
@@ -156,7 +160,6 @@ Parameters:
 
 | Field | Type | Required |
 | --- | --- | --- |
-| `user_id` | `integer or null` | no |
 | `range_start` | `string` | yes |
 | `range_end` | `string` | yes |
 | `day_start` | `string or null` | no |
@@ -189,7 +192,6 @@ Parameters:
 
 | Field | Type | Required |
 | --- | --- | --- |
-| `user_id` | `integer or null` | no |
 | `title` | `string` | yes |
 | `description` | `string or null` | no |
 | `location` | `string or null` | no |
@@ -233,7 +235,6 @@ Parameters:
 
 | Field | Type | Required |
 | --- | --- | --- |
-| `user_id` | `integer or null` | no |
 | `title` | `string` | yes |
 | `description` | `string or null` | no |
 | `estimated_minutes` | `integer` | yes |
@@ -284,7 +285,6 @@ Parameters:
 
 | Field | Type | Required |
 | --- | --- | --- |
-| `user_id` | `integer or null` | no |
 | `text` | `string` | yes |
 | `category` | `GoalCategory or null` | no |
 | `answers_json` | `dict[str, Any]` | no |
@@ -305,7 +305,6 @@ Parameters:
 
 | Field | Type | Required |
 | --- | --- | --- |
-| `user_id` | `integer or null` | no |
 | `title` | `string` | yes |
 | `description` | `string or null` | no |
 | `category` | `GoalCategory` | yes |

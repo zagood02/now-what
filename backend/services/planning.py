@@ -106,6 +106,14 @@ class GoalPlanOutput(StructuredOutputModel):
 
 
 class PlanningService:
+    MAX_PLAN_ITEM_SESSION_MINUTES = 120
+    MAX_GENERATED_PLAN_ITEMS = 240
+    MAX_WEEKLY_AVAILABLE_HOURS = 60
+    MAX_DAILY_AVAILABLE_MINUTES = 12 * 60
+    MAX_ACTIVE_DAYS_PER_WEEK = 7
+    MAX_PLANNING_HORIZON_WEEKS = 8
+    TARGET_MINUTES_STEP = 30
+    SPLIT_MINUTES_STEP = 5
     STUDY_SUBTYPE_TOEIC = "study.toeic"
     STUDY_SUBTYPE_INFORMATION_PROCESSING_ENGINEER = "study.cert.information_processing_engineer"
 
@@ -125,76 +133,83 @@ class PlanningService:
         STUDY_SUBTYPE_TOEIC: ("toeic", "토익"),
         STUDY_SUBTYPE_INFORMATION_PROCESSING_ENGINEER: ("정보처리기사", "정보 처리 기사", "정처기"),
     }
-    STUDY_SUBTYPE_EXCLUSION_KEYWORDS: dict[str, tuple[str, ...]] = {
-        STUDY_SUBTYPE_TOEIC: ("toeic speaking", "toeicspeaking", "토익스피킹", "토스"),
-    }
     COMMON_QUESTIONS: list[GoalQuestion] = [
-        GoalQuestion(key="target_date", prompt="언제까지 완료해야 하나요?", answer_type="date", help_text="최종 마감일이나 중간 점검일이 있으면 적어주세요."),
-        GoalQuestion(key="weekly_available_hours", prompt="일주일에 현실적으로 몇 시간 정도 투자할 수 있나요?", answer_type="number", help_text="꾸준히 지킬 수 있는 시간을 숫자로 입력해주세요."),
-        GoalQuestion(key="preferred_work_times", prompt="집중하기 좋은 시간대는 언제인가요?", answer_type="text", required=False, help_text="예: 평일 저녁 7-10시, 주말 오전, 점심시간 30분"),
-        GoalQuestion(key="unavailable_times", prompt="일정에서 피해야 할 시간대가 있나요?", answer_type="text", required=False, help_text="예: 화/목 수업 직후, 출퇴근 시간, 늦은 밤"),
+        GoalQuestion(key="target_date", prompt="이 목표를 언제까지 완료하거나 1차 점검해야 하나요?", answer_type="date", help_text="마감일이 없으면 가장 먼저 점검할 날짜를 넣어주세요."),
+        GoalQuestion(key="weekly_available_hours", prompt="일주일에 안정적으로 확보할 수 있는 시간은 몇 시간인가요?", answer_type="number", help_text="희망 시간이 아니라 실제로 지킬 수 있는 평균 시간을 숫자로 입력해주세요."),
         GoalQuestion(
             key="session_preference",
-            prompt="작업 세션은 어떤 방식이 가장 잘 맞나요?",
+            prompt="한 번에 어느 정도 길이로 진행하는 편이 가장 잘 맞나요?",
             answer_type="select",
             required=False,
-            help_text="자동 배정 시 작업을 너무 잘게 쪼개지 않도록 참고합니다.",
-            options=["짧게 자주", "보통 길이로 균형 있게", "길게 몰아서"],
+            help_text="자동 배정 시 세션 길이를 조절하는 데 참고합니다.",
+            options=["짧게 자주 25-45분", "보통 길이 60-90분", "길게 몰아서 2시간 이상"],
         ),
-        GoalQuestion(key="constraints", prompt="체력, 집중력, 이동, 생활 패턴상 꼭 고려해야 할 제약이 있나요?", answer_type="text", required=False, help_text="예: 평일은 에너지가 낮음, 고정 일정 직후에는 쉬어야 함"),
+        GoalQuestion(key="constraints", prompt="계획을 짤 때 반드시 피하거나 고려해야 할 조건이 있나요?", answer_type="text", required=False, help_text="예: 평일은 에너지가 낮음, 고정 일정 직후에는 쉬어야 함"),
     ]
     CATEGORY_QUESTIONS: dict[GoalCategory, list[GoalQuestion]] = {
         GoalCategory.study: [
-            GoalQuestion(key="current_level", prompt="현재 수준이나 최근 점수는 어느 정도인가요?", answer_type="text"),
-            GoalQuestion(key="strong_weak_topics", prompt="강한 부분과 약한 부분은 무엇인가요?", answer_type="text", help_text="예: 개념은 이해하지만 문제풀이 속도가 느림"),
-            GoalQuestion(key="materials", prompt="이미 사용 중인 교재, 강의, 자료가 있나요?", answer_type="text", required=False),
+            GoalQuestion(key="current_level", prompt="현재 수준을 보여주는 가장 최근 기준은 무엇인가요?", answer_type="text", help_text="예: 최근 점수, 진단 결과, 풀 수 있는 문제 난이도"),
+            GoalQuestion(key="target_outcome", prompt="목표 시점에 어떤 결과를 만들고 싶나요?", answer_type="text", help_text="예: 850점, 합격권 점수, 특정 단원 완주"),
+            GoalQuestion(key="strong_weak_topics", prompt="강한 영역과 약한 영역을 각각 알려주세요.", answer_type="text", help_text="예: 개념은 이해하지만 문제풀이 속도가 느림"),
+            GoalQuestion(key="assessment_plan", prompt="진단 테스트나 모의고사를 언제 다시 볼 수 있나요?", answer_type="text", required=False),
+            GoalQuestion(key="materials", prompt="계획에 우선 반영할 교재, 강의, 자료가 있나요?", answer_type="text", required=False),
         ],
         GoalCategory.health: [
-            GoalQuestion(key="current_state", prompt="현재 몸 상태나 운동 경험은 어떤가요?", answer_type="text"),
-            GoalQuestion(key="target_metric", prompt="목표로 삼는 지표가 있나요?", answer_type="text", help_text="예: 체중, 체지방률, 러닝 거리, 주당 운동 횟수"),
-            GoalQuestion(key="diet_constraints", prompt="식단, 회복, 부상 관련 제약이 있나요?", answer_type="text", required=False),
+            GoalQuestion(key="current_state", prompt="현재 몸 상태와 운동 경험은 어느 정도인가요?", answer_type="text", help_text="예: 최근 운동 빈도, 통증 여부, 쉬고 있던 기간"),
+            GoalQuestion(key="target_metric", prompt="변화를 확인할 핵심 지표는 무엇인가요?", answer_type="text", help_text="예: 체중, 체지방률, 러닝 거리, 주당 운동 횟수"),
+            GoalQuestion(key="activity_capacity", prompt="무리 없이 가능한 운동 강도와 횟수는 어느 정도인가요?", answer_type="text", help_text="예: 주 3회 40분 걷기, 헬스 주 2회"),
+            GoalQuestion(key="recovery_limits", prompt="부상, 수면, 회복 때문에 조심해야 할 점이 있나요?", answer_type="text", required=False),
+            GoalQuestion(key="diet_constraints", prompt="식단이나 생활습관에서 함께 고려할 조건이 있나요?", answer_type="text", required=False),
         ],
         GoalCategory.work: [
-            GoalQuestion(key="current_progress", prompt="현재 어디까지 진행되어 있나요?", answer_type="text"),
-            GoalQuestion(key="deliverables", prompt="최종 산출물은 무엇이어야 하나요?", answer_type="text", help_text="예: 발표 자료, 데모, 보고서, 포트폴리오 페이지"),
-            GoalQuestion(key="review_cycle", prompt="피드백이나 검토를 받을 수 있는 주기는 어떻게 되나요?", answer_type="text", required=False),
+            GoalQuestion(key="current_progress", prompt="현재 완료된 부분과 아직 남은 부분은 어디까지인가요?", answer_type="text"),
+            GoalQuestion(key="deliverables", prompt="마감 시점에 제출하거나 보여줘야 하는 결과물은 무엇인가요?", answer_type="text", help_text="예: 발표 자료, 데모, 보고서, 포트폴리오 페이지"),
+            GoalQuestion(key="success_definition", prompt="완료됐다고 판단할 품질 기준은 무엇인가요?", answer_type="text", help_text="예: 발표 가능, 리뷰 통과, 핵심 기능 시연 가능"),
+            GoalQuestion(key="review_cycle", prompt="피드백이나 검토를 받을 수 있는 시점이 있나요?", answer_type="text", required=False),
+            GoalQuestion(key="dependencies", prompt="다른 사람, 자료, 승인처럼 일정에 영향을 주는 의존성이 있나요?", answer_type="text", required=False),
         ],
         GoalCategory.habit: [
-            GoalQuestion(key="current_pattern", prompt="현재 루틴은 어떻게 흘러가고 있나요?", answer_type="text"),
-            GoalQuestion(key="trigger", prompt="습관을 시작하게 만들 신호나 계기는 무엇이 좋을까요?", answer_type="text", help_text="예: 아침 식사 후, 퇴근 직후, 잠들기 전"),
-            GoalQuestion(key="obstacles", prompt="지금까지 이 습관을 방해한 요인은 무엇인가요?", answer_type="text"),
+            GoalQuestion(key="current_pattern", prompt="현재 이 습관은 얼마나 자주, 어떤 상황에서 하고 있나요?", answer_type="text"),
+            GoalQuestion(key="desired_frequency", prompt="목표로 하는 빈도와 최소 성공 기준은 무엇인가요?", answer_type="text", help_text="예: 주 5회, 바쁜 날은 10분만 해도 성공"),
+            GoalQuestion(key="trigger", prompt="습관을 시작하게 만들 고정 신호는 무엇이 좋을까요?", answer_type="text", help_text="예: 아침 식사 후, 퇴근 직후, 잠들기 전"),
+            GoalQuestion(key="obstacles", prompt="지금까지 이 습관을 방해한 가장 큰 요인은 무엇인가요?", answer_type="text"),
+            GoalQuestion(key="accountability", prompt="기록, 알림, 체크리스트처럼 유지에 도움이 되는 장치가 있나요?", answer_type="text", required=False),
         ],
         GoalCategory.general: [
-            GoalQuestion(key="current_state", prompt="현재 상황을 간단히 설명해주세요.", answer_type="text"),
-            GoalQuestion(key="success_definition", prompt="이 목표가 성공했다고 판단할 기준은 무엇인가요?", answer_type="text"),
+            GoalQuestion(key="current_state", prompt="현재 상황과 이미 진행된 부분을 간단히 설명해주세요.", answer_type="text"),
+            GoalQuestion(key="success_definition", prompt="이 목표가 성공했다고 판단할 구체적인 기준은 무엇인가요?", answer_type="text"),
+            GoalQuestion(key="priority_scope", prompt="이번 계획에서 가장 먼저 집중해야 할 범위는 어디인가요?", answer_type="text"),
             GoalQuestion(key="first_milestone", prompt="가장 먼저 끝내야 할 중간 목표가 있나요?", answer_type="text", required=False),
+            GoalQuestion(key="risks", prompt="계획이 밀릴 가능성이 큰 위험 요소가 있나요?", answer_type="text", required=False),
         ],
     }
     STUDY_SUBTYPE_QUESTIONS: dict[str, list[GoalQuestion]] = {
         STUDY_SUBTYPE_TOEIC: [
-            GoalQuestion(key="current_score", prompt="최근 토익 점수나 모의고사 기준 현재 점수는 어느 정도인가요?", answer_type="text", help_text="모르면 '아직 모름'이라고 적어도 됩니다."),
+            GoalQuestion(key="current_score", prompt="최근 토익 점수나 모의고사 기준 현재 점수는 어느 정도인가요?", answer_type="text", required=False, help_text="모르면 비워두거나 '아직 모름'이라고 적어도 됩니다."),
             GoalQuestion(key="target_score", prompt="목표 토익 점수는 몇 점인가요?", answer_type="number", help_text="예: 750, 850, 900"),
             GoalQuestion(
                 key="weak_sections",
-                prompt="LC와 RC 중 더 보완이 필요한 쪽은 어디인가요?",
+                prompt="LC와 RC 중 우선 보완해야 할 영역은 어디인가요?",
                 answer_type="select",
                 required=False,
                 options=["아직 모름", "LC", "RC", "LC와 RC 모두"],
             ),
-            GoalQuestion(key="practice_test_access", prompt="실전 모의고사나 기출형 문제를 정기적으로 풀 수 있나요?", answer_type="boolean", required=False),
-            GoalQuestion(key="materials", prompt="사용할 토익 교재, 강의, 앱, 단어장이 있나요?", answer_type="text", required=False),
+            GoalQuestion(key="practice_test_access", prompt="실전 모의고사나 기출형 문제를 정기적으로 풀 수 있는 환경인가요?", answer_type="boolean", required=False),
+            GoalQuestion(key="vocabulary_routine", prompt="단어 암기는 하루에 어느 정도까지 현실적으로 가능할까요?", answer_type="text", required=False, help_text="예: 하루 20분, 단어장 2일치, 출퇴근 중 앱 복습"),
+            GoalQuestion(key="materials", prompt="계획에 우선 반영할 토익 교재, 강의, 앱, 단어장이 있나요?", answer_type="text", required=False),
         ],
         STUDY_SUBTYPE_INFORMATION_PROCESSING_ENGINEER: [
             GoalQuestion(
                 key="exam_stage",
-                prompt="정보처리기사 필기와 실기 중 어느 시험을 준비하나요?",
+                prompt="정보처리기사 필기와 실기 중 어느 범위를 준비하나요?",
                 answer_type="select",
                 options=["필기", "실기", "필기와 실기 모두", "아직 모름"],
             ),
-            GoalQuestion(key="current_progress", prompt="현재 공부 진행 상황은 어느 정도인가요?", answer_type="text", help_text="예: 개념 1회독 전, 기출 2개년 풀이 완료, 실기 SQL이 약함"),
-            GoalQuestion(key="weak_subjects", prompt="특히 약한 과목이나 유형은 무엇인가요?", answer_type="text", required=False, help_text="예: 데이터베이스, 운영체제, 네트워크, SQL, 약술형"),
+            GoalQuestion(key="current_progress", prompt="현재 공부 진행 상황과 풀어본 기출 범위는 어디까지인가요?", answer_type="text", help_text="예: 개념 1회독 중, 기출 2개년 풀이 완료, 실기 SQL이 약함"),
+            GoalQuestion(key="weak_subjects", prompt="특히 약한 과목이나 문제 유형은 무엇인가요?", answer_type="text", required=False, help_text="예: 데이터베이스, 운영체제, 네트워크, SQL, 약술형"),
             GoalQuestion(key="past_exam_rounds", prompt="목표일까지 기출을 몇 회분 정도 풀 수 있나요?", answer_type="number", required=False),
-            GoalQuestion(key="materials", prompt="사용할 교재, 강의, 기출 자료가 있나요?", answer_type="text", required=False),
+            GoalQuestion(key="practical_drill_format", prompt="실기 대비가 필요하다면 어떤 방식으로 답안 연습을 할 수 있나요?", answer_type="text", required=False, help_text="예: 손코딩, SQL 직접 실행, 약술형 문장 작성"),
+            GoalQuestion(key="materials", prompt="계획에 우선 반영할 교재, 강의, 기출 자료가 있나요?", answer_type="text", required=False),
         ],
     }
     BLUEPRINTS: dict[GoalCategory, dict[str, list[str] | list[tuple[str, str, str, int, int]]]] = {
@@ -320,9 +335,6 @@ class PlanningService:
     def detect_study_subtype(self, title: str, description: str | None = None) -> str | None:
         text = self._normalize_for_keyword_match(f"{title} {description or ''}")
         for subtype, keywords in self.STUDY_SUBTYPE_KEYWORDS.items():
-            excluded_keywords = self.STUDY_SUBTYPE_EXCLUSION_KEYWORDS.get(subtype, ())
-            if any(self._normalize_for_keyword_match(keyword) in text for keyword in excluded_keywords):
-                continue
             if any(self._normalize_for_keyword_match(keyword) in text for keyword in keywords):
                 return subtype
         return None
@@ -391,6 +403,8 @@ class PlanningService:
     def _build_plan_with_gemini(self, goal: Goal, answers: dict[str, Any]) -> PlanDraft:
         use_tools = self.settings.llm_enable_web_search and self._supports_structured_tools()
         study_subtype = self._study_subtype_for_goal(goal, answers)
+        weekly_hours = self._resolve_weekly_hours(answers)
+        target_date = goal.target_date or self._resolve_target_date(answers)
         response = self._get_client().models.generate_content(
             model=self.settings.llm_model,
             contents=self._plan_user_prompt(goal, answers),
@@ -410,15 +424,37 @@ class PlanningService:
             )
             for item in parsed.items
         ]
+        target_total_minutes = self._target_total_minutes_for_items(weekly_hours, target_date, items)
+        items = self._scale_items_to_planning_horizon(
+            items,
+            weekly_hours,
+            target_date,
+            target_total_minutes=target_total_minutes,
+        )
+        items = self._split_plan_items_for_scheduling(items)
         validation = self._validate_study_plan(study_subtype, items, answers) if study_subtype else None
         if validation and not validation["passed"]:
             return self._build_plan_with_template(goal, answers)
         raw_plan_json = parsed.model_dump(mode="json")
+        raw_plan_json["items"] = self._plan_items_payload(items)
+        raw_plan_json["planning_horizon_days"] = self._planning_horizon_days(target_date)
+        raw_plan_json["planning_horizon_weeks"] = self._planning_horizon_weeks(target_date)
+        raw_plan_json["target_total_minutes"] = target_total_minutes
         raw_plan_json["research_sources"] = self._extract_research_sources(response)
         if validation:
             raw_plan_json["quality_validation"] = validation
         llm_mode = "gemini-google-search" if use_tools else "gemini"
-        return PlanDraft(summary=parsed.summary, strategy_json=parsed.strategy.model_dump(mode="json"), recommendations_json=parsed.recommendations.model_dump(mode="json"), raw_plan_json=raw_plan_json, items=items, llm_mode=llm_mode)
+        strategy_json = parsed.strategy.model_dump(mode="json")
+        strategy_json.update(
+            {
+                "weekly_hours": weekly_hours,
+                "target_date": target_date.isoformat() if target_date else None,
+                "planning_horizon_days": self._planning_horizon_days(target_date),
+                "planning_horizon_weeks": self._planning_horizon_weeks(target_date),
+                "target_total_minutes": target_total_minutes,
+            }
+        )
+        return PlanDraft(summary=parsed.summary, strategy_json=strategy_json, recommendations_json=parsed.recommendations.model_dump(mode="json"), raw_plan_json=raw_plan_json, items=items, llm_mode=llm_mode)
 
     def _parse_goal_input_with_template(self, payload: GoalIntakeRequest) -> GoalIntakeResponse:
         category, study_subtype = self._classify_goal_input(payload)
@@ -432,7 +468,7 @@ class PlanningService:
             reasoning = f"Converted the freeform goal into a '{category.value}' draft and prefilled details that were explicit in the text."
         questions = self._questions_for_goal(category, study_subtype)
         goal = GoalDraftSuggestion(
-            title=self._suggest_title_from_text(payload.text, study_subtype=study_subtype, answers=answers_json),
+            title=self._suggest_title_from_text(payload.text),
             description=self._normalize_description(payload.text),
             category=category,
             details_json=details_json,
@@ -450,11 +486,22 @@ class PlanningService:
         weekly_hours = self._resolve_weekly_hours(answers)
         target_date = goal.target_date or self._resolve_target_date(answers)
         items = self._build_template_items(goal, blueprint["plan_items"], target_date)
+        target_total_minutes = self._target_total_minutes_for_items(weekly_hours, target_date, items)
+        items = self._scale_items_to_planning_horizon(
+            items,
+            weekly_hours,
+            target_date,
+            target_total_minutes=target_total_minutes,
+        )
+        items = self._split_plan_items_for_scheduling(items)
         summary = f"This is a practical plan for '{goal.title}' based on about {weekly_hours} hours per week."
         strategy_json = {
             "category": category.value,
             "weekly_hours": weekly_hours,
             "target_date": target_date.isoformat() if target_date else None,
+            "planning_horizon_days": self._planning_horizon_days(target_date),
+            "planning_horizon_weeks": self._planning_horizon_weeks(target_date),
+            "target_total_minutes": target_total_minutes,
             "focus_areas": blueprint["focus_areas"],
             "routines": blueprint["routines"],
             "constraints": answers.get("constraints"),
@@ -471,18 +518,10 @@ class PlanningService:
             "summary": summary,
             "strategy": strategy_json,
             "recommendations": recommendations_json,
-            "items": [
-                {
-                    "title": item.title,
-                    "description": item.description,
-                    "item_type": item.item_type,
-                    "estimated_minutes": item.estimated_minutes,
-                    "priority": item.priority,
-                    "target_date": item.target_date.isoformat() if item.target_date else None,
-                    "is_schedulable": item.is_schedulable,
-                }
-                for item in items
-            ],
+            "planning_horizon_days": self._planning_horizon_days(target_date),
+            "planning_horizon_weeks": self._planning_horizon_weeks(target_date),
+            "target_total_minutes": target_total_minutes,
+            "items": self._plan_items_payload(items),
         }
         return PlanDraft(summary=summary, strategy_json=strategy_json, recommendations_json=recommendations_json, raw_plan_json=raw_plan_json, items=items, llm_mode="template-fallback")
 
@@ -491,6 +530,14 @@ class PlanningService:
         weekly_hours = self._resolve_weekly_hours(answers)
         target_date = goal.target_date or self._resolve_target_date(answers)
         items = self._build_study_subtype_template_items(goal, blueprint["plan_items"], target_date, study_subtype, answers)
+        target_total_minutes = self._target_total_minutes_for_items(weekly_hours, target_date, items)
+        items = self._scale_items_to_planning_horizon(
+            items,
+            weekly_hours,
+            target_date,
+            target_total_minutes=target_total_minutes,
+        )
+        items = self._split_plan_items_for_scheduling(items)
         validation = self._validate_study_plan(study_subtype, items, answers)
         label = blueprint["label"]
         user_materials = self._user_materials(answers)
@@ -501,6 +548,9 @@ class PlanningService:
             "template_label": label,
             "weekly_hours": weekly_hours,
             "target_date": target_date.isoformat() if target_date else None,
+            "planning_horizon_days": self._planning_horizon_days(target_date),
+            "planning_horizon_weeks": self._planning_horizon_weeks(target_date),
+            "target_total_minutes": target_total_minutes,
             "focus_areas": blueprint["focus_areas"],
             "routines": blueprint["routines"],
             "quality_rules": blueprint["quality_rules"],
@@ -521,19 +571,10 @@ class PlanningService:
             "strategy": strategy_json,
             "recommendations": recommendations_json,
             "quality_validation": validation,
-            "items": [
-                {
-                    "title": item.title,
-                    "description": item.description,
-                    "item_type": item.item_type,
-                    "estimated_minutes": item.estimated_minutes,
-                    "priority": item.priority,
-                    "target_date": item.target_date.isoformat() if item.target_date else None,
-                    "is_schedulable": item.is_schedulable,
-                    "metadata_json": item.metadata_json,
-                }
-                for item in items
-            ],
+            "planning_horizon_days": self._planning_horizon_days(target_date),
+            "planning_horizon_weeks": self._planning_horizon_weeks(target_date),
+            "target_total_minutes": target_total_minutes,
+            "items": self._plan_items_payload(items),
         }
         llm_mode = f"template-fallback-{study_subtype.replace('.', '-')}"
         return PlanDraft(summary=summary, strategy_json=strategy_json, recommendations_json=recommendations_json, raw_plan_json=raw_plan_json, items=items, llm_mode=llm_mode)
@@ -551,6 +592,7 @@ class PlanningService:
         return (
             "You generate realistic execution plans for an AI planning assistant. Return only JSON that matches the schema. "
             "Do not assign exact times. Produce work units that can be scheduled later. "
+            "Keep each schedulable work unit at 120 minutes or less; split longer work into multiple items. "
             "Prefer sustainable plans over idealized plans. "
             "If the user prompt includes a domain_template, follow its quality_rules and include the required_item_types unless the user's answers make them irrelevant. "
             "Write user-facing text in the same language as the user's goal when possible."
@@ -583,8 +625,14 @@ class PlanningService:
                 },
                 "answers_json": answers,
                 "weekly_hours_hint": self._resolve_weekly_hours(answers),
+                "planning_horizon_days": self._planning_horizon_days(goal.target_date or self._resolve_target_date(answers)),
+                "planning_horizon_weeks": self._planning_horizon_weeks(goal.target_date or self._resolve_target_date(answers)),
+                "target_total_minutes": self._target_total_minutes(
+                    self._resolve_weekly_hours(answers),
+                    goal.target_date or self._resolve_target_date(answers),
+                ),
                 "domain_template": self._domain_template_payload(study_subtype),
-                "important_rule": "Do not invent exact schedule times. Generate only schedulable work units.",
+                "important_rule": "Do not invent exact schedule times. Generate only schedulable work units. The sum of schedulable estimated_minutes should cover target_total_minutes, which is prorated by days remaining until the target date.",
             },
             ensure_ascii=False,
         )
@@ -642,12 +690,205 @@ class PlanningService:
         if include_category_defaults:
             ordered_keys.extend(question.key for question in self.CATEGORY_QUESTIONS[category])
         ordered_keys.extend(key for key in normalized_map if key not in ordered_keys)
-        return [normalized_map[key] for key in ordered_keys]
+        return [normalized_map[key] for key in dict.fromkeys(ordered_keys)]
 
     def _to_goal_question(self, question: GoalQuestion | LLMGoalQuestion) -> GoalQuestion:
         if isinstance(question, GoalQuestion):
             return question
         return GoalQuestion(key=question.key, prompt=question.prompt, answer_type=question.answer_type, required=question.required, help_text=question.help_text, options=question.options)
+
+    def _split_plan_items_for_scheduling(self, items: list[PlanDraftItem]) -> list[PlanDraftItem]:
+        split_items: list[PlanDraftItem] = []
+        for item in items:
+            split_items.extend(self._split_plan_item_for_scheduling(item))
+        return split_items
+
+    def _scale_items_to_planning_horizon(
+        self,
+        items: list[PlanDraftItem],
+        weekly_hours: int,
+        target_date: date | None,
+        *,
+        target_total_minutes: int | None = None,
+    ) -> list[PlanDraftItem]:
+        schedulable_items = [
+            item for item in items if item.is_schedulable and item.estimated_minutes > 0
+        ]
+        if not schedulable_items:
+            return items
+        repeatable_items = self._repeatable_plan_items(schedulable_items)
+
+        if target_total_minutes is None:
+            target_total_minutes = self._target_total_minutes_for_items(weekly_hours, target_date, items)
+        current_total_minutes = sum(item.estimated_minutes for item in schedulable_items)
+        expanded = list(items)
+        repeat_counts = {
+            self._repeat_key(item): 1 for item in repeatable_items
+        }
+        source_index = 0
+
+        while (
+            current_total_minutes < target_total_minutes
+            and len(expanded) < self.MAX_GENERATED_PLAN_ITEMS
+        ):
+            source = repeatable_items[source_index % len(repeatable_items)]
+            repeat_key = self._repeat_key(source)
+            repeat_counts[repeat_key] = repeat_counts.get(repeat_key, 1) + 1
+            repeated = self._repeat_plan_item(
+                source,
+                repeat_counts[repeat_key],
+                weekly_hours=weekly_hours,
+                target_total_minutes=target_total_minutes,
+            )
+            expanded.append(repeated)
+            current_total_minutes += repeated.estimated_minutes
+            source_index += 1
+
+        return self._redistribute_item_target_dates(expanded, target_date)
+
+    def _repeatable_plan_items(self, items: list[PlanDraftItem]) -> list[PlanDraftItem]:
+        one_time_types = {"diagnostic", "setup", "planning", "final_review"}
+        one_time_phases = {"diagnosis", "setup", "final"}
+        repeatable = [
+            item
+            for item in items
+            if item.item_type not in one_time_types
+            and item.metadata_json.get("phase") not in one_time_phases
+        ]
+        return repeatable or items
+
+    def _repeat_plan_item(
+        self,
+        item: PlanDraftItem,
+        repeat_number: int,
+        *,
+        weekly_hours: int,
+        target_total_minutes: int,
+    ) -> PlanDraftItem:
+        metadata = dict(item.metadata_json)
+        metadata.update(
+            {
+                "repeat_number": repeat_number,
+                "scaled_from_weekly_hours": weekly_hours,
+                "target_total_minutes": target_total_minutes,
+            }
+        )
+        return PlanDraftItem(
+            title=self._repeat_item_title(item.title, repeat_number),
+            description=self._repeat_item_description(item.description, repeat_number),
+            item_type=item.item_type,
+            estimated_minutes=item.estimated_minutes,
+            priority=item.priority,
+            target_date=item.target_date,
+            is_schedulable=item.is_schedulable,
+            metadata_json=metadata,
+        )
+
+    def _repeat_key(self, item: PlanDraftItem) -> tuple[str, str]:
+        return (item.title, item.item_type)
+
+    def _repeat_item_title(self, title: str, repeat_number: int) -> str:
+        suffix = f" ({repeat_number}회차)"
+        return f"{title[:200 - len(suffix)].rstrip()}{suffix}"
+
+    def _repeat_item_description(self, description: str, repeat_number: int) -> str:
+        note = f"반복 학습/실행 일정 {repeat_number}회차입니다."
+        return f"{description}\n\n{note}" if description else note
+
+    def _redistribute_item_target_dates(
+        self,
+        items: list[PlanDraftItem],
+        target_date: date | None,
+    ) -> list[PlanDraftItem]:
+        schedulable_items = [item for item in items if item.is_schedulable]
+        if not schedulable_items:
+            return items
+
+        start_date = date.today()
+        horizon_end = self._planning_horizon_end(target_date)
+        span_days = max((horizon_end - start_date).days, 0)
+        denominator = max(len(schedulable_items) - 1, 1)
+        for index, item in enumerate(schedulable_items):
+            item.target_date = start_date + timedelta(days=round(span_days * index / denominator))
+        return items
+
+    def _split_plan_item_for_scheduling(self, item: PlanDraftItem) -> list[PlanDraftItem]:
+        max_minutes = self.MAX_PLAN_ITEM_SESSION_MINUTES
+        item.estimated_minutes = self._round_minutes_to_step(item.estimated_minutes)
+        if not item.is_schedulable or item.estimated_minutes <= max_minutes:
+            return [item]
+
+        chunk_minutes = self._split_minutes(item.estimated_minutes, max_minutes)
+        chunk_count = len(chunk_minutes)
+        chunks: list[PlanDraftItem] = []
+
+        for index, minutes in enumerate(chunk_minutes):
+            metadata = dict(item.metadata_json)
+            metadata.update(
+                {
+                    "split_from_estimated_minutes": item.estimated_minutes,
+                    "split_part": index + 1,
+                    "split_count": chunk_count,
+                }
+            )
+            chunks.append(
+                PlanDraftItem(
+                    title=self._split_item_title(item.title, index + 1, chunk_count),
+                    description=self._split_item_description(item.description, index + 1, chunk_count),
+                    item_type=item.item_type,
+                    estimated_minutes=minutes,
+                    priority=item.priority,
+                    target_date=item.target_date,
+                    is_schedulable=item.is_schedulable,
+                    metadata_json=metadata,
+                )
+            )
+        return chunks
+
+    def _round_minutes_to_step(self, minutes: int) -> int:
+        step = self.SPLIT_MINUTES_STEP
+        return max(step, ((int(minutes) + step - 1) // step) * step)
+
+    def _split_minutes(self, total_minutes: int, max_minutes: int) -> list[int]:
+        step = self.SPLIT_MINUTES_STEP
+        total_units = self._round_minutes_to_step(total_minutes) // step
+        max_units = max(int(max_minutes) // step, 1)
+        chunk_count = (total_units + max_units - 1) // max_units
+        base_units, extra_units = divmod(total_units, chunk_count)
+        return [
+            (base_units + (1 if index < extra_units else 0)) * step
+            for index in range(chunk_count)
+        ]
+
+    def _split_item_title(self, title: str, part: int, count: int) -> str:
+        suffix = f" ({part}/{count})"
+        base_title = self._base_split_title(title)
+        return f"{base_title[:200 - len(suffix)].rstrip()}{suffix}"
+
+    def _split_item_description(self, description: str, part: int, count: int) -> str:
+        return self._clean_split_description(description)
+
+    def _base_split_title(self, title: str) -> str:
+        return re.sub(r"(?:\s*\(\d+/\d+\))+$", "", title).strip()
+
+    def _clean_split_description(self, description: str) -> str:
+        cleaned = description or ""
+        return re.sub(r"(?:\n\s*)*분할된 일정 \d+/\d+입니다\.\s*$", "", cleaned).strip()
+
+    def _plan_items_payload(self, items: list[PlanDraftItem]) -> list[dict[str, Any]]:
+        return [
+            {
+                "title": item.title,
+                "description": item.description,
+                "item_type": item.item_type,
+                "estimated_minutes": item.estimated_minutes,
+                "priority": item.priority,
+                "target_date": item.target_date.isoformat() if item.target_date else None,
+                "is_schedulable": item.is_schedulable,
+                "metadata_json": item.metadata_json,
+            }
+            for item in items
+        ]
 
     def _build_generation_config(self, *, schema: type[BaseModel], system_instruction: str, use_tools: bool):
         thinking_config = self._thinking_config()
@@ -714,14 +955,24 @@ class PlanningService:
         return cleaned.strip()
 
     def _resolve_weekly_hours(self, answers: dict[str, Any]) -> int:
-        value = answers.get("weekly_available_hours") or answers.get("weekly_hours")
-        if isinstance(value, (int, float)) and value > 0:
-            return int(value)
-        daily_minutes = answers.get("daily_available_minutes")
-        active_days = answers.get("study_days_per_week") or answers.get("active_days_per_week")
-        if isinstance(daily_minutes, (int, float)) and isinstance(active_days, (int, float)):
-            return max(int((daily_minutes * active_days) / 60), 1)
+        value = self._positive_number(answers.get("weekly_available_hours") or answers.get("weekly_hours"))
+        if value is not None:
+            return self._clamp_weekly_hours(value)
+        daily_minutes = self._positive_number(answers.get("daily_available_minutes"))
+        active_days = self._positive_number(
+            answers.get("study_days_per_week") or answers.get("active_days_per_week")
+        )
+        if daily_minutes is not None and active_days is not None:
+            daily_minutes = min(daily_minutes, self.MAX_DAILY_AVAILABLE_MINUTES)
+            active_days = min(active_days, self.MAX_ACTIVE_DAYS_PER_WEEK)
+            return self._clamp_weekly_hours((daily_minutes * active_days) / 60)
         return 6
+
+    def _clamp_weekly_hours(self, value: float) -> int:
+        return min(
+            max(int(value), 1),
+            self.MAX_WEEKLY_AVAILABLE_HOURS,
+        )
 
     def _resolve_target_date(self, answers: dict[str, Any]) -> date | None:
         value = answers.get("target_date")
@@ -734,11 +985,68 @@ class PlanningService:
                 return None
         return None
 
-    def _suggest_title_from_text(self, text: str, study_subtype: str | None = None, answers: dict[str, Any] | None = None) -> str:
-        domain_title = self._suggest_study_title(study_subtype, answers or {})
-        if domain_title:
-            return domain_title
+    def _positive_number(self, value: Any) -> float | None:
+        if isinstance(value, (int, float)) and value > 0:
+            return float(value)
+        if isinstance(value, str):
+            match = re.search(r"(\d+(?:\.\d+)?)", value)
+            if match:
+                parsed = float(match.group(1))
+                return parsed if parsed > 0 else None
+        return None
 
+    def _planning_horizon_end(self, target_date: date | None) -> date:
+        start_date = date.today()
+        horizon_end = target_date or start_date + timedelta(days=42)
+        horizon_cap = start_date + timedelta(days=(self.MAX_PLANNING_HORIZON_WEEKS * 7) - 1)
+        horizon_end = min(horizon_end, horizon_cap)
+        return horizon_end if horizon_end >= start_date else start_date
+
+    def _planning_horizon_days(self, target_date: date | None) -> int:
+        start_date = date.today()
+        horizon_end = self._planning_horizon_end(target_date)
+        return max((horizon_end - start_date).days + 1, 1)
+
+    def _planning_horizon_weeks(self, target_date: date | None) -> int:
+        total_days = self._planning_horizon_days(target_date)
+        return max((total_days + 6) // 7, 1)
+
+    def _target_total_minutes(self, weekly_hours: int, target_date: date | None) -> int:
+        weekly_minutes = self._clamp_weekly_hours(weekly_hours) * 60
+        total_days = self._planning_horizon_days(target_date)
+        raw_numerator = weekly_minutes * total_days
+        step_denominator = 7 * self.TARGET_MINUTES_STEP
+        return max(
+            self.TARGET_MINUTES_STEP,
+            ((raw_numerator + step_denominator - 1) // step_denominator) * self.TARGET_MINUTES_STEP,
+        )
+
+    def _target_total_minutes_for_items(
+        self,
+        weekly_hours: int,
+        target_date: date | None,
+        items: list[PlanDraftItem],
+    ) -> int:
+        requested_total_minutes = self._target_total_minutes(weekly_hours, target_date)
+        schedulable_items = [
+            item for item in items if item.is_schedulable and item.estimated_minutes > 0
+        ]
+        if not schedulable_items:
+            return requested_total_minutes
+
+        repeatable_items = self._repeatable_plan_items(schedulable_items)
+        current_total_minutes = sum(item.estimated_minutes for item in schedulable_items)
+        remaining_item_slots = max(self.MAX_GENERATED_PLAN_ITEMS - len(items), 0)
+        repeat_minutes = [item.estimated_minutes for item in repeatable_items]
+        full_cycles, partial_cycle = divmod(remaining_item_slots, len(repeat_minutes))
+        max_generated_minutes = (
+            current_total_minutes
+            + full_cycles * sum(repeat_minutes)
+            + sum(repeat_minutes[:partial_cycle])
+        )
+        return min(requested_total_minutes, max_generated_minutes)
+
+    def _suggest_title_from_text(self, text: str) -> str:
         cleaned = self._clean_whitespace(text)
         first_sentence = re.split(r"(?<=[.!?])\s+|\n+", cleaned, maxsplit=1)[0]
         title = re.sub(
@@ -755,7 +1063,7 @@ class PlanningService:
             flags=re.IGNORECASE,
         )
         title = re.sub(
-            r"(준비하고 싶어요|준비하고 싶습니다|준비할래요|하고 싶어요|하고 싶습니다|하고 싶다|하려고 해요|하려고 합니다|를 목표로 해요|을 목표로 해요)[.!?。]*$",
+            r"(하고 싶어요|하고 싶습니다|하고 싶다|하려고 해요|하려고 합니다|를 목표로 해요|을 목표로 해요)$",
             "",
             title,
         )
@@ -770,26 +1078,6 @@ class PlanningService:
         if len(title) > 80:
             title = title[:77].rstrip() + "..."
         return title or "New goal"
-
-    def refine_goal_title(self, title: str, details_json: dict[str, Any] | None, answers: dict[str, Any]) -> str:
-        study_subtype = (details_json or {}).get("study_subtype")
-        domain_title = self._suggest_study_title(study_subtype, answers)
-        return domain_title or title
-
-    def _suggest_study_title(self, study_subtype: str | None, answers: dict[str, Any]) -> str | None:
-        if study_subtype == self.STUDY_SUBTYPE_TOEIC:
-            target_score = answers.get("target_score")
-            if target_score:
-                return f"토익 {target_score}점"
-            return "토익"
-        if study_subtype == self.STUDY_SUBTYPE_INFORMATION_PROCESSING_ENGINEER:
-            exam_stage = answers.get("exam_stage")
-            if exam_stage == "필기와 실기 모두":
-                return "정보처리기사 필기/실기"
-            if exam_stage in {"필기", "실기"}:
-                return f"정보처리기사 {exam_stage}"
-            return "정보처리기사"
-        return None
 
     def _normalize_description(self, text: str | None) -> str | None:
         if not text:
@@ -890,10 +1178,35 @@ class PlanningService:
         ]
         if answers.get("constraints"):
             notes.append(f"Constraints to respect: {answers['constraints']}")
-        if category == GoalCategory.study and answers.get("strong_weak_topics"):
-            notes.append(f"Topic mix to consider: {answers['strong_weak_topics']}")
-        if category == GoalCategory.health and answers.get("diet_constraints"):
-            notes.append(f"Diet or recovery constraints: {answers['diet_constraints']}")
+        if category == GoalCategory.study:
+            if answers.get("target_outcome"):
+                notes.append(f"Target learning outcome: {answers['target_outcome']}")
+            if answers.get("strong_weak_topics"):
+                notes.append(f"Topic mix to consider: {answers['strong_weak_topics']}")
+            if answers.get("assessment_plan"):
+                notes.append(f"Assessment checkpoint: {answers['assessment_plan']}")
+        if category == GoalCategory.health:
+            if answers.get("activity_capacity"):
+                notes.append(f"Current activity capacity: {answers['activity_capacity']}")
+            if answers.get("recovery_limits"):
+                notes.append(f"Recovery limits: {answers['recovery_limits']}")
+            if answers.get("diet_constraints"):
+                notes.append(f"Diet or recovery constraints: {answers['diet_constraints']}")
+        if category == GoalCategory.work:
+            if answers.get("success_definition"):
+                notes.append(f"Quality bar: {answers['success_definition']}")
+            if answers.get("dependencies"):
+                notes.append(f"Dependencies to sequence around: {answers['dependencies']}")
+        if category == GoalCategory.habit:
+            if answers.get("desired_frequency"):
+                notes.append(f"Target habit frequency: {answers['desired_frequency']}")
+            if answers.get("obstacles"):
+                notes.append(f"Known habit blockers: {answers['obstacles']}")
+        if category == GoalCategory.general:
+            if answers.get("priority_scope"):
+                notes.append(f"Initial priority scope: {answers['priority_scope']}")
+            if answers.get("risks"):
+                notes.append(f"Risks to plan around: {answers['risks']}")
         return notes
 
     def _study_subtype_for_goal(self, goal: Goal, answers: dict[str, Any]) -> str | None:

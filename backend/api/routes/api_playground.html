@@ -369,11 +369,11 @@
   "start_at": "{eventStart}",
   "end_at": "{eventEnd}",
   "recurrence_rule": "weekly",
-  "day_of_week": 2
+  "day_of_week": 1
 }`,
           help: "반복 고정 일정을 등록합니다.",
           requires: "로그인 토큰, 일정 시작/종료",
-          next: "recurrence_rule에는 daily, weekly, biweekly, monthly를 사용할 수 있고 weekly/biweekly는 day_of_week가 필요합니다."
+          next: "recurrence_rule에는 daily, weekly, biweekly를 사용할 수 있습니다."
         },
         {
           key: "create-task",
@@ -404,7 +404,7 @@
   "text": "캡스톤 데모 페이지를 4월 25일까지 완성하고 싶어요. 주당 8시간 정도 가능하고 평일 저녁에 작업하기 좋습니다."
 }`,
           help: "자연어 목표를 분석해서 제목, 카테고리, 추가 질문을 만듭니다.",
-          requires: "없음",
+          requires: "로그인 토큰",
           next: "질문 답을 채운 뒤 goals/complete로 이어가세요."
         },
         {
@@ -417,10 +417,7 @@
   "text": "캡스톤 데모 페이지를 4월 25일까지 완성하고 싶어요. 주당 8시간 정도 가능하고 평일 저녁에 작업하기 좋습니다.",
   "answers_json": {
     "weekly_available_hours": 8,
-    "preferred_work_times": "평일 저녁과 주말 오후",
-    "unavailable_times": "수업 직후 1시간",
-    "session_preference": "보통 길이로 균형 있게",
-    "constraints": "평일 저녁에 집중력이 가장 좋습니다."
+    "constraints": "평일 저녁에만 가능합니다."
   }
 }`,
           help: "자연어 목표와 추가 답변을 받아 목표 저장과 계획 생성을 한 번에 처리합니다.",

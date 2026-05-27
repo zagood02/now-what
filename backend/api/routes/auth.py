@@ -32,13 +32,16 @@ def login_with_google(
 ) -> LoginResponse:
     claims = _verify_google_credential(payload.credential)
     email = claims.get("email")
-    if email and claims.get("email_verified") is False:
+    provider_user_id = claims.get("sub")
+    if not provider_user_id:
+        raise HTTPException(status_code=401, detail="Invalid Google credential.")
+    if email and claims.get("email_verified") is not True:
         raise HTTPException(status_code=401, detail="Google email is not verified.")
 
     user = _get_or_create_social_user(
         session,
         provider="google",
-        provider_user_id=str(claims["sub"]),
+        provider_user_id=str(provider_user_id),
         email=email,
         name=claims.get("name") or email or "Google User",
     )

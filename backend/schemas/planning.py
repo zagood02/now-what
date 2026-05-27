@@ -36,11 +36,10 @@ class GoalIntakeResponse(BaseModel):
 
 
 class GoalCompleteRequest(BaseModel):
-    user_id: int | None = None
     text: str = Field(min_length=1)
     category: GoalCategory | None = None
     answers_json: dict = Field(default_factory=dict)
-    replace_existing: bool = True
+    replace_existing: bool = False
 
 
 class GoalCompleteResponse(BaseModel):
@@ -53,7 +52,6 @@ class GoalCompleteResponse(BaseModel):
 
 
 class AllocateRequest(BaseModel):
-    user_id: int | None = None
     range_start: datetime
     range_end: datetime
     day_start: time | None = None

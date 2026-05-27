@@ -790,7 +790,7 @@
                     <h3>고정 일정 등록</h3>
                     <p>반복 일정 여부, 제목, 위치, 설명을 직접 조절할 수 있습니다.</p>
                   </div>
-                  <span class="endpoint">POST /api/v1/schedules/fixed</span>
+                  <span class="endpoint">POST/GET/PATCH/DELETE /api/v1/schedules/fixed</span>
                 </div>
 
                 <div class="field-grid">
@@ -848,6 +848,9 @@
                 </div>
                 <div class="inline-actions" style="margin-top:14px;">
                   <button class="primary" id="step-schedule" type="button">고정 일정 등록</button>
+                  <button class="secondary" id="get-schedule-button" type="button">일정 상세 조회</button>
+                  <button class="secondary" id="update-schedule-button" type="button">현재 입력값으로 수정</button>
+                  <button class="danger" id="delete-schedule-button" type="button">일정 삭제</button>
                 </div>
               </section>
 
@@ -857,7 +860,7 @@
                     <h3>가변 작업 등록</h3>
                     <p>예상 시간, 세션 길이, 우선순위를 직접 손보며 배치 결과를 보기 좋습니다.</p>
                   </div>
-                  <span class="endpoint">POST /api/v1/tasks/flexible</span>
+                  <span class="endpoint">POST/GET/PATCH/DELETE /api/v1/tasks/flexible</span>
                 </div>
 
                 <div class="field-grid">
@@ -898,6 +901,9 @@
                 </div>
                 <div class="inline-actions" style="margin-top:14px;">
                   <button class="primary" id="step-task" type="button">가변 작업 등록</button>
+                  <button class="secondary" id="get-task-button" type="button">작업 상세 조회</button>
+                  <button class="secondary" id="update-task-button" type="button">현재 입력값으로 수정</button>
+                  <button class="danger" id="delete-task-button" type="button">작업 삭제</button>
                 </div>
               </section>
             </div>
@@ -967,7 +973,7 @@
                   <div class="policy-item"><strong>하루 상한</strong><span id="allocation-limit-policy">360분</span></div>
                 </div>
                 <div class="toggle-row" style="margin-top:12px;">
-                  <label><input id="replace-existing-plan" type="checkbox" checked /> 기존 active plan archive 후 새 plan 생성</label>
+                  <label><input id="replace-existing-plan" type="checkbox" /> 같은 목표의 기존 active plan archive 후 새 plan 생성</label>
                   <label><input id="clear-existing-allocation" type="checkbox" checked /> 기존 배치 결과 지우고 다시 allocate</label>
                 </div>
                 <div class="helper" style="margin-top:12px;">
@@ -1015,7 +1021,7 @@
                 <h2>질문과 답변</h2>
                 <p>질문은 카드로 분리하고, 오른쪽에는 현재 `answers_json`이 어떻게 전송될지 실시간으로 보여줍니다.</p>
               </div>
-              <span class="endpoint">POST /api/v1/goals/complete</span>
+              <span class="endpoint">POST/GET/DELETE /api/v1/goals · plan item actions</span>
             </div>
 
             <div class="qa-shell">
@@ -1028,6 +1034,10 @@
                       <button class="primary" id="plan-button" type="button">목표 저장 + 계획 생성</button>
                       <button class="secondary" id="allocate-button" type="button">배치 + 캘린더 조회</button>
                       <button class="ghost" id="refresh-calendar-button" type="button">캘린더만 새로고침</button>
+                      <button class="secondary" id="get-goal-button" type="button">목표 상세 조회</button>
+                      <button class="secondary" id="clear-goal-schedule-button" type="button">목표 일정 비우기</button>
+                      <button class="secondary" id="goal-allocate-button" type="button">목표만 배치</button>
+                      <button class="danger" id="delete-goal-button" type="button">목표 삭제</button>
                     </div>
                   </div>
 
@@ -1038,6 +1048,24 @@
                   </aside>
                 </div>
               </div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-head">
+              <div>
+                <span class="eyebrow">Goals</span>
+                <h2>내 목표 목록</h2>
+                <p>현재 로그인한 사용자가 저장한 목표를 불러오고, 선택하거나 바로 삭제할 수 있습니다.</p>
+              </div>
+              <span class="endpoint">GET/DELETE /api/v1/goals</span>
+            </div>
+
+            <div class="inline-actions" style="margin-bottom:12px;">
+              <button class="secondary" id="load-goals-button" type="button">목표 목록 새로고침</button>
+            </div>
+            <div class="plan-items" id="goal-list">
+              <div class="empty">아직 목표 목록을 조회하지 않았습니다.</div>
             </div>
           </section>
 
@@ -1085,14 +1113,21 @@
             <div class="panel-head">
               <div>
                 <span class="eyebrow">Calendar</span>
-                <h2>자동 배치 결과</h2>
-                <p>allocate 결과를 날짜별로 묶어 보여줍니다. 계획 생성 이후에 배치를 실행하세요.</p>
+                <h2>캘린더 조회</h2>
+                <p>현재 조회 기간의 고정 일정과 배치 결과를 바로 불러오거나, 계획 생성 이후 자동 배치까지 실행합니다.</p>
               </div>
-              <span class="endpoint">POST /api/v1/planner/allocate · GET /api/v1/calendar</span>
+              <span class="endpoint">GET /api/v1/calendar · allocation/delete actions</span>
             </div>
 
             <div class="calendar-summary" id="calendar-summary">
               아직 캘린더를 조회하지 않았습니다.
+            </div>
+            <div class="inline-actions" style="margin-bottom:12px;">
+              <button class="secondary" id="calendar-query-button" type="button">캘린더 조회</button>
+              <button class="primary" id="calendar-allocate-button" type="button">배치 후 조회</button>
+            </div>
+            <div class="helper" style="margin-bottom:12px;">
+              조회 기간은 위 `계획/캘린더 범위` 카드의 캘린더 시작/종료 값을 사용합니다.
             </div>
             <div class="calendar-stack" id="agenda">
               <div class="empty">아직 시간표를 불러오지 않았습니다.</div>
@@ -1211,6 +1246,7 @@
         scheduleId: null,
         taskId: null,
         goalId: null,
+        goals: [],
         parsedGoal: null,
         currentQuestions: [],
         lastPlan: null,
@@ -1237,14 +1273,30 @@
       byId("login-button").onclick = () => runStep(loginUser);
       byId("clear-token-button").onclick = clearToken;
       byId("step-schedule").onclick = () => runStep(addFixedSchedule);
+      byId("get-schedule-button").onclick = () => runStep(getFixedSchedule);
+      byId("update-schedule-button").onclick = () => runStep(updateFixedSchedule);
+      byId("delete-schedule-button").onclick = () => runStep(deleteFixedSchedule);
       byId("step-task").onclick = () => runStep(addFlexibleTask);
+      byId("get-task-button").onclick = () => runStep(getFlexibleTask);
+      byId("update-task-button").onclick = () => runStep(updateFlexibleTask);
+      byId("delete-task-button").onclick = () => runStep(deleteFlexibleTask);
       byId("analyze-button").onclick = () => runStep(analyzeGoal);
       byId("plan-button").onclick = () => runStep(saveGoalAndGeneratePlan);
       byId("allocate-button").onclick = () => runStep(allocateAndLoadCalendar);
       byId("refresh-calendar-button").onclick = () => runStep(loadCalendarOnly);
+      byId("get-goal-button").onclick = () => runStep(getGoalDetail);
+      byId("clear-goal-schedule-button").onclick = () => runStep(clearGoalSchedule);
+      byId("goal-allocate-button").onclick = () => runStep(allocateGoalOnlyAndLoadCalendar);
+      byId("delete-goal-button").onclick = () => runStep(deleteGoal);
+      byId("load-goals-button").onclick = () => runStep(loadGoals);
+      byId("calendar-query-button").onclick = () => runStep(loadCalendarOnly);
+      byId("calendar-allocate-button").onclick = () => runStep(allocateAndLoadCalendar);
       byId("schedule-kind").onchange = syncRecurrenceUI;
       byId("schedule-recurrence").onchange = syncRecurrenceUI;
       byId("schedule-start").onchange = () => setDefaultScheduleWeekday(false);
+      byId("plan-items").addEventListener("click", handlePlanItemAction);
+      byId("goal-list").addEventListener("click", handleGoalListAction);
+      byId("agenda").addEventListener("click", handleCalendarAction);
       byId("question-list").addEventListener("input", renderAnswersPreview);
       byId("question-list").addEventListener("change", renderAnswersPreview);
 
@@ -1364,6 +1416,7 @@
         }
 
         storeAuth(payload);
+        await loadGoals({ silent: true });
         updateStage("user", true, `user_id=${state.userId} · ${payload.user.email}`);
         if (!options.quiet) {
           message("로그인했습니다. 이후 요청에는 Authorization 헤더가 자동으로 붙습니다.");
@@ -1373,11 +1426,53 @@
       async function addFixedSchedule() {
         ensureLoggedIn();
 
+        const payload = await request("POST", "/api/v1/schedules/fixed", buildFixedSchedulePayload());
+
+        state.scheduleId = payload.id;
+        renderSummary();
+        updateStage("schedule", true, `schedule_id=${payload.id} · ${payload.title}`);
+        message("고정 일정이 등록되었습니다.");
+      }
+
+      async function getFixedSchedule() {
+        ensureLoggedIn();
+        ensure(state.scheduleId, "먼저 고정 일정을 등록하세요.");
+
+        const payload = await request("GET", `/api/v1/schedules/fixed/${state.scheduleId}`);
+        fillFixedScheduleForm(payload);
+        updateStage("schedule", true, `schedule_id=${payload.id} · 상세 조회 완료`);
+        message("고정 일정 상세를 조회하고 입력 폼에 반영했습니다.");
+      }
+
+      async function updateFixedSchedule() {
+        ensureLoggedIn();
+        ensure(state.scheduleId, "먼저 고정 일정을 등록하세요.");
+
+        const payload = await request("PATCH", `/api/v1/schedules/fixed/${state.scheduleId}`, buildFixedSchedulePayload());
+        fillFixedScheduleForm(payload);
+        updateStage("schedule", true, `schedule_id=${payload.id} · 수정 완료`);
+        message("고정 일정을 현재 입력값으로 수정했습니다.");
+      }
+
+      async function deleteFixedSchedule() {
+        ensureLoggedIn();
+        ensure(state.scheduleId, "먼저 고정 일정을 등록하세요.");
+
+        const scheduleId = state.scheduleId;
+        await request("DELETE", `/api/v1/schedules/fixed/${scheduleId}`);
+        state.scheduleId = null;
+        renderSummary();
+        updateStage("schedule", false, "삭제되었습니다. 새 고정 일정을 등록할 수 있습니다.");
+        message(`고정 일정 #${scheduleId}을 삭제했습니다.`);
+        await refreshCalendarAfterMutation();
+      }
+
+      function buildFixedSchedulePayload() {
         const isRecurring = byId("schedule-kind").value === "recurring";
         const recurrenceRule = isRecurring ? byId("schedule-recurrence").value : null;
         const needsWeekday = recurrenceRule === "weekly" || recurrenceRule === "biweekly";
         const dayOfWeek = needsWeekday ? selectedScheduleWeekday() : null;
-        const payload = await request("POST", "/api/v1/schedules/fixed", {
+        return {
           title: byId("schedule-title").value.trim(),
           description: emptyToNull(byId("schedule-description").value),
           location: emptyToNull(byId("schedule-location").value),
@@ -1386,19 +1481,81 @@
           is_all_day: byId("schedule-all-day").checked,
           recurrence_rule: recurrenceRule,
           day_of_week: dayOfWeek,
-        });
+        };
+      }
 
-        state.scheduleId = payload.id;
-        renderSummary();
-        updateStage("schedule", true, `schedule_id=${payload.id} · ${payload.title}`);
-        message("고정 일정이 등록되었습니다.");
+      function fillFixedScheduleForm(schedule) {
+        byId("schedule-title").value = schedule.title || "";
+        byId("schedule-location").value = schedule.location || "";
+        byId("schedule-description").value = schedule.description || "";
+        byId("schedule-start").value = schedule.start_at || "";
+        byId("schedule-end").value = schedule.end_at || "";
+        byId("schedule-all-day").checked = Boolean(schedule.is_all_day);
+        byId("schedule-kind").value = schedule.recurrence_rule ? "recurring" : "one-time";
+        if (schedule.recurrence_rule) {
+          byId("schedule-recurrence").value = schedule.recurrence_rule;
+        }
+        syncRecurrenceUI();
+        if (schedule.day_of_week !== null && schedule.day_of_week !== undefined) {
+          byId("schedule-day-of-week").value = String(schedule.day_of_week);
+        }
       }
 
       async function addFlexibleTask() {
         ensureLoggedIn();
 
+        const payload = await request("POST", "/api/v1/tasks/flexible", buildFlexibleTaskPayload());
+
+        state.taskId = payload.id;
+        renderSummary();
+        updateStage("task", true, `task_id=${payload.id} · ${payload.title}`);
+        message("가변 작업이 등록되었습니다.");
+      }
+
+      async function getFlexibleTask() {
+        ensureLoggedIn();
+        ensure(state.taskId, "먼저 가변 작업을 등록하세요.");
+
+        const payload = await request("GET", `/api/v1/tasks/flexible/${state.taskId}`);
+        fillFlexibleTaskForm(payload);
+        updateStage("task", true, `task_id=${payload.id} · 상세 조회 완료`);
+        message("가변 작업 상세를 조회하고 입력 폼에 반영했습니다.");
+      }
+
+      async function updateFlexibleTask() {
+        ensureLoggedIn();
+        ensure(state.taskId, "먼저 가변 작업을 등록하세요.");
+
+        const payload = await request("PATCH", `/api/v1/tasks/flexible/${state.taskId}`, buildFlexibleTaskPayload());
+        fillFlexibleTaskForm(payload);
+        updateStage("task", true, `task_id=${payload.id} · 수정 완료`);
+        message("가변 작업을 현재 입력값으로 수정했습니다.");
+      }
+
+      async function deleteFlexibleTask() {
+        ensureLoggedIn();
+        ensure(state.taskId, "먼저 가변 작업을 등록하세요.");
+
+        await deleteFlexibleTaskById(state.taskId);
+      }
+
+      async function deleteFlexibleTaskById(taskId) {
+        ensureLoggedIn();
+        ensure(taskId, "삭제할 가변 작업 ID를 찾을 수 없습니다.");
+
+        await request("DELETE", `/api/v1/tasks/flexible/${taskId}`);
+        if (state.taskId === taskId) {
+          state.taskId = null;
+          renderSummary();
+          updateStage("task", false, "삭제되었습니다. 새 가변 작업을 등록할 수 있습니다.");
+        }
+        message(`가변 작업 #${taskId}을 삭제했습니다.`);
+        await refreshCalendarAfterMutation();
+      }
+
+      function buildFlexibleTaskPayload() {
         const dueAt = byId("task-due-at").value.trim();
-        const payload = await request("POST", "/api/v1/tasks/flexible", {
+        return {
           title: byId("task-title").value.trim(),
           description: emptyToNull(byId("task-description").value),
           estimated_minutes: numericValue("task-estimated-minutes"),
@@ -1407,15 +1564,23 @@
           max_minutes_per_day: numericValue("task-max-per-day"),
           priority: numericValue("task-priority"),
           due_at: dueAt || null,
-        });
+        };
+      }
 
-        state.taskId = payload.id;
-        renderSummary();
-        updateStage("task", true, `task_id=${payload.id} · ${payload.title}`);
-        message("가변 작업이 등록되었습니다.");
+      function fillFlexibleTaskForm(task) {
+        byId("task-title").value = task.title || "";
+        byId("task-due-at").value = task.due_at || "";
+        byId("task-description").value = task.description || "";
+        byId("task-estimated-minutes").value = task.estimated_minutes ?? "";
+        byId("task-min-session").value = task.min_session_minutes ?? "";
+        byId("task-preferred-session").value = task.preferred_session_minutes ?? "";
+        byId("task-max-per-day").value = task.max_minutes_per_day ?? "";
+        byId("task-priority").value = task.priority ?? "";
       }
 
       async function analyzeGoal() {
+        ensureLoggedIn();
+
         const payload = await request("POST", "/api/v1/goals/intake", {
           text: byId("goal-text").value.trim(),
           category: selectedGoalCategory(),
@@ -1453,26 +1618,106 @@
         state.lastPlan = payload.plan;
         renderSummary();
         renderPlan(payload.plan, payload.llm_mode);
+        await loadGoals({ silent: true });
         updateStage("plan", true, `goal_id=${payload.goal.id} · plan_id=${payload.plan.id}`);
         message("목표 저장과 계획 생성이 완료되었습니다.");
+      }
+
+      async function getGoalDetail() {
+        ensureLoggedIn();
+        ensure(state.goalId, "먼저 목표 저장 + 계획 생성을 완료하세요.");
+
+        const payload = await selectGoalById(state.goalId);
+        updateStage("plan", true, `goal_id=${payload.id} · plans=${(payload.plans || []).length}`);
+        message("목표 상세와 plan 목록을 조회했습니다.");
+      }
+
+      async function clearGoalSchedule() {
+        ensureLoggedIn();
+        ensure(state.goalId, "먼저 목표 저장 + 계획 생성을 완료하세요.");
+
+        await request("POST", `/api/v1/goals/${state.goalId}/clear-schedule`);
+        await loadCalendarOnly();
+        updateStage("calendar", true, "목표 plan item 일정 비우기 완료");
+        message("현재 목표의 예약된 plan item 일정을 비웠습니다.");
+      }
+
+      async function allocateGoalOnlyAndLoadCalendar() {
+        ensureLoggedIn();
+        ensure(state.goalId, "먼저 목표 저장 + 계획 생성을 완료하세요.");
+
+        await request("POST", `/api/v1/goals/${state.goalId}/allocate`, buildAllocatePayload());
+        await loadCalendarOnly();
+        updateStage("calendar", true, "목표별 allocate 후 캘린더 조회 완료");
+        message("현재 목표의 plan item만 배치하고 캘린더를 조회했습니다.");
+      }
+
+      async function deleteGoal() {
+        ensureLoggedIn();
+        ensure(state.goalId, "먼저 목표 저장 + 계획 생성을 완료하세요.");
+
+        await deleteGoalById(state.goalId);
+      }
+
+      async function loadGoals(options = {}) {
+        ensureLoggedIn();
+
+        const payload = await request("GET", "/api/v1/goals");
+        state.goals = payload || [];
+        renderGoalList();
+        if (!options.silent) {
+          message(`목표 ${state.goals.length}개를 불러왔습니다.`);
+        }
+        return state.goals;
+      }
+
+      async function selectGoalById(goalId) {
+        ensureLoggedIn();
+        ensure(goalId, "불러올 목표 ID를 찾을 수 없습니다.");
+
+        const payload = await request("GET", `/api/v1/goals/${goalId}`);
+        renderSelectedGoal(payload);
+        return payload;
+      }
+
+      async function deleteGoalById(goalId) {
+        ensureLoggedIn();
+        ensure(goalId, "삭제할 목표 ID를 찾을 수 없습니다.");
+
+        await request("DELETE", `/api/v1/goals/${goalId}`);
+        if (state.goalId === goalId) {
+          clearSelectedGoal();
+          updateStage("analysis", false, "목표가 삭제되었습니다.");
+          updateStage("plan", false, "삭제되었습니다. 새 목표를 생성할 수 있습니다.");
+        }
+        state.goals = state.goals.filter((goal) => goal.id !== goalId);
+        renderGoalList();
+        await loadGoals({ silent: true });
+        await refreshCalendarAfterMutation();
+        message(`목표 #${goalId}와 연결된 plan item을 삭제했습니다.`);
       }
 
       async function allocateAndLoadCalendar() {
         ensureLoggedIn();
         ensure(state.goalId, "먼저 목표 저장 + 계획 생성을 완료하세요.");
 
-        const rangeStart = byId("range-start").value.trim();
-        const rangeEnd = byId("range-end").value.trim();
-
-        await request("POST", "/api/v1/planner/allocate", {
-          range_start: rangeStart,
-          range_end: rangeEnd,
-          clear_existing: byId("clear-existing-allocation").checked,
-        });
+        await request("POST", "/api/v1/planner/allocate", buildAllocatePayload());
 
         await loadCalendarOnly();
         updateStage("calendar", true, "allocate 후 캘린더 조회 완료");
         message("자동 배치와 캘린더 조회가 완료되었습니다.");
+      }
+
+      function buildAllocatePayload() {
+        return {
+          range_start: byId("range-start").value.trim(),
+          range_end: byId("range-end").value.trim(),
+          day_start: APP_DEFAULTS.dayStart,
+          day_end: APP_DEFAULTS.dayEnd,
+          buffer_minutes: DEFAULT_BUFFER_MINUTES,
+          max_auto_minutes_per_day: DEFAULT_MAX_AUTO_MINUTES_PER_DAY,
+          clear_existing: byId("clear-existing-allocation").checked,
+        };
       }
 
       async function loadCalendarOnly() {
@@ -1480,14 +1725,17 @@
 
         const rangeStart = byId("range-start").value.trim();
         const rangeEnd = byId("range-end").value.trim();
+        ensure(rangeStart, "캘린더 시작 값을 입력하세요.");
+        ensure(rangeEnd, "캘린더 종료 값을 입력하세요.");
         const calendar = await request(
           "GET",
           `/api/v1/calendar?start=${encodeURIComponent(rangeStart)}&end=${encodeURIComponent(rangeEnd)}`
         );
+        const events = calendar.events || [];
 
-        renderCalendar(calendar.events || []);
-        updateStage("calendar", true, `이벤트 ${calendar.events.length}개 로드`);
-        message(`캘린더를 새로고침했습니다. 총 ${calendar.events.length}개 이벤트입니다.`);
+        renderCalendar(events);
+        updateStage("calendar", true, `이벤트 ${events.length}개 로드`);
+        message(`캘린더를 조회했습니다. 총 ${events.length}개 이벤트입니다.`);
       }
 
       async function runFullFlow() {
@@ -1610,6 +1858,79 @@
         answersPreview.textContent = JSON.stringify(collectAnswers(), null, 2);
       }
 
+      function renderGoalList() {
+        const goals = state.goals || [];
+        byId("goal-list").innerHTML = goals.length
+          ? goals.map((goal) => {
+              const isSelected = state.goalId === goal.id;
+              return `
+                <article class="plan-item" style="${isSelected ? "border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent-soft);" : ""}">
+                  <div class="plan-item-header">
+                    <div>
+                      <h3>${escapeHtml(goal.title)}</h3>
+                      <p>${escapeHtml(goal.description || "설명 없음")}</p>
+                    </div>
+                    <div class="tiny-actions">
+                      <span class="tag">#${escapeHtml(goal.id)}</span>
+                      <span class="tag">${escapeHtml(goal.category)}</span>
+                      <span class="tag">${escapeHtml(goal.status)}</span>
+                    </div>
+                  </div>
+                  <div class="tiny-actions" style="margin-top:10px;">
+                    ${goal.target_date ? `<span class="tag">목표일 ${escapeHtml(goal.target_date)}</span>` : ""}
+                    <span class="tag">생성 ${escapeHtml(formatDateTime(goal.created_at))}</span>
+                    <button class="secondary" type="button" data-goal-action="select" data-goal-id="${escapeHtml(goal.id)}">상세 불러오기</button>
+                    <button class="danger" type="button" data-goal-action="delete" data-goal-id="${escapeHtml(goal.id)}">삭제</button>
+                  </div>
+                </article>
+              `;
+            }).join("")
+          : '<div class="empty">저장된 목표가 없습니다.</div>';
+      }
+
+      function renderSelectedGoal(goal) {
+        const latestPlan = (goal.plans || [])[0] || null;
+        state.goalId = goal.id;
+        state.parsedGoal = null;
+        state.lastPlan = latestPlan;
+        renderSummary();
+
+        byId("draft-empty").hidden = true;
+        byId("draft-content").hidden = false;
+        byId("draft-reasoning").textContent = "저장된 목표 상세입니다.";
+        byId("draft-title").textContent = goal.title || "-";
+        byId("draft-category").textContent = goal.category || "-";
+        byId("draft-description").textContent = goal.description || "-";
+
+        if (latestPlan) {
+          renderPlan(latestPlan, latestPlan.llm_mode);
+        } else {
+          byId("plan-empty").hidden = false;
+          byId("plan-content").hidden = true;
+          byId("plan-items").innerHTML = "";
+        }
+        renderGoalList();
+        updateStage("analysis", true, `goal_id=${goal.id} 선택됨`);
+      }
+
+      function clearSelectedGoal() {
+        state.goalId = null;
+        state.parsedGoal = null;
+        state.currentQuestions = [];
+        state.lastPlan = null;
+        renderSummary();
+        byId("draft-empty").hidden = false;
+        byId("draft-content").hidden = true;
+        byId("questions-empty").hidden = false;
+        byId("questions-wrap").hidden = true;
+        byId("question-list").innerHTML = "";
+        byId("plan-empty").hidden = false;
+        byId("plan-content").hidden = true;
+        byId("plan-items").innerHTML = "";
+        answersPreview.textContent = "{}";
+        renderGoalList();
+      }
+
       function renderPlan(plan, llmMode) {
         byId("plan-empty").hidden = true;
         byId("plan-content").hidden = false;
@@ -1638,6 +1959,9 @@
                   <span class="tag">${escapeHtml(item.estimated_minutes)} min</span>
                   <span class="tag">${item.is_schedulable ? "schedulable" : "not schedulable"}</span>
                   ${item.target_date ? `<span class="tag">${escapeHtml(item.target_date)}</span>` : ""}
+                  <button class="secondary" type="button" data-plan-action="unschedule" data-plan-item-id="${escapeHtml(item.id)}">스케줄 해제</button>
+                  <button class="danger" type="button" data-plan-action="skip" data-plan-item-id="${escapeHtml(item.id)}">건너뛰기</button>
+                  <button class="danger" type="button" data-plan-action="delete" data-plan-item-id="${escapeHtml(item.id)}">삭제</button>
                 </div>
               </article>
             `).join("")
@@ -1681,6 +2005,7 @@
                     <div class="tiny-actions" style="margin-top:10px;">
                       <span class="tag">${escapeHtml(sourceLabel(event.source_type))}</span>
                       <span class="tag">${escapeHtml(event.status)}</span>
+                      ${renderCalendarEventActions(event)}
                     </div>
                   </article>
                 `).join("")}
@@ -1689,6 +2014,178 @@
           `).join("");
 
         byId("agenda").innerHTML = html;
+      }
+
+      function renderCalendarEventActions(event) {
+        if (event.source_type === "fixed_schedule") {
+          return `<button class="danger" type="button" data-calendar-action="delete-fixed" data-source-id="${escapeHtml(event.source_id)}">고정 일정 삭제</button>`;
+        }
+        if (event.source_type === "allocated_task") {
+          const flexibleTaskId = event.metadata_json?.flexible_task_id;
+          const deleteTaskButton = flexibleTaskId
+            ? `<button class="danger" type="button" data-calendar-action="delete-flexible-task" data-task-id="${escapeHtml(flexibleTaskId)}">가변 작업 삭제</button>`
+            : "";
+          return `
+            <button class="secondary" type="button" data-calendar-action="delete-allocation" data-source-id="${escapeHtml(event.source_id)}">배정만 삭제</button>
+            ${deleteTaskButton}
+          `;
+        }
+        if (event.source_type === "ai_plan_item") {
+          return `
+            <button class="secondary" type="button" data-calendar-action="unschedule-plan-item" data-source-id="${escapeHtml(event.source_id)}">스케줄 해제</button>
+            <button class="danger" type="button" data-calendar-action="skip-plan-item" data-source-id="${escapeHtml(event.source_id)}">건너뛰기</button>
+            <button class="danger" type="button" data-calendar-action="delete-plan-item" data-source-id="${escapeHtml(event.source_id)}">삭제</button>
+          `;
+        }
+        return "";
+      }
+
+      function handlePlanItemAction(event) {
+        const button = event.target.closest("[data-plan-action]");
+        if (!button) {
+          return;
+        }
+        const itemId = Number(button.dataset.planItemId);
+        const action = button.dataset.planAction;
+        if (action === "unschedule") {
+          runStep(() => unschedulePlanItem(itemId));
+          return;
+        }
+        if (action === "skip") {
+          runStep(() => skipPlanItem(itemId));
+        }
+        if (action === "delete") {
+          runStep(() => deletePlanItem(itemId));
+        }
+      }
+
+      function handleGoalListAction(event) {
+        const button = event.target.closest("[data-goal-action]");
+        if (!button) {
+          return;
+        }
+        const goalId = Number(button.dataset.goalId);
+        const action = button.dataset.goalAction;
+        if (action === "select") {
+          runStep(async () => {
+            const goal = await selectGoalById(goalId);
+            message(`목표 #${goal.id} 상세를 불러왔습니다.`);
+          });
+          return;
+        }
+        if (action === "delete") {
+          runStep(() => deleteGoalById(goalId));
+        }
+      }
+
+      function handleCalendarAction(event) {
+        const button = event.target.closest("[data-calendar-action]");
+        if (!button) {
+          return;
+        }
+        const sourceId = Number(button.dataset.sourceId);
+        const taskId = Number(button.dataset.taskId);
+        const action = button.dataset.calendarAction;
+        if (action === "delete-fixed") {
+          runStep(() => deleteFixedScheduleById(sourceId));
+          return;
+        }
+        if (action === "delete-allocation") {
+          runStep(() => deleteAllocatedTask(sourceId));
+          return;
+        }
+        if (action === "delete-flexible-task") {
+          runStep(() => deleteFlexibleTaskById(taskId));
+          return;
+        }
+        if (action === "unschedule-plan-item") {
+          runStep(() => unschedulePlanItem(sourceId));
+          return;
+        }
+        if (action === "skip-plan-item") {
+          runStep(() => skipPlanItem(sourceId));
+        }
+        if (action === "delete-plan-item") {
+          runStep(() => deletePlanItem(sourceId));
+        }
+      }
+
+      async function deleteFixedScheduleById(scheduleId) {
+        ensureLoggedIn();
+        ensure(scheduleId, "삭제할 고정 일정 ID를 찾을 수 없습니다.");
+
+        await request("DELETE", `/api/v1/schedules/fixed/${scheduleId}`);
+        if (state.scheduleId === scheduleId) {
+          state.scheduleId = null;
+          renderSummary();
+          updateStage("schedule", false, "삭제되었습니다. 새 고정 일정을 등록할 수 있습니다.");
+        }
+        await loadCalendarOnly();
+        message(`고정 일정 #${scheduleId}을 삭제하고 캘린더를 새로고침했습니다.`);
+      }
+
+      async function deleteAllocatedTask(allocationId) {
+        ensureLoggedIn();
+        ensure(allocationId, "삭제할 배정 ID를 찾을 수 없습니다.");
+
+        await request("DELETE", `/api/v1/tasks/flexible/allocations/${allocationId}`);
+        await loadCalendarOnly();
+        message(`배정된 가변 작업 블록 #${allocationId}을 삭제했습니다. 원본 작업은 유지됩니다.`);
+      }
+
+      async function unschedulePlanItem(itemId) {
+        ensureLoggedIn();
+        ensure(itemId, "스케줄을 해제할 plan item ID를 찾을 수 없습니다.");
+
+        await request("DELETE", `/api/v1/planner/plan-items/${itemId}/schedule`);
+        await refreshGoalAndCalendarAfterPlanItemMutation();
+        message(`Plan item #${itemId}의 스케줄을 해제했습니다.`);
+      }
+
+      async function skipPlanItem(itemId) {
+        ensureLoggedIn();
+        ensure(itemId, "건너뛸 plan item ID를 찾을 수 없습니다.");
+
+        await request("POST", `/api/v1/planner/plan-items/${itemId}/skip`);
+        await refreshGoalAndCalendarAfterPlanItemMutation();
+        message(`Plan item #${itemId}을 skipped 상태로 변경했습니다.`);
+      }
+
+      async function deletePlanItem(itemId) {
+        ensureLoggedIn();
+        ensure(itemId, "삭제할 plan item ID를 찾을 수 없습니다.");
+        if (!window.confirm(`Plan item #${itemId}을 완전히 삭제할까요?`)) {
+          return;
+        }
+
+        await request("DELETE", `/api/v1/planner/plan-items/${itemId}`);
+        await refreshGoalAndCalendarAfterPlanItemMutation();
+        message(`Plan item #${itemId}을 삭제했습니다.`);
+      }
+
+      async function refreshGoalAndCalendarAfterPlanItemMutation() {
+        if (state.goalId) {
+          const goal = await request("GET", `/api/v1/goals/${state.goalId}`);
+          const latestPlan = (goal.plans || [])[0] || null;
+          if (latestPlan) {
+            state.lastPlan = latestPlan;
+            renderPlan(latestPlan, latestPlan.llm_mode);
+          }
+        }
+        await refreshCalendarAfterMutation();
+      }
+
+      async function refreshCalendarAfterMutation() {
+        const rangeStart = byId("range-start").value.trim();
+        const rangeEnd = byId("range-end").value.trim();
+        if (!rangeStart || !rangeEnd || !authToken) {
+          return;
+        }
+        try {
+          await loadCalendarOnly();
+        } catch (error) {
+          message(`변경은 완료됐지만 캘린더 새로고침은 실패했습니다: ${error.message}`, true);
+        }
       }
 
       function renderCalendarSummary(events) {
@@ -1732,9 +2229,11 @@
         authToken = "";
         authUser = null;
         state.userId = null;
+        state.goals = [];
         localStorage.removeItem(AUTH_TOKEN_KEY);
         localStorage.removeItem(AUTH_USER_KEY);
         renderSummary();
+        renderGoalList();
         updateAuthStatus();
         updateStage("user", false, "아직 로그인하지 않았습니다.");
         message("저장된 로그인 토큰을 지웠습니다.");
@@ -1773,6 +2272,7 @@
         state.scheduleId = null;
         state.taskId = null;
         state.goalId = null;
+        state.goals = [];
         state.parsedGoal = null;
         state.currentQuestions = [];
         state.lastPlan = null;
@@ -1784,6 +2284,7 @@
         byId("questions-empty").hidden = false;
         byId("questions-wrap").hidden = true;
         byId("question-list").innerHTML = "";
+        byId("goal-list").innerHTML = '<div class="empty">아직 목표 목록을 조회하지 않았습니다.</div>';
         byId("plan-empty").hidden = false;
         byId("plan-content").hidden = true;
         byId("calendar-summary").textContent = "아직 캘린더를 조회하지 않았습니다.";
@@ -2017,6 +2518,18 @@
         });
       }
 
+      function formatDateTime(value) {
+        if (!value) {
+          return "-";
+        }
+        return new Date(value).toLocaleString("ko-KR", {
+          month: "2-digit",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+      }
+
       function sourceLabel(sourceType) {
         if (sourceType === "fixed_schedule") {
           return "고정 일정";
@@ -2048,6 +2561,11 @@
       renderSummary();
       syncRecurrenceUI();
       resetState(false);
+      if (authToken) {
+        loadGoals({ silent: true }).catch((error) => {
+          message(`저장된 목표 목록을 불러오지 못했습니다: ${error.message}`, true);
+        });
+      }
     </script>
   </body>
 </html>

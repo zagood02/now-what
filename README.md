@@ -1,15 +1,14 @@
 # Now What
 
-AI 기반 일정 관리와 목표 계획 생성을 실험하는 풀스택 프로젝트입니다. 프론트엔드는 Next.js, 백엔드는 FastAPI, 데이터베이스는 PostgreSQL을 사용합니다.
+AI 기반 일정 관리와 목표 계획 생성을 실험하는 백엔드 API 프로젝트입니다. 백엔드는 FastAPI, 데이터베이스는 PostgreSQL, 마이그레이션은 Alembic을 사용합니다.
 
 ## 프로젝트 구성
 
-- `app/`: Next.js App Router 화면
-- `components/`, `lib/`: 프론트엔드 공통 컴포넌트와 API 클라이언트
 - `backend/`: FastAPI API, 서비스 로직, SQLAlchemy 모델
 - `alembic/`: PostgreSQL 마이그레이션
 - `scripts/`: 샘플 데이터 생성과 API 스모크 테스트
 - `docs/`: API 목록과 생성된 API 레퍼런스
+- `tests/`: 백엔드 테스트
 
 ## 처음 받은 사람이 먼저 할 일
 
@@ -17,30 +16,35 @@ AI 기반 일정 관리와 목표 계획 생성을 실험하는 풀스택 프로
 
 ### 1. 필수 프로그램 확인
 
-- Node.js `20.9.0` 이상
 - Python `3.12` 이상
 - Docker Desktop
 - PowerShell
+- Git
 
 버전 확인:
 
 ```powershell
-node -v
-npm -v
 py --version
 docker --version
+git --version
 ```
 
 ### 2. 프로젝트 폴더로 이동
 
-GitHub에서 clone 받은 저장소 루트로 이동합니다.
+GitHub에서 받을 때는 저장소를 clone한 뒤 프로젝트 루트로 이동합니다.
 
 ```powershell
 git clone <repository-url>
 cd now-what
 ```
 
-이 폴더에는 `package.json`, `requirements.txt`, `docker-compose.yml`, `backend/`, `app/`이 있어야 합니다.
+압축 파일이나 전달받은 폴더로 받을 때는 원하는 위치에 풀고 프로젝트 루트로 이동합니다.
+
+```powershell
+cd <프로젝트-폴더>
+```
+
+이 폴더에는 `requirements.txt`, `docker-compose.yml`, `backend/`, `alembic/`이 있어야 합니다.
 
 ### 3. 환경 변수 파일 만들기
 
@@ -53,21 +57,73 @@ Copy-Item .env.example .env
 - `DATABASE_URL`: 기본값은 Docker PostgreSQL(`planner:planner@localhost:5432/ai_planner`)입니다.
 - `JWT_SECRET_KEY`: 로컬에서는 예시값으로도 실행되지만, 공유/배포 환경에서는 긴 랜덤 문자열로 바꾸세요.
 - `GEMINI_API_KEY`: 없으면 목표 계획 생성이 템플릿 fallback으로 동작합니다.
-- `GOOGLE_CLIENT_ID`, `NEXT_PUBLIC_GOOGLE_CLIENT_ID`: 일반 Next.js 화면의 Google 로그인에 필요합니다. 백엔드 데모 페이지의 이메일/비밀번호 로그인만 쓸 때는 없어도 됩니다.
-- `ALLOWED_ORIGINS`: 프론트엔드 포트를 바꾸면 해당 주소를 추가하세요.
+- `ALLOWED_ORIGINS`: 다른 웹 클라이언트에서 API를 호출해야 할 때 해당 origin을 추가하세요.
+- `MAX_CALENDAR_RANGE_DAYS`, `MAX_ALLOCATION_RANGE_DAYS`: 캘린더 조회와 자동 배정 요청의 최대 기간 제한입니다.
 
-### 4. 백엔드 준비
+### 4. 백엔드 의존성 설치
 
 ```powershell
 py -3.12 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
 pip install -r requirements.txt
+```
+
+## DB 준비와 마이그레이션
+
+### 새 로컬 DB를 처음 만들 때
+
+로컬 Docker PostgreSQL을 처음 쓰는 경우에는 아래 순서로 실행합니다.
+
+```powershell
+docker compose up -d
+.\.venv\Scripts\alembic.exe upgrade head
+.\.venv\Scripts\alembic.exe current
+```
+
+`alembic current`가 최신 revision을 보여주면 DB 스키마 준비가 끝난 상태입니다.
+
+이 프로젝트가 관리하는 주요 테이블은 `users`, `auth_accounts`, `fixed_schedules`, `flexible_tasks`, `goals`, `ai_plans`, `ai_plan_items`, `allocated_tasks`, `alembic_version`입니다.
+
+### 이미 쓰던 DB가 있거나 다른 테이블이 있을 때
+
+기존 DB를 쓸 때는 먼저 `.env`의 `DATABASE_URL`이 정확한 DB를 가리키는지 확인합니다.
+
+```powershell
+.\.venv\Scripts\alembic.exe current
+.\.venv\Scripts\alembic.exe heads
+```
+
+상황별 처리 기준:
+
+- 기존 DB에 다른 테이블만 있고 위 프로젝트 테이블 이름과 겹치지 않으면 `alembic upgrade head`를 실행해도 됩니다. Alembic은 관계없는 테이블을 삭제하지 않습니다.
+- 기존 DB에 `users`, `goals`, `fixed_schedules`처럼 프로젝트 테이블과 이름이 겹치는 테이블이 있으면 새 DB를 쓰는 것이 가장 안전합니다.
+- `alembic_version` 테이블이 있고 revision이 오래된 상태면 `alembic upgrade head`로 최신화합니다.
+- `alembic_version`이 없는데 프로젝트 테이블이 이미 만들어져 있으면 바로 `upgrade head`를 실행하지 마세요. 테이블이 중복 생성되며 `relation already exists` 오류가 날 수 있습니다.
+- 이미 만들어진 테이블 구조가 현재 마이그레이션 결과와 같다고 확신할 때만 `alembic stamp head`로 Alembic 상태를 맞춘 뒤 이후 마이그레이션을 진행합니다.
+- Supabase나 공유 DB처럼 중요한 데이터가 있는 곳에서는 실행 전 백업을 먼저 만들고, 가능하면 프로젝트 전용 DB나 schema를 따로 쓰세요.
+
+기존 DB가 꼬였는지 확인할 때 유용한 명령:
+
+```powershell
+.\.venv\Scripts\alembic.exe current
+.\.venv\Scripts\alembic.exe history
+.\.venv\Scripts\alembic.exe upgrade head
+```
+
+### 로컬 Docker DB를 완전히 다시 만들 때
+
+로컬 개발 DB를 깨끗하게 다시 만들려면 Docker volume을 삭제합니다. 이 명령은 로컬 DB 데이터를 모두 지웁니다.
+
+```powershell
+docker compose down -v
 docker compose up -d
 .\.venv\Scripts\alembic.exe upgrade head
 ```
 
-백엔드 실행:
+공유 DB, Supabase, 운영 DB에서는 위 초기화 명령을 사용하지 마세요.
+
+## 백엔드 실행
 
 ```powershell
 .\.venv\Scripts\uvicorn.exe backend.main:app --reload
@@ -79,44 +135,13 @@ docker compose up -d
 - 헬스 체크: http://127.0.0.1:8000/api/v1/health
 - DB 헬스 체크: http://127.0.0.1:8000/api/v1/health/db
 
-### 5. 프론트엔드 준비
-
-새 터미널을 프로젝트 루트에서 열고 실행합니다.
-
-```powershell
-npm ci
-npm run dev
-```
-
-확인 주소:
-
-- 프론트엔드: http://localhost:3000
-
-프론트엔드 API 기본 주소는 현재 브라우저 호스트의 `:8000`입니다. 백엔드 주소를 따로 써야 하면 `.env`에 다음 값을 추가하세요.
-
-```env
-NEXT_PUBLIC_API_URL=http://127.0.0.1:8000
-```
-
-## 일반 화면 사용법
-
-일반 Next.js 화면은 좌측 사이드바에서 이동합니다.
-
-- `/`: 대시보드 요약 화면
-- `/manage`: 고정 일정과 가변 작업 등록/조회/삭제
-- `/schedule`: 월간 캘린더
-- `/schedule/week`: 주간 시간표. 월간 캘린더에서 주를 클릭하면 이동합니다.
-- `/settings`: 시간 표시 범위, 시간 형식, 다크 모드 설정
-
-주의: 일반 프론트엔드 로그인은 현재 Google OAuth 버튼 기준입니다. `NEXT_PUBLIC_GOOGLE_CLIENT_ID`가 없으면 사이드바에 `Google setup required`가 표시됩니다. Google 설정 없이 API 전체 흐름을 먼저 확인하려면 아래 `User Flow Demo`를 사용하세요.
-
 ## User Flow Demo 사용법
 
 백엔드 서버가 실행 중일 때 아래 주소를 엽니다.
 
 - http://127.0.0.1:8000/api/v1/demo/user-flow
 
-이 페이지는 프론트엔드 로그인 설정 없이도 이메일/비밀번호 계정을 만들고, 보호 API에 `Authorization: Bearer <token>`을 자동으로 붙여 전체 사용자 흐름을 검증하는 데모입니다.
+이 페이지는 이메일/비밀번호 계정을 만들고, 보호 API에 `Authorization: Bearer <token>`을 자동으로 붙여 전체 사용자 흐름을 검증하는 데모입니다.
 
 ### 빠른 실행
 
@@ -161,16 +186,6 @@ NEXT_PUBLIC_API_URL=http://127.0.0.1:8000
 - API Playground: http://127.0.0.1:8000/api/v1/demo/goal-intake
 - Calendar Demo: http://127.0.0.1:8000/api/v1/demo/calendar
 
-## 샘플 데이터 넣기
-
-프론트엔드와 API 화면에서 볼 샘플 데이터를 만들려면 백엔드 의존성 설치와 DB 마이그레이션 후 실행합니다.
-
-```powershell
-.\.venv\Scripts\python.exe scripts\seed_frontend_sample_data.py
-```
-
-스크립트는 `frontend-sample@example.com` 계정, 고정 일정, 가변 작업, 목표, AI plan item, 7일 배정 결과를 생성합니다. 출력에 표시되는 `sample_password`로 API Playground나 User Flow Demo에서 로그인할 수 있습니다.
-
 ## 테스트와 점검
 
 백엔드 서버를 실행한 상태에서 전체 API 스모크 플로우를 확인합니다.
@@ -179,25 +194,11 @@ NEXT_PUBLIC_API_URL=http://127.0.0.1:8000
 .\.venv\Scripts\python.exe scripts\smoke_api_flow.py
 ```
 
-프론트엔드 정적 검사:
-
-```powershell
-npm run lint
-```
-
 백엔드 테스트:
 
 ```powershell
 .\.venv\Scripts\pytest.exe
 ```
-
-프로덕션 빌드:
-
-```powershell
-npm run build
-```
-
-`npm run build`는 `next/font`를 통해 Google Fonts를 가져올 수 있어 네트워크 접근이 필요할 수 있습니다.
 
 ## 주요 API 흐름
 
@@ -226,8 +227,7 @@ npm run build
 
 ## 자주 막히는 지점
 
-- `GET /api/v1/health/db`가 실패하면 Docker Desktop과 `docker compose up -d` 상태를 확인하세요.
+- `GET /api/v1/health/db`가 실패하면 Docker Desktop, `docker compose up -d`, `.env`의 `DATABASE_URL`을 확인하세요.
 - `alembic` 명령을 찾지 못하면 가상환경 경로를 포함해 `.\.venv\Scripts\alembic.exe upgrade head`로 실행하세요.
-- 브라우저에서 API 호출이 CORS 오류로 막히면 `.env`의 `ALLOWED_ORIGINS`에 프론트엔드 주소를 추가하세요.
-- 일반 프론트엔드에서 로그인이 안 되면 Google OAuth 환경 변수를 먼저 설정하거나, `User Flow Demo`로 이메일/비밀번호 기반 API 흐름을 검증하세요.
+- `relation already exists` 오류가 나면 기존 DB에 같은 이름의 테이블이 이미 있는 상태입니다. 새 DB를 쓰거나, 현재 스키마가 마이그레이션 결과와 같은지 확인한 뒤에만 `alembic stamp head`를 사용하세요.
 - 목표 계획 생성이 Gemini 응답 없이 진행되면 `GEMINI_API_KEY`가 없거나 잘못된 상태일 수 있습니다. 이 경우 템플릿 fallback 결과가 반환될 수 있습니다.

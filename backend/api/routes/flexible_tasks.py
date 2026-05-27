@@ -36,6 +36,11 @@ def _validate_task_constraints(
         raise HTTPException(status_code=400, detail="estimated_minutes must be greater than 0.")
 
 
+def _delete_task_allocations(session: Session, task: FlexibleTask) -> None:
+    task.allocations.clear()
+    session.flush()
+
+
 @router.post("", response_model=FlexibleTaskRead, status_code=status.HTTP_201_CREATED)
 def create_flexible_task(
     payload: FlexibleTaskCreate,
@@ -48,7 +53,7 @@ def create_flexible_task(
         preferred_session_minutes=payload.preferred_session_minutes,
         max_minutes_per_day=payload.max_minutes_per_day,
     )
-    data = payload.model_dump(exclude={"user_id"})
+    data = payload.model_dump()
     data["due_at"] = normalize_optional_to_kst_naive(data.get("due_at"))
     task = FlexibleTask(**data, user_id=current_user.id)
     session.add(task)
@@ -145,6 +150,9 @@ def update_flexible_task(
         if field == "due_at":
             value = normalize_optional_to_kst_naive(value)
         setattr(task, field, value)
+
+    if updates.get("status") in {FlexibleTaskStatus.pending, FlexibleTaskStatus.cancelled}:
+        _delete_task_allocations(session, task)
 
     session.commit()
     session.refresh(task)
