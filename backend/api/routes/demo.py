@@ -1,7 +1,10 @@
+import json
 from pathlib import Path
 
 from fastapi import APIRouter
 from fastapi.responses import HTMLResponse
+
+from backend.core.config import settings
 
 router = APIRouter(tags=["demo"])
 
@@ -12,7 +15,22 @@ USER_FLOW_DEMO_PATH = ROUTE_DIR / "user_flow_demo.html"
 
 
 def _read_html(path: Path) -> str:
-    return path.read_text(encoding="utf-8")
+    html = path.read_text(encoding="utf-8")
+    defaults_script = (
+        "<script>"
+        f"window.__APP_DEFAULTS__ = {json.dumps(_allocation_defaults())};"
+        "</script>"
+    )
+    return html.replace("</head>", f"    {defaults_script}\n  </head>", 1)
+
+
+def _allocation_defaults() -> dict[str, int | str]:
+    return {
+        "dayStart": settings.default_day_start,
+        "dayEnd": settings.default_day_end,
+        "bufferMinutes": settings.default_buffer_minutes,
+        "maxAutoMinutesPerDay": settings.default_max_auto_minutes_per_day,
+    }
 
 
 @router.get("/demo/api-playground", include_in_schema=False, response_class=HTMLResponse)

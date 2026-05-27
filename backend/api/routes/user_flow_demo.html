@@ -720,9 +720,9 @@
           <p>가입, 고정 일정, 가변 작업, 목표 분석, 계획 생성, 자동 배정, 캘린더 확인까지 한 화면에서 검증합니다. 샘플 날짜는 페이지를 열 때마다 KST 기준 오늘 날짜로 자동 갱신됩니다.</p>
           <div class="hero-meta">
             <span class="tag">KST 기준</span>
-            <span class="tag">09:00-22:00 배정</span>
-            <span class="tag">30분 버퍼</span>
-            <span class="tag">하루 360분 상한</span>
+            <span class="tag" id="allocation-window-tag">09:00-22:00 배정</span>
+            <span class="tag" id="allocation-buffer-tag">30분 버퍼</span>
+            <span class="tag" id="allocation-limit-tag">하루 360분 상한</span>
           </div>
         </div>
         <div class="hero-tools">
@@ -962,9 +962,9 @@
                   </label>
                 </div>
                 <div class="policy-grid">
-                  <div class="policy-item"><strong>배정 시간</strong><span>09:00-22:00</span></div>
-                  <div class="policy-item"><strong>자동 버퍼</strong><span>30분</span></div>
-                  <div class="policy-item"><strong>하루 상한</strong><span>360분</span></div>
+                  <div class="policy-item"><strong>배정 시간</strong><span id="allocation-window-policy">09:00-22:00</span></div>
+                  <div class="policy-item"><strong>자동 버퍼</strong><span id="allocation-buffer-policy">30분</span></div>
+                  <div class="policy-item"><strong>하루 상한</strong><span id="allocation-limit-policy">360분</span></div>
                 </div>
                 <div class="toggle-row" style="margin-top:12px;">
                   <label><input id="replace-existing-plan" type="checkbox" checked /> 기존 active plan archive 후 새 plan 생성</label>
@@ -1197,8 +1197,14 @@
     <script>
       const AUTH_TOKEN_KEY = "now-what-api-playground-token";
       const AUTH_USER_KEY = "now-what-api-playground-user";
-      const DEFAULT_BUFFER_MINUTES = 30;
-      const DEFAULT_MAX_AUTO_MINUTES_PER_DAY = 360;
+      const APP_DEFAULTS = window.__APP_DEFAULTS__ || {
+        dayStart: "09:00",
+        dayEnd: "22:00",
+        bufferMinutes: 30,
+        maxAutoMinutesPerDay: 360,
+      };
+      const DEFAULT_BUFFER_MINUTES = APP_DEFAULTS.bufferMinutes;
+      const DEFAULT_MAX_AUTO_MINUTES_PER_DAY = APP_DEFAULTS.maxAutoMinutesPerDay;
 
       const state = {
         userId: null,
@@ -1259,8 +1265,8 @@
         byId("task-max-per-day").value = "180";
         byId("task-priority").value = "3";
 
-        byId("range-start").value = kstIso(0, 9);
-        byId("range-end").value = kstIso(7, 22);
+        byId("range-start").value = kstIso(0, defaultStartHour(), defaultStartMinute());
+        byId("range-end").value = kstIso(7, defaultEndHour(), defaultEndMinute());
         byId("goal-text").value = `캡스톤 발표용 데모를 ${dueLabel}까지 완성하고 싶어요. 주당 8시간 정도 가능하고, 평일 저녁과 주말 오후에 작업하기 좋습니다.`;
       }
 
@@ -1461,8 +1467,6 @@
         await request("POST", "/api/v1/planner/allocate", {
           range_start: rangeStart,
           range_end: rangeEnd,
-          buffer_minutes: DEFAULT_BUFFER_MINUTES,
-          max_auto_minutes_per_day: DEFAULT_MAX_AUTO_MINUTES_PER_DAY,
           clear_existing: byId("clear-existing-allocation").checked,
         });
 
@@ -1943,9 +1947,41 @@
         ensure(state.userId, "로그인한 유저 정보를 찾을 수 없습니다. 다시 로그인하세요.");
       }
 
+      function applyDefaultPolicyLabels() {
+        const windowLabel = `${APP_DEFAULTS.dayStart}-${APP_DEFAULTS.dayEnd}`;
+        byId("allocation-window-tag").textContent = `${windowLabel} 배정`;
+        byId("allocation-window-policy").textContent = windowLabel;
+        byId("allocation-buffer-tag").textContent = `${DEFAULT_BUFFER_MINUTES}분 버퍼`;
+        byId("allocation-buffer-policy").textContent = `${DEFAULT_BUFFER_MINUTES}분`;
+        byId("allocation-limit-tag").textContent = `하루 ${DEFAULT_MAX_AUTO_MINUTES_PER_DAY}분 상한`;
+        byId("allocation-limit-policy").textContent = `${DEFAULT_MAX_AUTO_MINUTES_PER_DAY}분`;
+      }
+
       function kstIso(daysFromToday, hour, minute = 0) {
         const day = kstDate(daysFromToday);
         return `${day.getUTCFullYear()}-${pad(day.getUTCMonth() + 1)}-${pad(day.getUTCDate())}T${pad(hour)}:${pad(minute)}:00+09:00`;
+      }
+
+      function defaultStartHour() {
+        return timePart(APP_DEFAULTS.dayStart, 0, 9);
+      }
+
+      function defaultStartMinute() {
+        return timePart(APP_DEFAULTS.dayStart, 1, 0);
+      }
+
+      function defaultEndHour() {
+        return timePart(APP_DEFAULTS.dayEnd, 0, 22);
+      }
+
+      function defaultEndMinute() {
+        return timePart(APP_DEFAULTS.dayEnd, 1, 0);
+      }
+
+      function timePart(value, index, fallback) {
+        const parts = String(value || "").split(":");
+        const parsed = Number(parts[index]);
+        return Number.isFinite(parsed) ? parsed : fallback;
       }
 
       function kstDate(daysFromToday) {
@@ -2007,6 +2043,7 @@
           .replaceAll("'", "&#39;");
       }
 
+      applyDefaultPolicyLabels();
       applyFreshDemoDefaults();
       renderSummary();
       syncRecurrenceUI();

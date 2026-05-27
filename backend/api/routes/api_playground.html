@@ -283,6 +283,12 @@
       const AUTH_TOKEN_KEY = "now-what-api-playground-token";
       const AUTH_USER_KEY = "now-what-api-playground-user";
       const KST_OFFSET = "+09:00";
+      const APP_DEFAULTS = window.__APP_DEFAULTS__ || {
+        dayStart: "09:00",
+        dayEnd: "22:00",
+        bufferMinutes: 30,
+        maxAutoMinutesPerDay: 360,
+      };
 
       const presets = [
         {
@@ -430,11 +436,9 @@
           body: `{
   "range_start": "{rangeStart}",
   "range_end": "{rangeEnd}",
-  "buffer_minutes": 30,
-  "max_auto_minutes_per_day": 360,
   "clear_existing": true
 }`,
-          help: "고정 일정은 유지하고 기존 자동 배정 결과는 지운 뒤 30분 버퍼와 하루 6시간 상한을 적용해 다시 작업을 배치합니다.",
+          help: `고정 일정은 유지하고 기존 자동 배정 결과는 지운 뒤 서버 기본값(${APP_DEFAULTS.dayStart}-${APP_DEFAULTS.dayEnd}, ${APP_DEFAULTS.bufferMinutes}분 버퍼, 하루 ${APP_DEFAULTS.maxAutoMinutesPerDay}분 상한)으로 다시 작업을 배치합니다.`,
           requires: "로그인 토큰, 조회/배정 시작/종료",
           next: "마지막으로 calendar를 조회하면 결과를 한 번에 확인할 수 있습니다."
         },
@@ -758,9 +762,9 @@
         setLocalTime(tomorrowEnd, 15, 0);
 
         const rangeStart = startOfWeek(now);
-        setLocalTime(rangeStart, 9, 0);
+        setLocalTime(rangeStart, defaultStartHour(), defaultStartMinute());
         const rangeEnd = addDays(rangeStart, 7);
-        setLocalTime(rangeEnd, 21, 0);
+        setLocalTime(rangeEnd, defaultEndHour(), defaultEndMinute());
 
         byId("eventStart").value = toDateTimeLocalValue(tomorrow);
         byId("eventEnd").value = toDateTimeLocalValue(tomorrowEnd);
@@ -786,16 +790,16 @@
         }
         if (preset === "range-week") {
           const start = startOfWeek(now);
-          setLocalTime(start, 9, 0);
+          setLocalTime(start, defaultStartHour(), defaultStartMinute());
           const end = addDays(start, 7);
-          setLocalTime(end, 21, 0);
+          setLocalTime(end, defaultEndHour(), defaultEndMinute());
           setRangeWindow(start, end);
         }
         if (preset === "range-next7") {
           const start = new Date(now);
-          setLocalTime(start, 9, 0);
+          setLocalTime(start, defaultStartHour(), defaultStartMinute());
           const end = addDays(start, 7);
-          setLocalTime(end, 21, 0);
+          setLocalTime(end, defaultEndHour(), defaultEndMinute());
           setRangeWindow(start, end);
         }
         refreshPreview();
@@ -851,6 +855,28 @@
 
       function setLocalTime(date, hours, minutes) {
         date.setHours(hours, minutes, 0, 0);
+      }
+
+      function defaultStartHour() {
+        return timePart(APP_DEFAULTS.dayStart, 0, 9);
+      }
+
+      function defaultStartMinute() {
+        return timePart(APP_DEFAULTS.dayStart, 1, 0);
+      }
+
+      function defaultEndHour() {
+        return timePart(APP_DEFAULTS.dayEnd, 0, 22);
+      }
+
+      function defaultEndMinute() {
+        return timePart(APP_DEFAULTS.dayEnd, 1, 0);
+      }
+
+      function timePart(value, index, fallback) {
+        const parts = String(value || "").split(":");
+        const parsed = Number(parts[index]);
+        return Number.isFinite(parsed) ? parsed : fallback;
       }
 
       function pad(value) {

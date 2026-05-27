@@ -137,9 +137,14 @@ def _create_goal_from_parsed(
 ) -> Goal:
     merged_answers = {**parsed.goal.answers_json, **payload.answers_json}
     target_date = _parse_target_date(merged_answers.get("target_date"))
+    title = planning_service.refine_goal_title(
+        parsed.goal.title,
+        parsed.goal.details_json,
+        merged_answers,
+    )
     goal = Goal(
         user_id=user_id,
-        title=parsed.goal.title,
+        title=title,
         description=parsed.goal.description,
         category=payload.category or parsed.goal.category,
         status=GoalStatus.draft,

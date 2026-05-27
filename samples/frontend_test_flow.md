@@ -30,13 +30,14 @@ Open:
 ## 3. Suggested API order
 
 1. `GET /api/v1/health`
-2. `GET /api/v1/users`
-3. Find `frontend-sample@example.com` and copy its `id`
-4. `GET /api/v1/schedules/fixed?user_id={USER_ID}`
-5. `GET /api/v1/tasks/flexible?user_id={USER_ID}`
-6. `GET /api/v1/goals?user_id={USER_ID}`
-7. `GET /api/v1/goals/{GOAL_ID}?user_id={USER_ID}`
-8. `GET /api/v1/calendar?user_id={USER_ID}&start={ISO_START}&end={ISO_END}`
+2. `POST /api/v1/users/login` with `frontend-sample@example.com` and `sample-password`
+3. Add `Authorization: Bearer {access_token}` to protected requests
+4. `GET /api/v1/users`
+5. `GET /api/v1/schedules/fixed`
+6. `GET /api/v1/tasks/flexible`
+7. `GET /api/v1/goals`
+8. `GET /api/v1/goals/{GOAL_ID}`
+9. `GET /api/v1/calendar?start={ISO_START}&end={ISO_END}`
 
 ## 4. Good frontend screens to validate
 

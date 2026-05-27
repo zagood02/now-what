@@ -106,17 +106,27 @@ class GoalPlanOutput(StructuredOutputModel):
 
 
 class PlanningService:
+    STUDY_SUBTYPE_TOEIC = "study.toeic"
+    STUDY_SUBTYPE_INFORMATION_PROCESSING_ENGINEER = "study.cert.information_processing_engineer"
+
     CATEGORY_HINTS: dict[GoalCategory, tuple[str, ...]] = {
-        GoalCategory.study: ("toeic", "toefl", "ielts", "exam", "study", "certificate", "score", "test", "공부", "시험", "자격증", "토익", "토플"),
+        GoalCategory.study: ("toeic", "toefl", "ielts", "exam", "study", "certificate", "score", "test", "공부", "시험", "자격증", "토익", "토플", "정보처리기사", "정처기"),
         GoalCategory.health: ("diet", "fitness", "health", "workout", "running", "weight", "건강", "운동", "다이어트", "체중"),
         GoalCategory.work: ("portfolio", "project", "career", "job", "resume", "interview", "취업", "포트폴리오", "프로젝트", "이력서"),
         GoalCategory.habit: ("habit", "routine", "sleep", "reading", "journal", "습관", "루틴", "수면", "독서", "기록"),
     }
     CATEGORY_HINTS_KO: dict[GoalCategory, tuple[str, ...]] = {
-        GoalCategory.study: ("공부", "시험", "자격증", "토익", "토플", "점수", "학습"),
+        GoalCategory.study: ("공부", "시험", "자격증", "토익", "토플", "점수", "학습", "정보처리기사", "정처기"),
         GoalCategory.health: ("건강", "운동", "다이어트", "체중", "헬스", "러닝"),
         GoalCategory.work: ("취업", "포트폴리오", "프로젝트", "이력서", "면접", "커리어", "발표", "데모"),
         GoalCategory.habit: ("습관", "루틴", "수면", "독서", "기록", "일기"),
+    }
+    STUDY_SUBTYPE_KEYWORDS: dict[str, tuple[str, ...]] = {
+        STUDY_SUBTYPE_TOEIC: ("toeic", "토익"),
+        STUDY_SUBTYPE_INFORMATION_PROCESSING_ENGINEER: ("정보처리기사", "정보 처리 기사", "정처기"),
+    }
+    STUDY_SUBTYPE_EXCLUSION_KEYWORDS: dict[str, tuple[str, ...]] = {
+        STUDY_SUBTYPE_TOEIC: ("toeic speaking", "toeicspeaking", "토익스피킹", "토스"),
     }
     COMMON_QUESTIONS: list[GoalQuestion] = [
         GoalQuestion(key="target_date", prompt="언제까지 완료해야 하나요?", answer_type="date", help_text="최종 마감일이나 중간 점검일이 있으면 적어주세요."),
@@ -158,6 +168,33 @@ class PlanningService:
             GoalQuestion(key="current_state", prompt="현재 상황을 간단히 설명해주세요.", answer_type="text"),
             GoalQuestion(key="success_definition", prompt="이 목표가 성공했다고 판단할 기준은 무엇인가요?", answer_type="text"),
             GoalQuestion(key="first_milestone", prompt="가장 먼저 끝내야 할 중간 목표가 있나요?", answer_type="text", required=False),
+        ],
+    }
+    STUDY_SUBTYPE_QUESTIONS: dict[str, list[GoalQuestion]] = {
+        STUDY_SUBTYPE_TOEIC: [
+            GoalQuestion(key="current_score", prompt="최근 토익 점수나 모의고사 기준 현재 점수는 어느 정도인가요?", answer_type="text", help_text="모르면 '아직 모름'이라고 적어도 됩니다."),
+            GoalQuestion(key="target_score", prompt="목표 토익 점수는 몇 점인가요?", answer_type="number", help_text="예: 750, 850, 900"),
+            GoalQuestion(
+                key="weak_sections",
+                prompt="LC와 RC 중 더 보완이 필요한 쪽은 어디인가요?",
+                answer_type="select",
+                required=False,
+                options=["아직 모름", "LC", "RC", "LC와 RC 모두"],
+            ),
+            GoalQuestion(key="practice_test_access", prompt="실전 모의고사나 기출형 문제를 정기적으로 풀 수 있나요?", answer_type="boolean", required=False),
+            GoalQuestion(key="materials", prompt="사용할 토익 교재, 강의, 앱, 단어장이 있나요?", answer_type="text", required=False),
+        ],
+        STUDY_SUBTYPE_INFORMATION_PROCESSING_ENGINEER: [
+            GoalQuestion(
+                key="exam_stage",
+                prompt="정보처리기사 필기와 실기 중 어느 시험을 준비하나요?",
+                answer_type="select",
+                options=["필기", "실기", "필기와 실기 모두", "아직 모름"],
+            ),
+            GoalQuestion(key="current_progress", prompt="현재 공부 진행 상황은 어느 정도인가요?", answer_type="text", help_text="예: 개념 1회독 전, 기출 2개년 풀이 완료, 실기 SQL이 약함"),
+            GoalQuestion(key="weak_subjects", prompt="특히 약한 과목이나 유형은 무엇인가요?", answer_type="text", required=False, help_text="예: 데이터베이스, 운영체제, 네트워크, SQL, 약술형"),
+            GoalQuestion(key="past_exam_rounds", prompt="목표일까지 기출을 몇 회분 정도 풀 수 있나요?", answer_type="number", required=False),
+            GoalQuestion(key="materials", prompt="사용할 교재, 강의, 기출 자료가 있나요?", answer_type="text", required=False),
         ],
     }
     BLUEPRINTS: dict[GoalCategory, dict[str, list[str] | list[tuple[str, str, str, int, int]]]] = {
@@ -216,6 +253,55 @@ class PlanningService:
             ],
         },
     }
+    STUDY_SUBTYPE_BLUEPRINTS: dict[str, dict[str, Any]] = {
+        STUDY_SUBTYPE_TOEIC: {
+            "label": "TOEIC",
+            "focus_areas": ["진단과 목표 점수 차이 확인", "매일 어휘 루틴", "LC 파트별 노출", "RC 문법/독해 시간 관리", "모의고사 후 오답 분석"],
+            "routines": ["매일 단어 20분", "주 2회 LC shadowing", "주 2회 RC timed practice", "주 1회 오답노트 점검", "2주 1회 실전 모의고사"],
+            "materials": ["토익 단어장", "LC/RC 파트별 문제집", "실전 모의고사", "오답노트"],
+            "quality_rules": [
+                "LC와 RC가 모두 계획에 포함되어야 합니다.",
+                "모의고사는 반드시 오답 분석 작업과 짝을 이룹니다.",
+                "시험 직전에는 새 개념보다 오답, 시간 관리, 약점 보정 비중을 높입니다.",
+                "단어와 짧은 듣기 노출은 장시간 블록보다 반복 루틴으로 설계합니다.",
+            ],
+            "plan_items": [
+                {"title": "토익 진단 세트와 목표 점수 갭 분석", "description": "LC/RC 미니 테스트나 최근 점수를 기준으로 파트별 약점과 목표 점수까지의 차이를 정리합니다.", "item_type": "diagnostic", "estimated_minutes": 100, "priority": 3, "phase": "diagnosis", "offset_ratio": 0.0, "section": "overall"},
+                {"title": "단어장 루틴과 오답노트 구조 만들기", "description": "매일 반복할 단어 범위, 복습 주기, 틀린 문제 기록 형식을 먼저 고정합니다.", "item_type": "vocabulary", "estimated_minutes": 40, "priority": 3, "phase": "setup", "offset_ratio": 0.08, "section": "vocabulary"},
+                {"title": "LC Part 1-2 짧은 듣기와 shadowing", "description": "짧은 문장/응답 패턴을 듣고 따라 말한 뒤 헷갈린 표현을 오답노트에 남깁니다.", "item_type": "lc_practice", "estimated_minutes": 50, "priority": 3, "phase": "foundation", "offset_ratio": 0.18, "section": "LC"},
+                {"title": "RC 문법 핵심 유형 정리", "description": "품사, 동사, 접속사, 전치사처럼 점수 효율이 높은 문법 유형을 문제와 함께 정리합니다.", "item_type": "rc_practice", "estimated_minutes": 60, "priority": 3, "phase": "foundation", "offset_ratio": 0.28, "section": "RC"},
+                {"title": "LC Part 3-4 timed set", "description": "대화/담화 문제를 제한 시간 안에 풀고, 놓친 근거 문장과 paraphrasing 표현을 복습합니다.", "item_type": "lc_practice", "estimated_minutes": 70, "priority": 3, "phase": "practice", "offset_ratio": 0.42, "section": "LC"},
+                {"title": "RC Part 7 독해 timed practice", "description": "단일/복수 지문을 시간 제한으로 풀고 지문 유형별 시간 사용량을 기록합니다.", "item_type": "rc_practice", "estimated_minutes": 75, "priority": 3, "phase": "practice", "offset_ratio": 0.52, "section": "RC"},
+                {"title": "주간 오답노트 압축 리뷰", "description": "반복해서 틀린 어휘, 문법, LC 함정 표현을 묶어 다음 주 우선순위를 정합니다.", "item_type": "mistake_review", "estimated_minutes": 50, "priority": 2, "phase": "review", "offset_ratio": 0.62, "section": "overall"},
+                {"title": "실전 모의고사 1회", "description": "가능하면 실제 시험과 같은 순서와 제한 시간으로 풀어 집중력과 시간 배분을 점검합니다.", "item_type": "mock_test", "estimated_minutes": 130, "priority": 3, "phase": "simulation", "offset_ratio": 0.74, "section": "overall"},
+                {"title": "모의고사 오답 분석과 파트별 재훈련", "description": "모의고사 직후 틀린 이유를 유형화하고 LC/RC 각각 다음 훈련 블록에 반영합니다.", "item_type": "mistake_review", "estimated_minutes": 90, "priority": 3, "phase": "simulation_review", "offset_ratio": 0.80, "section": "overall"},
+                {"title": "시험 직전 약점 보정 스프린트", "description": "새 자료를 늘리기보다 누적 오답, 빈출 단어, 시간 배분 실수를 중심으로 마무리합니다.", "item_type": "final_review", "estimated_minutes": 75, "priority": 3, "phase": "final", "offset_ratio": 0.92, "section": "overall"},
+            ],
+        },
+        STUDY_SUBTYPE_INFORMATION_PROCESSING_ENGINEER: {
+            "label": "정보처리기사",
+            "focus_areas": ["시험 범위 확정", "과목별 개념 회독", "기출 반복", "오답/빈출 키워드 압축", "실기 답안 표현 훈련"],
+            "routines": ["주 1회 기출 세트", "과목별 개념 블록", "오답노트 재풀이", "빈출 키워드 암기", "실기 SQL/약술형 훈련"],
+            "materials": ["정보처리기사 기본서", "최근 기출문제", "오답노트", "빈출 키워드 요약표", "SQL/프로그래밍 문제"],
+            "quality_rules": [
+                "필기/실기 준비 범위를 먼저 확정해야 합니다.",
+                "개념 회독만 넣지 말고 기출 풀이와 오답 재풀이가 함께 있어야 합니다.",
+                "실기 준비에는 SQL, 프로그래밍, 보안/네트워크, 약술형 답안 표현 훈련이 포함되어야 합니다.",
+                "시험 직전에는 빈출 키워드와 오답을 압축 복습합니다.",
+            ],
+            "plan_items": [
+                {"title": "시험 범위 확정과 최근 기출 진단", "description": "필기/실기 범위를 확정하고 최근 기출 1회분으로 과목별 취약도를 확인합니다.", "item_type": "diagnostic", "estimated_minutes": 100, "priority": 3, "phase": "diagnosis", "offset_ratio": 0.0, "section": "overall"},
+                {"title": "과목별 개념 1회독 계획 세우기", "description": "소프트웨어 설계, 개발, 데이터베이스, 프로그래밍 언어, 정보시스템 구축관리의 회독 순서를 정합니다.", "item_type": "concept_review", "estimated_minutes": 70, "priority": 3, "phase": "foundation", "offset_ratio": 0.12, "section": "written"},
+                {"title": "데이터베이스와 SQL 집중 블록", "description": "정규화, 트랜잭션, SQL 기본/응용 문제를 묶어서 실기까지 이어지는 기반을 만듭니다.", "item_type": "practical_drill", "estimated_minutes": 80, "priority": 3, "phase": "foundation", "offset_ratio": 0.24, "section": "database_sql"},
+                {"title": "최근 기출 1회독", "description": "최근 기출을 회차 단위로 풀고 과목별 정답률과 반복 오답을 기록합니다.", "item_type": "past_exam", "estimated_minutes": 120, "priority": 3, "phase": "practice", "offset_ratio": 0.38, "section": "overall"},
+                {"title": "기출 오답 재풀이와 빈출 키워드 정리", "description": "틀린 문제를 다시 풀고 암기해야 할 용어, 약어, 보안/네트워크 키워드를 압축합니다.", "item_type": "mistake_review", "estimated_minutes": 80, "priority": 3, "phase": "review", "offset_ratio": 0.50, "section": "overall"},
+                {"title": "실기 약술형 답안 표현 훈련", "description": "정의형/서술형 문제를 키워드 중심으로 직접 써보고 채점 기준에 맞게 문장을 다듬습니다.", "item_type": "practical_drill", "estimated_minutes": 70, "priority": 2, "phase": "practical", "offset_ratio": 0.62, "section": "practical"},
+                {"title": "프로그래밍/알고리즘 문제 풀이", "description": "출력 예측, 코드 빈칸, 기본 알고리즘 유형을 시간 제한으로 풀고 풀이 과정을 기록합니다.", "item_type": "practical_drill", "estimated_minutes": 75, "priority": 2, "phase": "practical", "offset_ratio": 0.70, "section": "programming"},
+                {"title": "실전 모의고사 또는 기출 1회분", "description": "시험 시간에 맞춰 한 회분을 풀고 실제 점수화 기준으로 부족한 파트를 확인합니다.", "item_type": "mock_test", "estimated_minutes": 120, "priority": 3, "phase": "simulation", "offset_ratio": 0.82, "section": "overall"},
+                {"title": "최종 오답/빈출 키워드 압축 복습", "description": "새 범위를 늘리지 않고 누적 오답, 빈출 약어, SQL 문법, 약술형 표현을 마지막으로 점검합니다.", "item_type": "final_review", "estimated_minutes": 80, "priority": 3, "phase": "final", "offset_ratio": 0.94, "section": "overall"},
+            ],
+        },
+    }
 
     def __init__(self, client: Any | None = None):
         self.settings = settings
@@ -231,7 +317,23 @@ class PlanningService:
                 return category
         return GoalCategory.general
 
+    def detect_study_subtype(self, title: str, description: str | None = None) -> str | None:
+        text = self._normalize_for_keyword_match(f"{title} {description or ''}")
+        for subtype, keywords in self.STUDY_SUBTYPE_KEYWORDS.items():
+            excluded_keywords = self.STUDY_SUBTYPE_EXCLUSION_KEYWORDS.get(subtype, ())
+            if any(self._normalize_for_keyword_match(keyword) in text for keyword in excluded_keywords):
+                continue
+            if any(self._normalize_for_keyword_match(keyword) in text for keyword in keywords):
+                return subtype
+        return None
+
+    def _normalize_for_keyword_match(self, text: str) -> str:
+        return re.sub(r"\s+", "", text).lower()
+
     def parse_goal_input(self, payload: GoalIntakeRequest) -> GoalIntakeResponse:
+        category, study_subtype = self._classify_goal_input(payload)
+        if category == GoalCategory.study and study_subtype in self.STUDY_SUBTYPE_BLUEPRINTS:
+            return self._parse_goal_input_with_template(payload)
         if self._can_use_gemini():
             try:
                 return self._parse_goal_input_with_gemini(payload)
@@ -240,6 +342,9 @@ class PlanningService:
         return self._parse_goal_input_with_template(payload)
 
     def build_plan(self, goal: Goal, answers: dict[str, Any]) -> PlanDraft:
+        study_subtype = self._study_subtype_for_goal(goal, answers)
+        if (goal.category or GoalCategory.general) == GoalCategory.study and study_subtype in self.STUDY_SUBTYPE_BLUEPRINTS:
+            return self._build_plan_with_template(goal, answers)
         if self._can_use_gemini():
             try:
                 return self._build_plan_with_gemini(goal, answers)
@@ -261,26 +366,31 @@ class PlanningService:
         return self._client
 
     def _parse_goal_input_with_gemini(self, payload: GoalIntakeRequest) -> GoalIntakeResponse:
-        category_hint = payload.category or self.detect_category(payload.text)
+        category_hint, study_subtype = self._classify_goal_input(payload)
         response = self._get_client().models.generate_content(
             model=self.settings.llm_model,
             contents=self._intake_user_prompt(payload, category_hint),
             config=self._build_generation_config(schema=GoalIntakeOutput, system_instruction=self._intake_instructions(), use_tools=False),
         )
         parsed = self._parse_response_model(response, GoalIntakeOutput)
-        category = payload.category or parsed.inferred_category
-        questions = self._normalize_questions(category, self.CATEGORY_QUESTIONS[category])
+        category = category_hint if payload.category or study_subtype else parsed.inferred_category
+        if category != GoalCategory.study:
+            study_subtype = None
+        questions = self._questions_for_goal(category, study_subtype)
+        details_json = dict(parsed.details_json)
+        details_json.update(self._study_subtype_details(study_subtype))
         goal = GoalDraftSuggestion(
             title=(parsed.title or self._suggest_title_from_text(payload.text)).strip(),
             description=self._normalize_description(parsed.description or payload.text),
             category=category,
-            details_json=parsed.details_json,
+            details_json=details_json,
             answers_json=parsed.suggested_answers_json,
         )
         return GoalIntakeResponse(goal=goal, reasoning=parsed.reasoning, questions=questions)
 
     def _build_plan_with_gemini(self, goal: Goal, answers: dict[str, Any]) -> PlanDraft:
         use_tools = self.settings.llm_enable_web_search and self._supports_structured_tools()
+        study_subtype = self._study_subtype_for_goal(goal, answers)
         response = self._get_client().models.generate_content(
             model=self.settings.llm_model,
             contents=self._plan_user_prompt(goal, answers),
@@ -300,21 +410,29 @@ class PlanningService:
             )
             for item in parsed.items
         ]
+        validation = self._validate_study_plan(study_subtype, items, answers) if study_subtype else None
+        if validation and not validation["passed"]:
+            return self._build_plan_with_template(goal, answers)
         raw_plan_json = parsed.model_dump(mode="json")
         raw_plan_json["research_sources"] = self._extract_research_sources(response)
+        if validation:
+            raw_plan_json["quality_validation"] = validation
         llm_mode = "gemini-google-search" if use_tools else "gemini"
         return PlanDraft(summary=parsed.summary, strategy_json=parsed.strategy.model_dump(mode="json"), recommendations_json=parsed.recommendations.model_dump(mode="json"), raw_plan_json=raw_plan_json, items=items, llm_mode=llm_mode)
 
     def _parse_goal_input_with_template(self, payload: GoalIntakeRequest) -> GoalIntakeResponse:
-        category = payload.category or self.detect_category(payload.text)
+        category, study_subtype = self._classify_goal_input(payload)
         answers_json = self._extract_suggested_answers_from_text(payload.text)
-        details_json: dict[str, Any] = {}
+        details_json: dict[str, Any] = self._study_subtype_details(study_subtype)
         if answers_json.get("constraints"):
             details_json["inferred_constraints"] = answers_json["constraints"]
-        reasoning = f"Converted the freeform goal into a '{category.value}' draft and prefilled details that were explicit in the text."
-        questions = self._normalize_questions(category, self.CATEGORY_QUESTIONS[category])
+        if study_subtype:
+            reasoning = f"Keyword routing classified the goal as '{study_subtype}' and prefilled details that were explicit in the text."
+        else:
+            reasoning = f"Converted the freeform goal into a '{category.value}' draft and prefilled details that were explicit in the text."
+        questions = self._questions_for_goal(category, study_subtype)
         goal = GoalDraftSuggestion(
-            title=self._suggest_title_from_text(payload.text),
+            title=self._suggest_title_from_text(payload.text, study_subtype=study_subtype, answers=answers_json),
             description=self._normalize_description(payload.text),
             category=category,
             details_json=details_json,
@@ -324,6 +442,10 @@ class PlanningService:
 
     def _build_plan_with_template(self, goal: Goal, answers: dict[str, Any]) -> PlanDraft:
         category = goal.category or GoalCategory.general
+        study_subtype = self._study_subtype_for_goal(goal, answers)
+        if category == GoalCategory.study and study_subtype in self.STUDY_SUBTYPE_BLUEPRINTS:
+            return self._build_study_subtype_plan_with_template(goal, answers, study_subtype)
+
         blueprint = self.BLUEPRINTS[category]
         weekly_hours = self._resolve_weekly_hours(answers)
         target_date = goal.target_date or self._resolve_target_date(answers)
@@ -364,6 +486,58 @@ class PlanningService:
         }
         return PlanDraft(summary=summary, strategy_json=strategy_json, recommendations_json=recommendations_json, raw_plan_json=raw_plan_json, items=items, llm_mode="template-fallback")
 
+    def _build_study_subtype_plan_with_template(self, goal: Goal, answers: dict[str, Any], study_subtype: str) -> PlanDraft:
+        blueprint = self.STUDY_SUBTYPE_BLUEPRINTS[study_subtype]
+        weekly_hours = self._resolve_weekly_hours(answers)
+        target_date = goal.target_date or self._resolve_target_date(answers)
+        items = self._build_study_subtype_template_items(goal, blueprint["plan_items"], target_date, study_subtype, answers)
+        validation = self._validate_study_plan(study_subtype, items, answers)
+        label = blueprint["label"]
+        user_materials = self._user_materials(answers)
+        summary = f"{goal.title} 목표는 {label} 전용 템플릿으로 구성했습니다. 주당 약 {weekly_hours}시간을 기준으로 진단, 핵심 훈련, 실전 점검, 오답 복습이 끊기지 않게 배치합니다."
+        strategy_json = {
+            "category": GoalCategory.study.value,
+            "study_subtype": study_subtype,
+            "template_label": label,
+            "weekly_hours": weekly_hours,
+            "target_date": target_date.isoformat() if target_date else None,
+            "focus_areas": blueprint["focus_areas"],
+            "routines": blueprint["routines"],
+            "quality_rules": blueprint["quality_rules"],
+            "constraints": answers.get("constraints"),
+            "preferred_work_times": answers.get("preferred_work_times"),
+            "unavailable_times": answers.get("unavailable_times"),
+            "session_preference": answers.get("session_preference"),
+            "user_materials": user_materials,
+        }
+        recommendations_json = {
+            "materials": self._study_materials(blueprint["materials"], user_materials),
+            "user_materials": user_materials,
+            "coach_notes": self._study_coach_notes(study_subtype, answers),
+            "next_step": items[0].title if items else None,
+        }
+        raw_plan_json = {
+            "summary": summary,
+            "strategy": strategy_json,
+            "recommendations": recommendations_json,
+            "quality_validation": validation,
+            "items": [
+                {
+                    "title": item.title,
+                    "description": item.description,
+                    "item_type": item.item_type,
+                    "estimated_minutes": item.estimated_minutes,
+                    "priority": item.priority,
+                    "target_date": item.target_date.isoformat() if item.target_date else None,
+                    "is_schedulable": item.is_schedulable,
+                    "metadata_json": item.metadata_json,
+                }
+                for item in items
+            ],
+        }
+        llm_mode = f"template-fallback-{study_subtype.replace('.', '-')}"
+        return PlanDraft(summary=summary, strategy_json=strategy_json, recommendations_json=recommendations_json, raw_plan_json=raw_plan_json, items=items, llm_mode=llm_mode)
+
     def _intake_instructions(self) -> str:
         return (
             "You turn a user's freeform goal statement into a structured goal draft for an AI planning assistant. "
@@ -378,6 +552,7 @@ class PlanningService:
             "You generate realistic execution plans for an AI planning assistant. Return only JSON that matches the schema. "
             "Do not assign exact times. Produce work units that can be scheduled later. "
             "Prefer sustainable plans over idealized plans. "
+            "If the user prompt includes a domain_template, follow its quality_rules and include the required_item_types unless the user's answers make them irrelevant. "
             "Write user-facing text in the same language as the user's goal when possible."
         )
 
@@ -395,6 +570,7 @@ class PlanningService:
         )
 
     def _plan_user_prompt(self, goal: Goal, answers: dict[str, Any]) -> str:
+        study_subtype = self._study_subtype_for_goal(goal, answers)
         return json.dumps(
             {
                 "today": date.today().isoformat(),
@@ -407,20 +583,64 @@ class PlanningService:
                 },
                 "answers_json": answers,
                 "weekly_hours_hint": self._resolve_weekly_hours(answers),
+                "domain_template": self._domain_template_payload(study_subtype),
                 "important_rule": "Do not invent exact schedule times. Generate only schedulable work units.",
             },
             ensure_ascii=False,
         )
 
-    def _normalize_questions(self, category: GoalCategory, questions: list[GoalQuestion] | list[LLMGoalQuestion]) -> list[GoalQuestion]:
+    def _classify_goal_input(self, payload: GoalIntakeRequest) -> tuple[GoalCategory, str | None]:
+        study_subtype = self.detect_study_subtype(payload.text)
+        category = payload.category or (GoalCategory.study if study_subtype else self.detect_category(payload.text))
+        if category != GoalCategory.study:
+            study_subtype = None
+        return category, study_subtype
+
+    def _study_subtype_details(self, study_subtype: str | None) -> dict[str, Any]:
+        if not study_subtype:
+            return {}
+        return {
+            "study_subtype": study_subtype,
+            "study_subtype_source": "keyword",
+            "study_subtype_confidence": 1.0,
+        }
+
+    def _questions_for_goal(self, category: GoalCategory, study_subtype: str | None) -> list[GoalQuestion]:
+        if category == GoalCategory.study and study_subtype in self.STUDY_SUBTYPE_QUESTIONS:
+            return self._normalize_questions(category, self.STUDY_SUBTYPE_QUESTIONS[study_subtype], include_category_defaults=False)
+        return self._normalize_questions(category, self.CATEGORY_QUESTIONS[category])
+
+    def _domain_template_payload(self, study_subtype: str | None) -> dict[str, Any] | None:
+        if study_subtype not in self.STUDY_SUBTYPE_BLUEPRINTS:
+            return None
+        blueprint = self.STUDY_SUBTYPE_BLUEPRINTS[study_subtype]
+        return {
+            "study_subtype": study_subtype,
+            "label": blueprint["label"],
+            "focus_areas": blueprint["focus_areas"],
+            "routines": blueprint["routines"],
+            "quality_rules": blueprint["quality_rules"],
+            "required_item_types": sorted(self._required_item_types_for_study_subtype(study_subtype)),
+        }
+
+    def _normalize_questions(
+        self,
+        category: GoalCategory,
+        questions: list[GoalQuestion] | list[LLMGoalQuestion],
+        *,
+        include_category_defaults: bool = True,
+    ) -> list[GoalQuestion]:
         normalized = [self._to_goal_question(question) for question in questions]
         normalized_map = {question.key: question for question in normalized}
         for required in self.COMMON_QUESTIONS:
             normalized_map.setdefault(required.key, required)
-        for suggested in self.CATEGORY_QUESTIONS[category]:
-            normalized_map.setdefault(suggested.key, suggested)
+        if include_category_defaults:
+            for suggested in self.CATEGORY_QUESTIONS[category]:
+                normalized_map.setdefault(suggested.key, suggested)
         ordered_keys = [question.key for question in self.COMMON_QUESTIONS]
-        ordered_keys.extend(question.key for question in self.CATEGORY_QUESTIONS[category])
+        ordered_keys.extend(question.key for question in normalized)
+        if include_category_defaults:
+            ordered_keys.extend(question.key for question in self.CATEGORY_QUESTIONS[category])
         ordered_keys.extend(key for key in normalized_map if key not in ordered_keys)
         return [normalized_map[key] for key in ordered_keys]
 
@@ -514,7 +734,11 @@ class PlanningService:
                 return None
         return None
 
-    def _suggest_title_from_text(self, text: str) -> str:
+    def _suggest_title_from_text(self, text: str, study_subtype: str | None = None, answers: dict[str, Any] | None = None) -> str:
+        domain_title = self._suggest_study_title(study_subtype, answers or {})
+        if domain_title:
+            return domain_title
+
         cleaned = self._clean_whitespace(text)
         first_sentence = re.split(r"(?<=[.!?])\s+|\n+", cleaned, maxsplit=1)[0]
         title = re.sub(
@@ -531,7 +755,12 @@ class PlanningService:
             flags=re.IGNORECASE,
         )
         title = re.sub(
-            r"(하고 싶어요|하고 싶습니다|하고 싶다|하려고 해요|하려고 합니다|를 목표로 해요|을 목표로 해요)$",
+            r"(준비하고 싶어요|준비하고 싶습니다|준비할래요|하고 싶어요|하고 싶습니다|하고 싶다|하려고 해요|하려고 합니다|를 목표로 해요|을 목표로 해요)[.!?。]*$",
+            "",
+            title,
+        )
+        title = re.sub(
+            r"\s*(?:이\s*)?목표(?:입니다|이에요|예요|다)?[.!?。]*$",
             "",
             title,
         )
@@ -542,6 +771,26 @@ class PlanningService:
             title = title[:77].rstrip() + "..."
         return title or "New goal"
 
+    def refine_goal_title(self, title: str, details_json: dict[str, Any] | None, answers: dict[str, Any]) -> str:
+        study_subtype = (details_json or {}).get("study_subtype")
+        domain_title = self._suggest_study_title(study_subtype, answers)
+        return domain_title or title
+
+    def _suggest_study_title(self, study_subtype: str | None, answers: dict[str, Any]) -> str | None:
+        if study_subtype == self.STUDY_SUBTYPE_TOEIC:
+            target_score = answers.get("target_score")
+            if target_score:
+                return f"토익 {target_score}점"
+            return "토익"
+        if study_subtype == self.STUDY_SUBTYPE_INFORMATION_PROCESSING_ENGINEER:
+            exam_stage = answers.get("exam_stage")
+            if exam_stage == "필기와 실기 모두":
+                return "정보처리기사 필기/실기"
+            if exam_stage in {"필기", "실기"}:
+                return f"정보처리기사 {exam_stage}"
+            return "정보처리기사"
+        return None
+
     def _normalize_description(self, text: str | None) -> str | None:
         if not text:
             return None
@@ -550,6 +799,7 @@ class PlanningService:
 
     def _extract_suggested_answers_from_text(self, text: str) -> dict[str, Any]:
         answers: dict[str, Any] = {}
+        study_subtype = self.detect_study_subtype(text)
         iso_date_match = re.search(r"\b(\d{4}-\d{2}-\d{2})\b", text)
         korean_date_match = re.search(r"(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일", text)
         weekly_hours_match = re.search(
@@ -571,6 +821,25 @@ class PlanningService:
             raw_value = weekly_hours_match.group(1) or weekly_hours_match.group(4)
             if raw_value:
                 answers["weekly_available_hours"] = int(raw_value)
+
+        if study_subtype == self.STUDY_SUBTYPE_TOEIC:
+            toeic_scores = [
+                int(match)
+                for match in re.findall(r"(?<!\d)([1-9]\d{2})(?!\d)", text)
+                if 100 <= int(match) <= 990
+            ]
+            if toeic_scores:
+                answers["target_score"] = toeic_scores[-1]
+            if len(toeic_scores) >= 2:
+                answers["current_score"] = str(toeic_scores[0])
+
+        if study_subtype == self.STUDY_SUBTYPE_INFORMATION_PROCESSING_ENGINEER:
+            if "필기" in text and "실기" in text:
+                answers["exam_stage"] = "필기와 실기 모두"
+            elif "필기" in text:
+                answers["exam_stage"] = "필기"
+            elif "실기" in text:
+                answers["exam_stage"] = "실기"
 
         constraint_sentences = self._extract_constraint_sentences(text)
         if constraint_sentences:
@@ -626,6 +895,174 @@ class PlanningService:
         if category == GoalCategory.health and answers.get("diet_constraints"):
             notes.append(f"Diet or recovery constraints: {answers['diet_constraints']}")
         return notes
+
+    def _study_subtype_for_goal(self, goal: Goal, answers: dict[str, Any]) -> str | None:
+        details = goal.details_json or {}
+        subtype = details.get("study_subtype") or answers.get("study_subtype")
+        if isinstance(subtype, str) and subtype in self.STUDY_SUBTYPE_BLUEPRINTS:
+            return subtype
+        return self.detect_study_subtype(goal.title, goal.description)
+
+    def _study_coach_notes(self, study_subtype: str, answers: dict[str, Any]) -> list[str]:
+        user_materials = self._user_materials(answers)
+        if study_subtype == self.STUDY_SUBTYPE_TOEIC:
+            notes = [
+                "단어, LC 노출, 오답 복습은 짧게라도 반복되도록 유지하세요.",
+                "모의고사 점수보다 틀린 이유를 파트별로 분류하는 것이 다음 주 일정 품질을 좌우합니다.",
+            ]
+            if user_materials:
+                notes.append(f"새 자료를 늘리기보다 입력한 자료를 우선 사용하세요: {user_materials}")
+            if answers.get("weak_sections") and answers["weak_sections"] != "아직 모름":
+                notes.append(f"약점 영역으로 표시한 {answers['weak_sections']} 훈련 비중을 주간 계획에서 우선 배정하세요.")
+            if answers.get("target_score"):
+                notes.append(f"목표 점수 {answers['target_score']}점 기준으로 실전 세트 후 시간 배분을 반드시 기록하세요.")
+            return notes
+
+        if study_subtype == self.STUDY_SUBTYPE_INFORMATION_PROCESSING_ENGINEER:
+            notes = [
+                "개념 회독만 길게 끌지 말고 기출 풀이와 오답 재풀이를 같은 주기에 묶으세요.",
+                "실기는 알고 있는 키워드를 채점 가능한 문장으로 쓰는 훈련이 필요합니다.",
+            ]
+            if user_materials:
+                notes.append(f"입력한 자료 기준으로 회독과 기출 풀이 범위를 잡으세요: {user_materials}")
+            if answers.get("exam_stage"):
+                notes.append(f"현재 준비 범위는 '{answers['exam_stage']}'로 보고 계획을 해석하세요.")
+            if answers.get("weak_subjects"):
+                notes.append(f"약점 과목/유형: {answers['weak_subjects']}")
+            return notes
+
+        return ["학습 목표는 진단, 연습, 오답 복습, 주간 조정을 한 세트로 운영하세요."]
+
+    def _user_materials(self, answers: dict[str, Any]) -> str | None:
+        value = answers.get("materials")
+        if value is None:
+            return None
+        cleaned = self._clean_whitespace(str(value))
+        return cleaned or None
+
+    def _study_materials(self, template_materials: list[str], user_materials: str | None) -> list[str]:
+        if not user_materials:
+            return template_materials
+        return [f"사용자 지정 자료: {user_materials}", *template_materials]
+
+    def _description_with_user_materials(self, description: str, user_materials: str | None) -> str:
+        if not user_materials:
+            return description
+        return f"{description} 사용 자료는 입력한 교재/강의를 우선합니다: {user_materials}."
+
+    def _build_study_subtype_template_items(
+        self,
+        goal: Goal,
+        templates: list[dict[str, Any]],
+        target_date: date | None,
+        study_subtype: str,
+        answers: dict[str, Any],
+    ) -> list[PlanDraftItem]:
+        start_date = date.today()
+        horizon_end = target_date or start_date + timedelta(days=42)
+        if horizon_end < start_date:
+            horizon_end = start_date
+        total_days = max((horizon_end - start_date).days, 1)
+        items: list[PlanDraftItem] = []
+        user_materials = self._user_materials(answers)
+
+        for template in templates:
+            if not self._should_include_study_template_item(study_subtype, template, answers):
+                continue
+            offset_ratio = float(template.get("offset_ratio", 0))
+            scheduled_for = start_date + timedelta(days=round(total_days * offset_ratio))
+            if scheduled_for > horizon_end:
+                scheduled_for = horizon_end
+            metadata = {
+                "goal_category": GoalCategory.study.value,
+                "study_subtype": study_subtype,
+                "source": "template-fallback",
+                "phase": template.get("phase"),
+                "section": template.get("section"),
+                "materials": user_materials,
+            }
+            items.append(
+                PlanDraftItem(
+                    title=template["title"],
+                    description=self._description_with_user_materials(template["description"], user_materials),
+                    item_type=template["item_type"],
+                    estimated_minutes=int(template["estimated_minutes"]),
+                    priority=int(template["priority"]),
+                    target_date=scheduled_for,
+                    metadata_json=metadata,
+                )
+            )
+        return items
+
+    def _should_include_study_template_item(self, study_subtype: str, template: dict[str, Any], answers: dict[str, Any]) -> bool:
+        if study_subtype != self.STUDY_SUBTYPE_INFORMATION_PROCESSING_ENGINEER:
+            return True
+
+        exam_stage = str(answers.get("exam_stage") or "").strip()
+        section = template.get("section")
+        if exam_stage == "필기" and section in {"practical", "programming"}:
+            return False
+        if exam_stage == "실기" and section == "written":
+            return False
+        return True
+
+    def _required_item_types_for_study_subtype(self, study_subtype: str, answers: dict[str, Any] | None = None) -> set[str]:
+        if study_subtype == self.STUDY_SUBTYPE_TOEIC:
+            return {"diagnostic", "vocabulary", "lc_practice", "rc_practice", "mistake_review", "mock_test", "final_review"}
+        if study_subtype == self.STUDY_SUBTYPE_INFORMATION_PROCESSING_ENGINEER:
+            required = {"diagnostic", "concept_review", "past_exam", "mistake_review", "mock_test", "final_review", "practical_drill"}
+            exam_stage = str((answers or {}).get("exam_stage") or "").strip()
+            if exam_stage == "필기":
+                required.discard("practical_drill")
+            if exam_stage == "실기":
+                required.discard("concept_review")
+            return required
+        return set()
+
+    def _validate_study_plan(self, study_subtype: str, items: list[PlanDraftItem], answers: dict[str, Any]) -> dict[str, Any]:
+        item_types = {item.item_type for item in items}
+        sections = {item.metadata_json.get("section") for item in items}
+        required_item_types = self._required_item_types_for_study_subtype(study_subtype, answers)
+        checks: list[dict[str, Any]] = []
+
+        for item_type in sorted(required_item_types):
+            checks.append(
+                {
+                    "key": f"has_{item_type}",
+                    "passed": item_type in item_types,
+                    "message": f"필수 학습 블록 '{item_type}' 포함 여부",
+                }
+            )
+
+        if study_subtype == self.STUDY_SUBTYPE_TOEIC:
+            checks.extend(
+                [
+                    {"key": "covers_lc", "passed": "LC" in sections, "message": "LC 훈련 포함 여부"},
+                    {"key": "covers_rc", "passed": "RC" in sections, "message": "RC 훈련 포함 여부"},
+                    {"key": "mock_followed_by_review", "passed": self._has_review_after_mock(items), "message": "모의고사 이후 오답 분석 배치 여부"},
+                ]
+            )
+        elif study_subtype == self.STUDY_SUBTYPE_INFORMATION_PROCESSING_ENGINEER:
+            checks.extend(
+                [
+                    {"key": "uses_past_exam_loop", "passed": {"past_exam", "mistake_review"}.issubset(item_types), "message": "기출 풀이와 오답 재풀이 루프 포함 여부"},
+                    {"key": "has_final_keyword_review", "passed": "final_review" in item_types, "message": "시험 직전 키워드/오답 압축 복습 포함 여부"},
+                ]
+            )
+
+        return {
+            "passed": all(check["passed"] for check in checks),
+            "checks": checks,
+        }
+
+    def _has_review_after_mock(self, items: list[PlanDraftItem]) -> bool:
+        mock_index = next((index for index, item in enumerate(items) if item.item_type == "mock_test"), None)
+        if mock_index is None:
+            return False
+        return any(
+            item.item_type == "mistake_review" and index > mock_index
+            for index, item in enumerate(items)
+        )
 
     def _build_template_items(self, goal: Goal, templates: list[tuple[str, str, str, int, int]], target_date: date | None) -> list[PlanDraftItem]:
         start_date = date.today()
