@@ -12,9 +12,9 @@ import {
   dayOptions,
   expandRuleToDetailItems,
   failReasonOptions,
-  formatDeadline,
   formatRuleSummary,
   formatTimeRange,
+  formatVariableDateTimeRange,
   getEffectiveVariableStatus,
   getFailReasonLabel,
   getFixedScheduleSeries,
@@ -24,7 +24,6 @@ import {
   getStatusLabel,
   getVariableSchedules,
   monthRuleOptions,
-  parseKstDateString,
   saveFixedScheduleSeries,
   saveVariableSchedules,
   toggleSelectedDay,
@@ -46,10 +45,11 @@ type FixedFormState = {
 
 type VariableFormState = {
   title: string;
-  estimated_time: string;
+  scheduled_date: string;
+  start_time: string;
+  end_time: string;
   level: string;
   color_key: number;
-  deadline: string;
 };
 
 type EditingFixedDetailState = {
@@ -75,40 +75,70 @@ const fixedInitialForm: FixedFormState = {
 
 const variableInitialForm: VariableFormState = {
   title: "",
-  estimated_time: "",
+  scheduled_date: "",
+  start_time: "09:00",
+  end_time: "10:00",
   level: "5",
   color_key: 0,
-  deadline: "",
 };
+
+const hiddenDeadline = "2099-12-31T23:59:00+09:00";
 
 function toTimeWithSeconds(value: string) {
   return value.length === 5 ? `${value}:00` : value;
 }
 
-function toDeadlineWithTimezone(value: string) {
-  return `${value}:00+09:00`;
-}
+function createVariableFormFromItem(
+  item: VariableSchedule
+): VariableFormState {
+  const start =
+    item.scheduled_start
+      ? new Date(item.scheduled_start)
+      : null;
 
-function toDateTimeLocalValue(value: string) {
-  const date = parseKstDateString(value);
-  if (Number.isNaN(date.getTime())) return "";
+  const end =
+    item.scheduled_end
+      ? new Date(item.scheduled_end)
+      : null;
 
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
-    date.getDate()
-  ).padStart(2, "0")}T${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
-}
-
-function createVariableFormFromItem(item: VariableSchedule): VariableFormState {
   return {
     title: item.title,
-    estimated_time: String(item.estimated_time),
+
+    scheduled_date: start
+      ? `${start.getFullYear()}-${String(
+          start.getMonth() + 1
+        ).padStart(2, "0")}-${String(
+          start.getDate()
+        ).padStart(2, "0")}`
+      : "",
+
+    start_time: start
+      ? `${String(
+          start.getHours()
+        ).padStart(2, "0")}:${String(
+          start.getMinutes()
+        ).padStart(2, "0")}`
+      : "09:00",
+
+    end_time: end
+      ? `${String(
+          end.getHours()
+        ).padStart(2, "0")}:${String(
+          end.getMinutes()
+        ).padStart(2, "0")}`
+      : "10:00",
+
     level: String(item.level),
-    color_key: item.color_key ?? 0,
-    deadline: toDateTimeLocalValue(item.deadline),
+
+    color_key:
+      item.color_key ?? 0,
   };
 }
 
-function removeFixedDetailFromSeries(series: FixedScheduleSeries, target: EditingFixedDetailState): FixedScheduleSeries {
+function removeFixedDetailFromSeries(
+  series: FixedScheduleSeries,
+  target: EditingFixedDetailState
+): FixedScheduleSeries {
   const nextRules = series.rules
     .map((rule) => {
       if (rule.rule_id !== target.rule_id) return rule;
@@ -208,7 +238,11 @@ export default function ManagePage() {
   const filteredVariableList = useMemo(() => {
     return [...variableList]
       .filter((item) => getEffectiveVariableStatus(item) === variableStatusTab)
-      .sort((a, b) => parseKstDateString(a.deadline).getTime() - parseKstDateString(b.deadline).getTime());
+      .sort((a, b) =>
+        String(b.created_at).localeCompare(
+          String(a.created_at)
+        )
+      );
   }, [variableList, variableStatusTab]);
 
   const resetFixedForm = () => {
@@ -243,41 +277,45 @@ export default function ManagePage() {
     e.preventDefault();
 
     if (!fixedForm.title.trim() || !fixedForm.start_time || !fixedForm.end_time) return;
-    if ((fixedForm.freq_type === "WEEKLY" || fixedForm.freq_type === "BIWEEKLY") && fixedForm.selected_days.length === 0)
+    if (
+      (fixedForm.freq_type === "WEEKLY" || fixedForm.freq_type === "BIWEEKLY") &&
+      fixedForm.selected_days.length === 0
+    ) {
       return;
+    }
     if (fixedForm.freq_type === "BIWEEKLY" && !fixedForm.biweekly_start_date) return;
-    if (fixedForm.freq_type === "MONTHLY" && fixedForm.month_rule === "CUSTOM" && fixedForm.selected_month_days.length === 0)
+    if (
+      fixedForm.freq_type === "MONTHLY" &&
+      fixedForm.month_rule === "CUSTOM" &&
+      fixedForm.selected_month_days.length === 0
+    ) {
       return;
+    }
 
     const now = new Date().toISOString();
 
     if (editingFixedDetail) {
-      const newSeriesId = `series-${Date.now()}`;
       const newRuleId = `rule-${Date.now()}`;
+      const newRule = buildRuleFromFixedForm(newRuleId, now);
 
-      const newSeries: FixedScheduleSeries = {
-        id: newSeriesId,
-        series_id: newSeriesId,
-        user_id: "test_user",
-        title: fixedForm.title.trim(),
-        color_key: fixedForm.color_key,
-        level: Number(fixedForm.level),
-        created_at: now,
-        updated_at: now,
-        rules: [buildRuleFromFixedForm(newRuleId, now)],
-      };
+      setFixedSeriesList((prev) =>
+        prev.map((series) => {
+          if (series.series_id !== editingFixedDetail.series_id) return series;
 
-      setFixedSeriesList((prev) => {
-        const removed = prev
-          .map((series) =>
-            series.series_id === editingFixedDetail.series_id ? removeFixedDetailFromSeries(series, editingFixedDetail) : series
-          )
-          .filter((series) => series.rules.length > 0);
+          const seriesAfterDetailRemoval = removeFixedDetailFromSeries(series, editingFixedDetail);
 
-        return [...removed, newSeries];
-      });
+          return {
+            ...seriesAfterDetailRemoval,
+            title: fixedForm.title.trim(),
+            color_key: fixedForm.color_key,
+            level: Number(fixedForm.level),
+            updated_at: now,
+            rules: [...seriesAfterDetailRemoval.rules, newRule],
+          };
+        })
+      );
 
-      setExpandedSeriesId(newSeries.series_id);
+      setExpandedSeriesId(editingFixedDetail.series_id);
       resetFixedForm();
       return;
     }
@@ -377,7 +415,9 @@ export default function ManagePage() {
 
     setFixedSeriesList((prev) =>
       prev
-        .map((seriesItem) => (seriesItem.series_id === series.series_id ? removeFixedDetailFromSeries(seriesItem, target) : seriesItem))
+        .map((seriesItem) =>
+          seriesItem.series_id === series.series_id ? removeFixedDetailFromSeries(seriesItem, target) : seriesItem
+        )
         .filter((seriesItem) => seriesItem.rules.length > 0)
     );
 
@@ -395,24 +435,33 @@ export default function ManagePage() {
   const handleVariableSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    if (!variableForm.title.trim() || Number(variableForm.estimated_time) <= 0 || !variableForm.deadline) return;
+    if (!variableForm.title.trim() || !variableForm.scheduled_date) return;
     if (Number(variableForm.level) < 0 || Number(variableForm.level) > 10) return;
 
     const now = new Date().toISOString();
     const existing = editingVariableId ? variableList.find((item) => item.id === editingVariableId) : null;
 
+    const startDateTime = `${variableForm.scheduled_date}T${variableForm.start_time}:00+09:00`;
+    const endDateTime = `${variableForm.scheduled_date}T${variableForm.end_time}:00+09:00`;
+
+    const estimatedMinutes = Math.round(
+      (new Date(endDateTime).getTime() - new Date(startDateTime).getTime()) / 60000
+    );
+
+    if (estimatedMinutes <= 0) return;
+
     const nextItem: VariableSchedule = {
       id: existing?.id ?? `variable-${Date.now()}`,
       user_id: "test_user",
       title: variableForm.title.trim(),
-      estimated_time: Number(variableForm.estimated_time),
+      estimated_time: estimatedMinutes,
       is_done: existing?.is_done ?? false,
       status: existing?.status ?? "pending",
       level: Number(variableForm.level),
       color_key: variableForm.color_key,
-      deadline: toDeadlineWithTimezone(variableForm.deadline),
-      scheduled_start: existing?.scheduled_start ?? null,
-      scheduled_end: existing?.scheduled_end ?? null,
+      deadline: existing?.deadline ?? hiddenDeadline,
+      scheduled_start: startDateTime,
+      scheduled_end: endDateTime,
       fail_reason: existing?.fail_reason ?? null,
       fail_reason_text: existing?.fail_reason_text ?? null,
       priority: existing?.priority ?? null,
@@ -767,19 +816,11 @@ export default function ManagePage() {
                                 </div>
 
                                 <div className="flex gap-2 shrink-0">
-                                  <button
-                                    type="button"
-                                    onClick={() => handleEditFixedDetail(series, item)}
-                                    className="small-blue"
-                                  >
+                                  <button type="button" onClick={() => handleEditFixedDetail(series, item)} className="small-blue">
                                     개별 수정
                                   </button>
 
-                                  <button
-                                    type="button"
-                                    onClick={() => handleDeleteFixedDetail(series, item)}
-                                    className="small-red"
-                                  >
+                                  <button type="button" onClick={() => handleDeleteFixedDetail(series, item)} className="small-red">
                                     개별 삭제
                                   </button>
                                 </div>
@@ -823,20 +864,71 @@ export default function ManagePage() {
                 <input
                   value={variableForm.title}
                   onChange={(e) => setVariableForm((p) => ({ ...p, title: e.target.value }))}
-                  placeholder="예: 과제 제출"
+                  placeholder="예: 과제, 공부, 운동"
                   className="form-input"
                 />
               </InputLabel>
 
-              <InputLabel label="예상 소요 시간(분)">
-                <input
-                  type="number"
-                  min="1"
-                  value={variableForm.estimated_time}
-                  onChange={(e) => setVariableForm((p) => ({ ...p, estimated_time: e.target.value }))}
-                  className="form-input"
-                />
-              </InputLabel>
+              <div className="grid grid-cols-1 gap-3">
+                <InputLabel label="날짜">
+                  <input
+                    type="date"
+                    value={
+                      variableForm.scheduled_date
+                    }
+                    onChange={(e) =>
+                      setVariableForm(
+                        (p) => ({
+                          ...p,
+                          scheduled_date:
+                            e.target.value,
+                        })
+                      )
+                    }
+                    className="form-input"
+                  />
+                </InputLabel>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <InputLabel label="시작 시간">
+                  <input
+                    type="time"
+                    value={
+                      variableForm.start_time
+                    }
+                    onChange={(e) =>
+                      setVariableForm(
+                        (p) => ({
+                          ...p,
+                          start_time:
+                            e.target.value,
+                        })
+                      )
+                    }
+                    className="form-input"
+                  />
+                </InputLabel>
+
+                <InputLabel label="종료 시간">
+                  <input
+                    type="time"
+                    value={
+                      variableForm.end_time
+                    }
+                    onChange={(e) =>
+                      setVariableForm(
+                        (p) => ({
+                          ...p,
+                          end_time:
+                            e.target.value,
+                        })
+                      )
+                    }
+                    className="form-input"
+                  />
+                </InputLabel>
+              </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <InputLabel label="난이도 및 피로도">
@@ -864,15 +956,6 @@ export default function ManagePage() {
                   </select>
                 </InputLabel>
               </div>
-
-              <InputLabel label="마감 기한">
-                <input
-                  type="datetime-local"
-                  value={variableForm.deadline}
-                  onChange={(e) => setVariableForm((p) => ({ ...p, deadline: e.target.value }))}
-                  className="form-input"
-                />
-              </InputLabel>
 
               <button
                 type="submit"
@@ -946,13 +1029,13 @@ export default function ManagePage() {
                           </div>
 
                           <div className="text-sm mt-2" style={{ color: colors.text }}>
-                            마감: {formatDeadline(schedule.deadline)} · {schedule.estimated_time}분 · 피로도{" "}
-                            {schedule.level} ({getLevelLabel(schedule.level)})
+                            {formatVariableDateTimeRange(schedule.scheduled_start, schedule.scheduled_end)} ·{" "}
+                            {schedule.estimated_time}분 · 피로도 {schedule.level} ({getLevelLabel(schedule.level)})
                           </div>
 
                           {status === "failed" && (
                             <div className="text-sm mt-2" style={{ color: colors.text }}>
-                              실패 이유: {failLabel ?? "마감 초과"}
+                              실패 이유: {failLabel ?? "직접 실패 처리"}
                               {schedule.fail_reason_text ? ` / ${schedule.fail_reason_text}` : ""}
                             </div>
                           )}
