@@ -36,6 +36,8 @@ GitHub에서 받을 때는 저장소를 clone한 뒤 프로젝트 루트로 이�
 ```powershell
 git clone <repository-url>
 cd now-what
+git switch be-logic
+git pull origin be-logic
 ```
 
 압축 파일이나 전달받은 폴더로 받을 때는 원하는 위치에 풀고 프로젝트 루트로 이동합니다.
