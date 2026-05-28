@@ -1,9 +1,12 @@
 from datetime import date, timedelta
+import json
+
+import pytest
 
 from backend.models.enums import GoalCategory
 from backend.models.goal import Goal
 from backend.schemas.planning import GoalIntakeRequest
-from backend.services.planning import PlanDraftItem, PlanningService
+from backend.services.planning import InvalidGoalInputError, PlanDraftItem, PlanningService
 
 
 def test_goal_intake_questions_are_korean_and_schedule_oriented(monkeypatch):
@@ -44,6 +47,37 @@ def test_goal_intake_questions_are_korean_and_schedule_oriented(monkeypatch):
     assert questions["current_progress"].prompt == "현재 완료된 부분과 아직 남은 부분은 어디까지인가요?"
     assert questions["dependencies"].required is False
     assert all("What " not in question.prompt for question in response.questions)
+
+
+def test_gemini_invalid_goal_flag_stops_template_fallback(monkeypatch):
+    class FakeResponse:
+        text = json.dumps(
+            {
+                "is_goal_like": False,
+                "clarification_message": "Please enter a clearer goal.",
+                "title": "",
+                "description": None,
+                "inferred_category": "general",
+                "reasoning": "Input is too vague to plan.",
+                "details_json": {},
+                "suggested_answers_json": {},
+            }
+        )
+
+    class FakeModels:
+        def generate_content(self, **_kwargs):
+            return FakeResponse()
+
+    class FakeClient:
+        models = FakeModels()
+
+    service = PlanningService(client=FakeClient())
+    monkeypatch.setattr(service, "_can_use_gemini", lambda: True)
+
+    with pytest.raises(InvalidGoalInputError) as exc_info:
+        service.parse_goal_input(GoalIntakeRequest(text="I want to maybe do the thing"))
+
+    assert "clearer goal" in exc_info.value.detail
 
 
 def test_category_questions_have_domain_specific_required_and_optional_fields(monkeypatch):

@@ -1,6 +1,6 @@
 from datetime import datetime, time
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from backend.models.enums import GoalCategory
 from backend.schemas.goals import AIPlanItemRead, AIPlanRead, GoalRead
@@ -16,8 +16,18 @@ class GoalQuestion(BaseModel):
     options: list[str] = Field(default_factory=list)
 
 
-class GoalIntakeRequest(BaseModel):
-    text: str = Field(min_length=1)
+class GoalTextRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=2000)
+
+    @field_validator("text", mode="before")
+    @classmethod
+    def strip_text(cls, value: object) -> object:
+        if isinstance(value, str):
+            return value.strip()
+        return value
+
+
+class GoalIntakeRequest(GoalTextRequest):
     category: GoalCategory | None = None
 
 
@@ -35,8 +45,7 @@ class GoalIntakeResponse(BaseModel):
     questions: list[GoalQuestion]
 
 
-class GoalCompleteRequest(BaseModel):
-    text: str = Field(min_length=1)
+class GoalCompleteRequest(GoalTextRequest):
     category: GoalCategory | None = None
     answers_json: dict = Field(default_factory=dict)
     replace_existing: bool = False

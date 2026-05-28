@@ -27,6 +27,13 @@ except ImportError:  # pragma: no cover
     types = None
 
 logger = logging.getLogger(__name__)
+INVALID_GOAL_INPUT_DETAIL = "목표로 해석하기 어려운 입력입니다. 달성하고 싶은 일과 기준을 조금 더 구체적으로 입력해 주세요."
+
+
+class InvalidGoalInputError(ValueError):
+    def __init__(self, detail: str = INVALID_GOAL_INPUT_DETAIL):
+        super().__init__(detail)
+        self.detail = detail
 
 
 @dataclass
@@ -65,10 +72,12 @@ class LLMGoalQuestion(StructuredOutputModel):
 
 
 class GoalIntakeOutput(StructuredOutputModel):
-    title: str
+    is_goal_like: bool = True
+    clarification_message: str | None = None
+    title: str = ""
     description: str | None = None
-    inferred_category: GoalCategory
-    reasoning: str
+    inferred_category: GoalCategory = GoalCategory.general
+    reasoning: str = ""
     details_json: dict[str, Any] = Field(default_factory=dict)
     suggested_answers_json: dict[str, Any] = Field(default_factory=dict)
 
@@ -116,6 +125,7 @@ class PlanningService:
     SPLIT_MINUTES_STEP = 5
     STUDY_SUBTYPE_TOEIC = "study.toeic"
     STUDY_SUBTYPE_INFORMATION_PROCESSING_ENGINEER = "study.cert.information_processing_engineer"
+    KEYBOARD_MASH_SEQUENCES = ("asdf", "qwer", "zxcv", "qwerty", "wasd", "hjkl")
 
     CATEGORY_HINTS: dict[GoalCategory, tuple[str, ...]] = {
         GoalCategory.study: ("toeic", "toefl", "ielts", "exam", "study", "certificate", "score", "test", "공부", "시험", "자격증", "토익", "토플", "정보처리기사", "정처기"),
@@ -343,12 +353,15 @@ class PlanningService:
         return re.sub(r"\s+", "", text).lower()
 
     def parse_goal_input(self, payload: GoalIntakeRequest) -> GoalIntakeResponse:
+        self._ensure_goal_input_is_meaningful(payload.text)
         category, study_subtype = self._classify_goal_input(payload)
         if category == GoalCategory.study and study_subtype in self.STUDY_SUBTYPE_BLUEPRINTS:
             return self._parse_goal_input_with_template(payload)
         if self._can_use_gemini():
             try:
                 return self._parse_goal_input_with_gemini(payload)
+            except InvalidGoalInputError:
+                raise
             except Exception as exc:  # pragma: no cover
                 logger.warning("Gemini goal parsing failed; falling back to templates: %s", exc)
         return self._parse_goal_input_with_template(payload)
@@ -385,6 +398,8 @@ class PlanningService:
             config=self._build_generation_config(schema=GoalIntakeOutput, system_instruction=self._intake_instructions(), use_tools=False),
         )
         parsed = self._parse_response_model(response, GoalIntakeOutput)
+        if not parsed.is_goal_like:
+            raise InvalidGoalInputError(self._safe_invalid_goal_detail(parsed.clarification_message))
         category = category_hint if payload.category or study_subtype else parsed.inferred_category
         if category != GoalCategory.study:
             study_subtype = None
@@ -583,6 +598,8 @@ class PlanningService:
         return (
             "You turn a user's freeform goal statement into a structured goal draft for an AI planning assistant. "
             "Return only JSON that matches the schema. "
+            "Set is_goal_like to false when the input is random text, keyboard mashing, placeholder/test content, only punctuation, or too vague to describe something the user wants to achieve. "
+            "When is_goal_like is false, provide a short clarification_message that asks the user to enter a clearer goal instead of inventing a goal. "
             "Infer a short title, a clearer one-sentence description, and the best category among study, health, work, habit, or general. "
             "Only extract details or suggested answers that are explicitly grounded in the user's text. "
             "Write user-facing text in the same language as the user's goal when possible."
@@ -606,7 +623,7 @@ class PlanningService:
                 "provided_category": payload.category.value if payload.category else None,
                 "category_hint": category_hint.value,
                 "allowed_categories": [category.value for category in GoalCategory],
-                "important_rule": "Do not invent deadlines, hours, or constraints that are not actually stated.",
+                "important_rule": "Do not invent deadlines, hours, constraints, or a goal when the input is not goal-like.",
             },
             ensure_ascii=False,
         )
@@ -636,6 +653,51 @@ class PlanningService:
             },
             ensure_ascii=False,
         )
+
+    def _ensure_goal_input_is_meaningful(self, text: str) -> None:
+        cleaned = self._clean_whitespace(text)
+        if not cleaned:
+            raise InvalidGoalInputError()
+        if self.detect_study_subtype(cleaned) or self.detect_category(cleaned) != GoalCategory.general:
+            return
+        if re.search(r"[가-힣]{2,}", cleaned):
+            return
+
+        tokens = re.findall(r"[A-Za-z0-9]+", cleaned)
+        if not tokens:
+            raise InvalidGoalInputError()
+
+        meaningful_tokens = [token for token in tokens if self._is_meaningful_goal_token(token)]
+        if len(meaningful_tokens) >= 2:
+            return
+        if len(meaningful_tokens) == 1 and len(meaningful_tokens[0]) >= 4:
+            return
+
+        raise InvalidGoalInputError()
+
+    def _is_meaningful_goal_token(self, token: str) -> bool:
+        normalized = token.lower()
+        if len(normalized) <= 1:
+            return False
+        if self._is_repeated_token(normalized):
+            return False
+        if any(sequence in normalized for sequence in self.KEYBOARD_MASH_SEQUENCES):
+            return False
+        return True
+
+    def _is_repeated_token(self, token: str) -> bool:
+        if len(token) >= 4 and len(set(token)) == 1:
+            return True
+        for size in range(1, (len(token) // 2) + 1):
+            if len(token) % size == 0 and token == token[:size] * (len(token) // size):
+                return True
+        return False
+
+    def _safe_invalid_goal_detail(self, detail: str | None) -> str:
+        cleaned = self._clean_whitespace(detail) if detail else ""
+        if not cleaned:
+            return INVALID_GOAL_INPUT_DETAIL
+        return cleaned[:240]
 
     def _classify_goal_input(self, payload: GoalIntakeRequest) -> tuple[GoalCategory, str | None]:
         study_subtype = self.detect_study_subtype(payload.text)

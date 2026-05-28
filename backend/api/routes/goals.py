@@ -25,7 +25,7 @@ from backend.schemas.planning import (
     GoalIntakeResponse,
 )
 from backend.services.allocation import AllocationConflictError, AllocationService
-from backend.services.planning import PlanningService
+from backend.services.planning import InvalidGoalInputError, PlanningService
 
 router = APIRouter(tags=["goals"])
 planning_service = PlanningService()
@@ -200,7 +200,7 @@ def intake_goal(
     payload: GoalIntakeRequest,
     current_user: User = Depends(get_current_user),
 ) -> GoalIntakeResponse:
-    return planning_service.parse_goal_input(payload)
+    return _parse_goal_input_or_400(payload)
 
 
 @router.post("/goals/complete", response_model=GoalCompleteResponse, status_code=status.HTTP_201_CREATED)
@@ -209,7 +209,7 @@ def complete_goal(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_db_session),
 ) -> GoalCompleteResponse:
-    parsed = planning_service.parse_goal_input(GoalIntakeRequest(text=payload.text, category=payload.category))
+    parsed = _parse_goal_input_or_400(GoalIntakeRequest(text=payload.text, category=payload.category))
     try:
         goal = _create_goal_from_parsed(session, payload, parsed, user_id=current_user.id)
         plan, llm_mode = _generate_plan_for_goal(
@@ -235,6 +235,13 @@ def complete_goal(
         questions=parsed.questions,
         llm_mode=llm_mode,
     )
+
+
+def _parse_goal_input_or_400(payload: GoalIntakeRequest) -> GoalIntakeResponse:
+    try:
+        return planning_service.parse_goal_input(payload)
+    except InvalidGoalInputError as exc:
+        raise HTTPException(status_code=400, detail=exc.detail) from exc
 
 
 def _create_goal_from_parsed(

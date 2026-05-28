@@ -110,6 +110,30 @@ def test_goal_intake_requires_authentication():
         app.dependency_overrides.clear()
 
 
+def test_goal_intake_rejects_nonsense_text():
+    from backend.api.routes import goals as goals_route
+
+    client, session_local = _client_with_session()
+    original_model = goals_route.planning_service.settings.llm_model
+    goals_route.planning_service.settings.llm_model = "template-fallback"
+    try:
+        with session_local() as session:
+            user = _create_user(session, email="nonsense-intake@example.com")
+            token = create_access_token(user.id)
+
+        response = client.post(
+            "/api/v1/goals/intake",
+            json={"text": "asdfasdf qwerqwer zzzzz !!! @@@"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        assert response.status_code == 400
+        assert "목표" in response.json()["detail"]
+    finally:
+        goals_route.planning_service.settings.llm_model = original_model
+        app.dependency_overrides.clear()
+
+
 def test_complete_goal_rolls_back_goal_when_plan_generation_fails():
     from backend.api.routes import goals as goals_route
 
@@ -141,6 +165,32 @@ def test_complete_goal_rolls_back_goal_when_plan_generation_fails():
             assert session.query(Goal).count() == 0
     finally:
         goals_route.planning_service = original_service
+        app.dependency_overrides.clear()
+
+
+def test_complete_goal_rejects_nonsense_without_persisting():
+    from backend.api.routes import goals as goals_route
+
+    client, session_local = _client_with_session()
+    original_model = goals_route.planning_service.settings.llm_model
+    goals_route.planning_service.settings.llm_model = "template-fallback"
+    try:
+        with session_local() as session:
+            user = _create_user(session, email="nonsense-complete@example.com")
+            token = create_access_token(user.id)
+
+        response = client.post(
+            "/api/v1/goals/complete",
+            json={"text": "asdfasdf qwerqwer zzzzz !!! @@@"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        assert response.status_code == 400
+        assert "목표" in response.json()["detail"]
+        with session_local() as session:
+            assert session.query(Goal).count() == 0
+    finally:
+        goals_route.planning_service.settings.llm_model = original_model
         app.dependency_overrides.clear()
 
 
