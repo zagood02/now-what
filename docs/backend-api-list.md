@@ -3,12 +3,6 @@
 This document is the backend-facing API inventory for the capstone demo.
 The priority is a stable demo flow: login, create schedules/tasks/goals, allocate, and show the calendar.
 
-Implementation source of truth:
-
-- Treat `backend/` as the canonical FastAPI backend for the demo and API documentation.
-- Legacy compatibility fields may remain in schemas, but new backend behavior should be implemented and verified against `backend/`.
-- The Next.js `app/` directory is frontend-only; the old Python/FastAPI backend duplicate under `app/` was removed to avoid split ownership.
-
 Base URL:
 
 - Local API: `http://127.0.0.1:8000/api/v1`
@@ -24,9 +18,7 @@ Authentication:
 
 - Most user data APIs should use `Authorization: Bearer <access_token>`.
 - The token is issued by `/users/login` or `/auth/google`.
-- Request body fields named `user_id` are legacy compatibility fields. The backend should prefer the authenticated user from the token.
-- Create and mutation routes must not allow a request body `user_id` to transfer ownership away from the token user.
-- Cross-user reads and mutations should return `404` for owned resources so resource existence is not leaked.
+- User-owned write APIs derive ownership from the authenticated token. Request bodies do not expose `user_id`.
 
 ## Demo-Critical Flow
 
@@ -73,14 +65,14 @@ Use a different API URL if needed:
 | `POST` | `/users/register` | Public | Email/password signup | Duplicate with `/users` |
 | `POST` | `/users/login` | Public | Email/password login | OK |
 | `POST` | `/users` | Public | Email/password signup | OK, used by frontend |
-| `GET` | `/users` | Public | List users | Demo-only, should not be emphasized |
-| `GET` | `/users/{user_id}` | Public | Get one user | Demo-only, should not be emphasized |
+| `GET` | `/users` | Required | List current user only | Protected; no cross-user listing |
+| `GET` | `/users/{user_id}` | Required | Get current user by id | Protected; other user ids return 404 |
 
 Recommended capstone stance:
 
 - Keep `/users` and `/users/login` for the frontend.
 - Treat `/users/register` as a compatibility alias.
-- Do not showcase user listing unless needed for debugging.
+- Do not use `/users` as an admin-style user listing; it only returns the authenticated user.
 
 ### Fixed Schedules
 
@@ -91,11 +83,6 @@ Recommended capstone stance:
 | `GET` | `/schedules/fixed/{schedule_id}` | Required | Get fixed schedule | OK |
 | `PATCH` | `/schedules/fixed/{schedule_id}` | Required | Update fixed schedule | OK |
 | `DELETE` | `/schedules/fixed/{schedule_id}` | Required | Delete fixed schedule | OK |
-
-Notes:
-
-- `recurrence_rule` supports `daily`, `weekly`, `biweekly`, and `monthly`.
-- `weekly` and `biweekly` require `day_of_week` (`0=Sunday`, ..., `6=Saturday`).
 
 ### Flexible Tasks
 
@@ -122,7 +109,7 @@ Deletion behavior:
 | `GET` | `/goals/{goal_id}` | Required | Get goal detail with plans/items | OK |
 | `PATCH` | `/goals/{goal_id}` | Required | Update goal fields | OK |
 | `DELETE` | `/goals/{goal_id}` | Required | Delete goal with generated plans and plan items | OK |
-| `POST` | `/goals/intake` | Public | Parse freeform goal and return questions | OK, but can call LLM |
+| `POST` | `/goals/intake` | Required | Parse freeform goal and return questions | Protected to avoid unauthenticated LLM use |
 | `POST` | `/goals/complete` | Required | Save parsed goal and generate plan | OK |
 
 Recommended capstone stance:
@@ -154,7 +141,6 @@ Current request shape:
 
 Notes:
 
-- `user_id` is still present in the schema but should be ignored in favor of the auth token.
 - Planner inputs are normalized to the same Asia/Seoul local time policy as calendar and schedule APIs.
 - By default, allocation preserves fixed schedules and rebuilds existing auto-allocated flexible tasks / AI plan item slots inside the requested range.
 - Default allocation hours are `09:00` to `22:00`.
@@ -196,9 +182,9 @@ Expected event sources:
 
 ### Nice to Fix Before Demo
 
-1. Make `/goals/intake` authenticated if API key cost is a concern.
-2. Hide or de-emphasize public `/users` list in the presentation.
-3. Replace broken Korean error messages with clean Korean or English.
+1. Replace broken Korean error messages with clean Korean or English.
+2. Add admin-only user management only if the product actually needs it.
+3. Add rate limiting for login, Google auth, and AI planning calls.
 4. Make calendar errors visible in development logs.
 
 ### Can Defer

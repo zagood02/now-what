@@ -1,10 +1,11 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session
 
 from backend.api.deps import get_current_user, require_owned_resource
+from backend.core.config import settings
 from backend.core.timezone import normalize_optional_to_kst_naive, normalize_to_kst_naive
 from backend.db.session import get_db_session
 from backend.models.fixed_schedule import FixedSchedule
@@ -39,6 +40,18 @@ def _validate_recurrence_rule(recurrence_rule: str | None, day_of_week: int | No
     return normalized
 
 
+def _validate_query_range(start: datetime | None, end: datetime | None) -> None:
+    if not start or not end:
+        return
+    if end <= start:
+        raise HTTPException(status_code=400, detail="end must be after start.")
+    if end - start > timedelta(days=settings.max_calendar_range_days):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Schedule range cannot exceed {settings.max_calendar_range_days} days.",
+        )
+
+
 @router.post("", response_model=FixedScheduleRead, status_code=status.HTTP_201_CREATED)
 def create_fixed_schedule(
     payload: FixedScheduleCreate,
@@ -51,7 +64,7 @@ def create_fixed_schedule(
     recurrence_rule = _validate_recurrence_rule(payload.recurrence_rule, payload.day_of_week)
 
     schedule = FixedSchedule(
-        **payload.model_dump(exclude={"user_id", "recurrence_rule", "start_at", "end_at"}),
+        **payload.model_dump(exclude={"recurrence_rule", "start_at", "end_at"}),
         user_id=current_user.id,
         start_at=start_at,
         end_at=end_at,
@@ -73,15 +86,17 @@ def list_fixed_schedules(
     user_id = current_user.id
     start = normalize_optional_to_kst_naive(start)
     end = normalize_optional_to_kst_naive(end)
+    _validate_query_range(start, end)
+
     conditions = [FixedSchedule.user_id == user_id]
     if start or end:
         non_recurring_conditions = [FixedSchedule.recurrence_rule.is_(None)]
         recurring_conditions = [FixedSchedule.recurrence_rule.is_not(None)]
         if start:
-            non_recurring_conditions.append(FixedSchedule.end_at >= start)
+            non_recurring_conditions.append(FixedSchedule.end_at > start)
         if end:
-            non_recurring_conditions.append(FixedSchedule.start_at <= end)
-            recurring_conditions.append(FixedSchedule.start_at <= end)
+            non_recurring_conditions.append(FixedSchedule.start_at < end)
+            recurring_conditions.append(FixedSchedule.start_at < end)
         conditions.append(
             or_(
                 and_(*non_recurring_conditions),

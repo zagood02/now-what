@@ -7,14 +7,13 @@ from backend.schemas.base import ORMModel
 
 
 class FlexibleTaskCreate(BaseModel):
-    user_id: int | None = None
     title: str = Field(min_length=1, max_length=200)
     description: str | None = None
     estimated_minutes: int = Field(gt=0)
     min_session_minutes: int = Field(default=30, gt=0)
     preferred_session_minutes: int = Field(default=60, gt=0)
     max_minutes_per_day: int = Field(default=180, gt=0)
-    priority: int = Field(default=2, ge=1, le=3)
+    priority: int = Field(default=2, ge=1, le=10)
     due_at: datetime | None = None
     details_json: dict = Field(default_factory=dict)
 
@@ -26,7 +25,7 @@ class FlexibleTaskUpdate(BaseModel):
     min_session_minutes: int | None = Field(default=None, gt=0)
     preferred_session_minutes: int | None = Field(default=None, gt=0)
     max_minutes_per_day: int | None = Field(default=None, gt=0)
-    priority: int | None = Field(default=None, ge=1, le=3)
+    priority: int | None = Field(default=None, ge=1, le=10)
     due_at: datetime | None = None
     status: FlexibleTaskStatus | None = None
     details_json: dict | None = None

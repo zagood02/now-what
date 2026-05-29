@@ -11,6 +11,7 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
+from backend.core.auth import hash_password
 from backend.db.init_db import create_db_and_tables
 from backend.db.session import SessionLocal
 from backend.models.ai_plan import AIPlan, AIPlanItem
@@ -26,6 +27,7 @@ from backend.services.planning import PlanningService
 
 SAMPLE_EMAIL = "frontend-sample@example.com"
 SAMPLE_NAME = "Frontend Sample User"
+SAMPLE_PASSWORD = "sample-password"
 SAMPLE_TIMEZONE = "Asia/Seoul"
 
 
@@ -174,7 +176,12 @@ def main() -> None:
             session.delete(existing_user)
             session.commit()
 
-        user = User(email=SAMPLE_EMAIL, name=SAMPLE_NAME, timezone=SAMPLE_TIMEZONE)
+        user = User(
+            email=SAMPLE_EMAIL,
+            name=SAMPLE_NAME,
+            hashed_password=hash_password(SAMPLE_PASSWORD),
+            timezone=SAMPLE_TIMEZONE,
+        )
         session.add(user)
         session.flush()
 
@@ -214,16 +221,18 @@ def main() -> None:
         print("Seeded frontend sample data successfully.")
         print(f"user_id={user.id}")
         print(f"sample_email={SAMPLE_EMAIL}")
+        print(f"sample_password={SAMPLE_PASSWORD}")
         print(f"goal_id={goal.id}")
         print("")
         print("Suggested API checks:")
+        print("POST /api/v1/users/login")
         print(f"GET /api/v1/users/{user.id}")
-        print(f"GET /api/v1/schedules/fixed?user_id={user.id}")
-        print(f"GET /api/v1/tasks/flexible?user_id={user.id}")
-        print(f"GET /api/v1/goals?user_id={user.id}")
+        print("GET /api/v1/schedules/fixed")
+        print("GET /api/v1/tasks/flexible")
+        print("GET /api/v1/goals")
         print(
             "GET /api/v1/calendar?"
-            f"user_id={user.id}&start={range_start.isoformat()}&end={range_end.isoformat()}"
+            f"start={range_start.isoformat()}&end={range_end.isoformat()}"
         )
 
 

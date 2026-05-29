@@ -1,15 +1,12 @@
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-import bcrypt
-from jose import JWTError, jwt
+from jose import jwt
 from passlib.context import CryptContext
 
 from backend.core.config import settings
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-ALGORITHM = "HS256"
 
 
 def create_access_token(subject: str | Any, expires_delta: timedelta | None = None) -> str:
@@ -20,7 +17,11 @@ def create_access_token(subject: str | Any, expires_delta: timedelta | None = No
             minutes=settings.access_token_expire_minutes
         )
     to_encode = {"exp": expire, "sub": str(subject)}
-    encoded_jwt = jwt.encode(to_encode, settings.secret_key, algorithm=ALGORITHM)
+    encoded_jwt = jwt.encode(
+        to_encode,
+        settings.jwt_signing_key,
+        algorithm=settings.jwt_algorithm,
+    )
     return encoded_jwt
 
 

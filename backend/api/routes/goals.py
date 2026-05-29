@@ -1,25 +1,39 @@
+from datetime import datetime, timedelta
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
 from backend.api.deps import get_current_user, require_owned_resource
+from backend.core.config import settings
+from backend.core.timezone import normalize_to_kst_naive
 from backend.db.session import get_db_session
 from backend.models.ai_plan import AIPlan, AIPlanItem
 from backend.models.enums import GoalStatus, PlanStatus
 from backend.models.goal import Goal
 from backend.models.user import User
 from backend.schemas.base import Message
-from backend.schemas.goals import AIPlanRead, GoalCreate, GoalDetailRead, GoalRead, GoalUpdate
+from backend.schemas.goals import AIPlanItemRead, AIPlanRead, GoalCreate, GoalDetailRead, GoalRead, GoalUpdate
+from backend.schemas.schedules import AllocatedTaskRead
 from backend.schemas.planning import (
+    AllocateRequest,
+    AllocateResponse,
     GoalCompleteRequest,
     GoalCompleteResponse,
     GoalIntakeRequest,
     GoalIntakeResponse,
 )
-from backend.services.planning import PlanningService
+from backend.services.allocation import AllocationConflictError, AllocationService
+from backend.services.planning import InvalidGoalInputError, PlanningService
 
 router = APIRouter(tags=["goals"])
 planning_service = PlanningService()
+allocation_service = AllocationService()
+
+
+def _parse_default_time(raw_value: str):
+    return datetime.strptime(raw_value, "%H:%M").time()
 
 
 @router.get("/goals", response_model=list[GoalRead])
@@ -100,9 +114,93 @@ def delete_goal(
     return Message(detail="Goal deleted.")
 
 
+@router.post("/goals/{goal_id}/clear-schedule", response_model=Message)
+def clear_goal_schedule(
+    goal_id: int,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_db_session),
+) -> Message:
+    goal = require_owned_resource(session, Goal, goal_id, current_user.id, detail="Goal not found.")
+    cleared_count = allocation_service.clear_goal_plan_item_schedules(
+        session,
+        user_id=current_user.id,
+        goal_id=goal.id,
+    )
+    session.commit()
+    return Message(detail=f"Cleared {cleared_count} scheduled plan item(s) for this goal.")
+
+
+@router.post("/goals/{goal_id}/allocate", response_model=AllocateResponse)
+def allocate_goal_schedule(
+    goal_id: int,
+    payload: AllocateRequest,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_db_session),
+) -> AllocateResponse:
+    goal = require_owned_resource(session, Goal, goal_id, current_user.id, detail="Goal not found.")
+    range_start = normalize_to_kst_naive(payload.range_start)
+    range_end = normalize_to_kst_naive(payload.range_end)
+    if range_end <= range_start:
+        raise HTTPException(status_code=400, detail="range_end must be after range_start.")
+    if range_end - range_start > timedelta(days=settings.max_allocation_range_days):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Allocation range cannot exceed {settings.max_allocation_range_days} days.",
+        )
+
+    day_start = payload.day_start or _parse_default_time(settings.default_day_start)
+    day_end = payload.day_end or _parse_default_time(settings.default_day_end)
+    if day_end <= day_start:
+        raise HTTPException(status_code=400, detail="day_end must be after day_start.")
+    buffer_minutes = (
+        settings.default_buffer_minutes if payload.buffer_minutes is None else payload.buffer_minutes
+    )
+    max_auto_minutes_per_day = (
+        settings.default_max_auto_minutes_per_day
+        if payload.max_auto_minutes_per_day is None
+        else payload.max_auto_minutes_per_day
+    )
+
+    try:
+        with allocation_service.allocation_transaction(session, user_id=current_user.id):
+            try:
+                result = allocation_service.allocate(
+                    session,
+                    user_id=current_user.id,
+                    range_start=range_start,
+                    range_end=range_end,
+                    day_start=day_start,
+                    day_end=day_end,
+                    buffer_minutes=buffer_minutes,
+                    max_auto_minutes_per_day=max_auto_minutes_per_day,
+                    clear_existing=payload.clear_existing,
+                    goal_id=goal.id,
+                    include_flexible_tasks=False,
+                )
+                session.commit()
+            except (AllocationConflictError, IntegrityError):
+                session.rollback()
+                raise
+    except AllocationConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except IntegrityError as exc:
+        raise HTTPException(status_code=409, detail="Schedule changed during allocation. Please retry.") from exc
+
+    return AllocateResponse(
+        allocated_tasks=[AllocatedTaskRead.model_validate(item) for item in result.allocated_tasks],
+        scheduled_plan_items=[AIPlanItemRead.model_validate(item) for item in result.scheduled_plan_items],
+        unscheduled_task_ids=result.unscheduled_task_ids,
+        unscheduled_plan_item_ids=result.unscheduled_plan_item_ids,
+        message="Goal allocation completed with automatic rescheduling.",
+    )
+
+
 @router.post("/goals/intake", response_model=GoalIntakeResponse)
-def intake_goal(payload: GoalIntakeRequest) -> GoalIntakeResponse:
-    return planning_service.parse_goal_input(payload)
+def intake_goal(
+    payload: GoalIntakeRequest,
+    current_user: User = Depends(get_current_user),
+) -> GoalIntakeResponse:
+    return _parse_goal_input_or_400(payload)
 
 
 @router.post("/goals/complete", response_model=GoalCompleteResponse, status_code=status.HTTP_201_CREATED)
@@ -111,14 +209,25 @@ def complete_goal(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_db_session),
 ) -> GoalCompleteResponse:
-    parsed = planning_service.parse_goal_input(GoalIntakeRequest(text=payload.text, category=payload.category))
-    goal = _create_goal_from_parsed(session, payload, parsed, user_id=current_user.id)
-    plan, llm_mode = _generate_plan_for_goal(
-        session,
-        goal=goal,
-        answers_json=payload.answers_json,
-        replace_existing=payload.replace_existing,
-    )
+    parsed = _parse_goal_input_or_400(GoalIntakeRequest(text=payload.text, category=payload.category))
+    try:
+        goal = _create_goal_from_parsed(session, payload, parsed, user_id=current_user.id)
+        plan, llm_mode = _generate_plan_for_goal(
+            session,
+            goal=goal,
+            answers_json=payload.answers_json,
+            replace_existing=payload.replace_existing,
+        )
+        session.commit()
+        session.refresh(goal)
+        session.refresh(plan)
+    except HTTPException:
+        session.rollback()
+        raise
+    except Exception as exc:
+        session.rollback()
+        raise HTTPException(status_code=500, detail="Goal plan generation failed.") from exc
+
     return GoalCompleteResponse(
         goal=GoalRead.model_validate(goal),
         plan=AIPlanRead.model_validate(plan),
@@ -126,6 +235,13 @@ def complete_goal(
         questions=parsed.questions,
         llm_mode=llm_mode,
     )
+
+
+def _parse_goal_input_or_400(payload: GoalIntakeRequest) -> GoalIntakeResponse:
+    try:
+        return planning_service.parse_goal_input(payload)
+    except InvalidGoalInputError as exc:
+        raise HTTPException(status_code=400, detail=exc.detail) from exc
 
 
 def _create_goal_from_parsed(
@@ -148,8 +264,7 @@ def _create_goal_from_parsed(
         answers_json=merged_answers,
     )
     session.add(goal)
-    session.commit()
-    session.refresh(goal)
+    session.flush()
     return goal
 
 
@@ -166,10 +281,15 @@ def _generate_plan_for_goal(
         goal.status = GoalStatus.active
 
     if replace_existing:
-        existing_plans = session.scalars(select(AIPlan).where(AIPlan.goal_id == goal.id)).all()
+        existing_plans = session.scalars(
+            select(AIPlan).where(
+                AIPlan.user_id == goal.user_id,
+                AIPlan.status == PlanStatus.active,
+                AIPlan.goal_id == goal.id,
+            )
+        ).all()
         for plan in existing_plans:
-            if plan.status == PlanStatus.active:
-                plan.status = PlanStatus.archived
+            plan.status = PlanStatus.archived
 
     draft = planning_service.build_plan(goal, merged_answers)
     plan = AIPlan(
@@ -203,9 +323,7 @@ def _generate_plan_for_goal(
         session.add(plan_item)
         plan_items.append(plan_item)
 
-    session.commit()
-    session.refresh(goal)
-    session.refresh(plan)
+    session.flush()
     plan.items = plan_items
     return plan, draft.llm_mode
 

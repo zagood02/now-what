@@ -18,6 +18,9 @@ async def lifespan(_: FastAPI):
             create_db_and_tables()
             seed_demo_user()
         except Exception as exc:  # pragma: no cover - startup fallback
+            if settings.environment.lower() in {"prod", "production"}:
+                logger.exception("Database startup initialization failed.")
+                raise
             logger.warning("Database startup initialization skipped: %s", exc)
     yield
 

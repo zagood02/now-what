@@ -1,10 +1,11 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from backend.api.deps import get_current_user
+from backend.core.config import settings
 from backend.core.timezone import normalize_to_kst_naive
 from backend.db.session import get_db_session
 from backend.models.user import User
@@ -28,16 +29,13 @@ def get_calendar(
     end = normalize_to_kst_naive(end)
     if end <= start:
         raise HTTPException(status_code=400, detail="end must be after start.")
+    if end - start > timedelta(days=settings.max_calendar_range_days):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Calendar range cannot exceed {settings.max_calendar_range_days} days.",
+        )
     try:
         return calendar_service.build(session, user_id=user_id, start=start, end=end)
     except Exception as exc:
-        logger.warning("Calendar build failed for user %s: %s", user_id, exc)
-        # Return empty calendar on error to prevent frontend crashes
-        from backend.schemas.calendar import CalendarResponse
-        return CalendarResponse(
-            user_id=user_id,
-            start=start,
-            end=end,
-            events=[],
-            totals={"fixed_schedule": 0, "allocated_task": 0, "ai_plan_item": 0}
-        )
+        logger.exception("Calendar build failed for user %s.", user_id)
+        raise HTTPException(status_code=500, detail="Calendar generation failed.") from exc

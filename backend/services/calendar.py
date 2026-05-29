@@ -4,9 +4,12 @@ from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session
 
 from backend.core.timezone import normalize_to_kst_naive
-from backend.models.ai_plan import AIPlanItem
+from backend.models.ai_plan import AIPlan, AIPlanItem
 from backend.models.allocated_task import AllocatedTask
+from backend.models.enums import FlexibleTaskStatus, GoalStatus, PlanStatus
 from backend.models.fixed_schedule import FixedSchedule
+from backend.models.flexible_task import FlexibleTask
+from backend.models.goal import Goal
 from backend.schemas.calendar import CalendarEventRead, CalendarResponse
 from backend.services.recurrence import expand_fixed_schedule
 
@@ -28,6 +31,7 @@ class CalendarService:
                     and_(
                         FixedSchedule.recurrence_rule.is_not(None),
                         FixedSchedule.recurrence_rule != "",
+                        FixedSchedule.start_at < end,
                     ),
                 ),
             )
@@ -55,11 +59,15 @@ class CalendarService:
                 )
 
         allocated_tasks = session.scalars(
-            select(AllocatedTask).where(
+            select(AllocatedTask)
+            .join(FlexibleTask, AllocatedTask.flexible_task_id == FlexibleTask.id)
+            .where(
                 AllocatedTask.user_id == user_id,
+                FlexibleTask.status != FlexibleTaskStatus.cancelled,
                 AllocatedTask.scheduled_start < end,
                 AllocatedTask.scheduled_end > start,
-            ).order_by(AllocatedTask.scheduled_start.asc())
+            )
+            .order_by(AllocatedTask.scheduled_start.asc())
         ).all()
         for item in allocated_tasks:
             events.append(
@@ -76,16 +84,31 @@ class CalendarService:
                 )
             )
 
-        plan_items = session.scalars(
-            select(AIPlanItem).where(
+        plan_items = session.execute(
+            select(AIPlanItem, Goal.title.label("goal_title"), AIPlan.id.label("ai_plan_id"))
+            .join(AIPlan, AIPlanItem.ai_plan_id == AIPlan.id)
+            .join(Goal, AIPlanItem.goal_id == Goal.id)
+            .where(
                 AIPlanItem.user_id == user_id,
+                AIPlan.status == PlanStatus.active,
+                Goal.status == GoalStatus.active,
                 AIPlanItem.scheduled_start.is_not(None),
                 AIPlanItem.scheduled_end.is_not(None),
                 AIPlanItem.scheduled_start < end,
                 AIPlanItem.scheduled_end > start,
             ).order_by(AIPlanItem.scheduled_start.asc())
         ).all()
-        for item in plan_items:
+        for item, goal_title, ai_plan_id in plan_items:
+            metadata = dict(item.metadata_json or {})
+            metadata.update(
+                {
+                    "goal_id": item.goal_id,
+                    "goal_title": goal_title,
+                    "ai_plan_id": ai_plan_id,
+                    "item_type": item.item_type,
+                    "priority": item.priority,
+                }
+            )
             events.append(
                 CalendarEventRead(
                     id=f"plan-{item.id}",
@@ -96,11 +119,7 @@ class CalendarService:
                     start_at=normalize_to_kst_naive(item.scheduled_start),
                     end_at=normalize_to_kst_naive(item.scheduled_end),
                     status=item.status.value,
-                    metadata_json={
-                        "goal_id": item.goal_id,
-                        "item_type": item.item_type,
-                        "priority": item.priority,
-                    },
+                    metadata_json=metadata,
                 )
             )
 

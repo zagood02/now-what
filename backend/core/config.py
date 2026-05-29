@@ -1,7 +1,10 @@
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
 class Settings(BaseSettings):
@@ -28,17 +31,27 @@ class Settings(BaseSettings):
     llm_enable_web_search: bool = False
     llm_web_search_domains: list[str] = Field(default_factory=list)
     allowed_origins: list[str] = Field(default_factory=lambda: ["http://localhost:3000", "http://localhost:3001"])
-    jwt_secret_key: str = "your-secret-key-here"
+    jwt_secret_key: str | None = None
     jwt_algorithm: str = "HS256"
-    jwt_expiration_hours: int = 24
-    secret_key: str = "your-secret-key-here-change-this-in-production"
+    secret_key: str | None = None
     access_token_expire_minutes: int = 30
+    max_calendar_range_days: int = 370
+    max_allocation_range_days: int = 120
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=str(PROJECT_ROOT / ".env"),
         env_file_encoding="utf-8",
         extra="ignore",
     )
+
+    @property
+    def jwt_signing_key(self) -> str:
+        configured_key = (self.jwt_secret_key or self.secret_key or "").strip()
+        if configured_key:
+            return configured_key
+        if self.environment.lower() in {"prod", "production"}:
+            raise RuntimeError("JWT_SECRET_KEY must be configured in production.")
+        return "dev-only-insecure-jwt-secret"
 
 
 @lru_cache
