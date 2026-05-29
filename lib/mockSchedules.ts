@@ -194,9 +194,9 @@ export const initialVariableSchedules: VariableSchedule[] = [
     status: "pending",
     level: 7,
     color_key: 3,
-    deadline: "2026-04-30T23:59:00+09:00",
-    scheduled_start: null,
-    scheduled_end: null,
+    deadline: "2099-12-31T23:59:00+09:00",
+    scheduled_start: "2026-04-30T14:00:00+09:00",
+    scheduled_end: "2026-04-30T16:00:00+09:00",
     fail_reason: null,
     fail_reason_text: null,
     priority: 1,
@@ -230,6 +230,47 @@ export function formatDeadline(value: string) {
   return `${date.getMonth() + 1}/${date.getDate()} ${String(date.getHours()).padStart(2, "0")}:${String(
     date.getMinutes()
   ).padStart(2, "0")}`;
+}
+
+export function formatDateTime(value: string | null) {
+  if (!value) return "-";
+  const date = parseKstDateString(value);
+  if (Number.isNaN(date.getTime())) return "-";
+
+  return `${date.getMonth() + 1}/${date.getDate()} ${String(date.getHours()).padStart(2, "0")}:${String(
+    date.getMinutes()
+  ).padStart(2, "0")}`;
+}
+
+export function formatVariableDateTimeRange(startValue: string | null, endValue: string | null) {
+  if (!startValue || !endValue) return "-";
+
+  const start = parseKstDateString(startValue);
+  const end = parseKstDateString(endValue);
+
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return "-";
+
+  const sameDate =
+    start.getFullYear() === end.getFullYear() &&
+    start.getMonth() === end.getMonth() &&
+    start.getDate() === end.getDate();
+
+  const startDateText = `${start.getMonth() + 1}/${start.getDate()}`;
+  const startTimeText = `${String(start.getHours()).padStart(2, "0")}:${String(start.getMinutes()).padStart(2, "0")}`;
+  const endTimeText = `${String(end.getHours()).padStart(2, "0")}:${String(end.getMinutes()).padStart(2, "0")}`;
+
+  if (sameDate) return `${startDateText} ${startTimeText}~${endTimeText}`;
+
+  const endDateText = `${end.getMonth() + 1}/${end.getDate()}`;
+  return `${startDateText} ${startTimeText} ~ ${endDateText} ${endTimeText}`;
+}
+
+export function getMinutesBetween(startValue: string, endValue: string) {
+  const start = parseKstDateString(startValue);
+  const end = parseKstDateString(endValue);
+
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return 0;
+  return Math.max(0, Math.round((end.getTime() - start.getTime()) / 60000));
 }
 
 export function getDeadlineDiffText(value: string) {
@@ -274,7 +315,6 @@ export function getEffectiveVariableStatus(schedule: VariableSchedule): Variable
   if (schedule.status === "done") return "done";
   if (schedule.status === "failed") return "failed";
   if (schedule.is_done) return "done";
-  if (isDeadlinePassed(schedule.deadline)) return "failed";
   return "pending";
 }
 
@@ -488,6 +528,9 @@ function normalizeLegacyVariableData(parsed: unknown): VariableSchedule[] {
           ? "done"
           : "pending";
 
+    const scheduledStart = item.scheduled_start ?? null;
+    const scheduledEnd = item.scheduled_end ?? null;
+
     return {
       id: item.id ?? `variable-${index}`,
       user_id: item.user_id ?? "test_user",
@@ -497,9 +540,9 @@ function normalizeLegacyVariableData(parsed: unknown): VariableSchedule[] {
       status,
       level: typeof item.level === "number" ? item.level : 5,
       color_key: typeof item.color_key === "number" ? item.color_key : index % colorOptions.length,
-      deadline: item.deadline ?? new Date().toISOString(),
-      scheduled_start: item.scheduled_start ?? null,
-      scheduled_end: item.scheduled_end ?? null,
+      deadline: item.deadline ?? "2099-12-31T23:59:00+09:00",
+      scheduled_start: scheduledStart,
+      scheduled_end: scheduledEnd,
       fail_reason: item.fail_reason ?? null,
       fail_reason_text: item.fail_reason_text ?? null,
       priority: item.priority ?? null,
@@ -509,38 +552,110 @@ function normalizeLegacyVariableData(parsed: unknown): VariableSchedule[] {
   });
 }
 
-export function getFixedScheduleSeries() {
-  if (typeof window === "undefined") return initialFixedScheduleSeries;
+function getActiveStorageScope() {
+  if (typeof window === "undefined") return "server";
 
   try {
-    const raw = localStorage.getItem(STORAGE_KEYS.fixedSeries);
-    if (!raw) return initialFixedScheduleSeries;
-    return normalizeLegacyFixedData(JSON.parse(raw));
+    const rawUser = localStorage.getItem("third_stage_current_user");
+    if (rawUser) {
+      const user = JSON.parse(rawUser) as { id?: string };
+      if (user.id) return `user_${user.id}`;
+    }
   } catch {
-    return initialFixedScheduleSeries;
+    return "guest";
+  }
+
+  if (sessionStorage.getItem("third_stage_guest_session")) {
+    return "guest";
+  }
+
+  return "locked";
+}
+
+function scopedStorageKey(baseKey: string) {
+  return `${baseKey}_${getActiveStorageScope()}`;
+}
+
+function dedupeById<T extends { id: string }>(items: T[]) {
+  const map = new Map<string, T>();
+
+  items.forEach((item) => {
+    map.set(item.id, item);
+  });
+
+  return Array.from(map.values());
+}
+
+export function getFixedScheduleSeries() {
+  if (typeof window === "undefined") return [];
+
+  const scope = getActiveStorageScope();
+  if (scope === "locked") return [];
+
+  try {
+    const raw =
+      scope === "guest"
+        ? sessionStorage.getItem(scopedStorageKey(STORAGE_KEYS.fixedSeries))
+        : localStorage.getItem(scopedStorageKey(STORAGE_KEYS.fixedSeries));
+
+    if (!raw) return [];
+    return dedupeById(normalizeLegacyFixedData(JSON.parse(raw)));
+  } catch {
+    return [];
   }
 }
 
 export function saveFixedScheduleSeries(seriesList: FixedScheduleSeries[]) {
   if (typeof window === "undefined") return;
-  localStorage.setItem(STORAGE_KEYS.fixedSeries, JSON.stringify(seriesList));
+
+  const scope = getActiveStorageScope();
+  if (scope === "locked") return;
+
+  const next = dedupeById(seriesList);
+
+  if (scope === "guest") {
+    sessionStorage.setItem(scopedStorageKey(STORAGE_KEYS.fixedSeries), JSON.stringify(next));
+    return;
+  }
+
+  localStorage.setItem(scopedStorageKey(STORAGE_KEYS.fixedSeries), JSON.stringify(next));
 }
 
 export function getVariableSchedules() {
-  if (typeof window === "undefined") return initialVariableSchedules;
+  if (typeof window === "undefined") return [];
+
+  const scope = getActiveStorageScope();
+  if (scope === "locked") return [];
 
   try {
-    const raw = localStorage.getItem(STORAGE_KEYS.variableSchedules);
-    if (!raw) return initialVariableSchedules;
-    return normalizeLegacyVariableData(JSON.parse(raw));
+    const raw =
+      scope === "guest"
+        ? sessionStorage.getItem(scopedStorageKey(STORAGE_KEYS.variableSchedules))
+        : localStorage.getItem(scopedStorageKey(STORAGE_KEYS.variableSchedules));
+
+    if (!raw) return [];
+    return dedupeById(normalizeLegacyVariableData(JSON.parse(raw)));
   } catch {
-    return initialVariableSchedules;
+    return [];
   }
 }
 
 export function saveVariableSchedules(schedules: VariableSchedule[]) {
   if (typeof window === "undefined") return;
-  localStorage.setItem(STORAGE_KEYS.variableSchedules, JSON.stringify(schedules));
+
+  const scope = getActiveStorageScope();
+  if (scope === "locked") return;
+
+  const next = dedupeById(schedules);
+
+  if (scope === "guest") {
+    sessionStorage.setItem(scopedStorageKey(STORAGE_KEYS.variableSchedules), JSON.stringify(next));
+    window.dispatchEvent(new Event("variable-state-changed"));
+    return;
+  }
+
+  localStorage.setItem(scopedStorageKey(STORAGE_KEYS.variableSchedules), JSON.stringify(next));
+  window.dispatchEvent(new Event("variable-state-changed"));
 }
 
 export function getScheduleOccurrencesForDate(date: Date, seriesList: FixedScheduleSeries[]) {
