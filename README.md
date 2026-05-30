@@ -1,6 +1,6 @@
 # Now What
 
-AI 기반 일정 관리와 목표 계획 생성을 실험하는 백엔드 API 프로젝트입니다. 백엔드는 FastAPI, 데이터베이스는 PostgreSQL, 마이그레이션은 Alembic을 사용합니다.
+AI 기반 일정 관리와 목표 계획 생성을 실험하는 풀스택 프로젝트입니다. 백엔드는 FastAPI, 프론트엔드는 Next.js, 데이터베이스는 PostgreSQL, 마이그레이션은 Alembic을 사용합니다.
 
 ## 프로젝트 구성
 
@@ -46,7 +46,7 @@ git pull origin be-logic
 cd <프로젝트-폴더>
 ```
 
-이 폴더에는 `requirements.txt`, `docker-compose.yml`, `backend/`, `alembic/`이 있어야 합니다.
+이 폴더에는 `requirements.txt`, `docker-compose.yml`, `package.json`, `app/`, `backend/`, `alembic/`이 있어야 합니다.
 
 ### 3. 환경 변수 파일 만들기
 
@@ -136,6 +136,21 @@ docker compose up -d
 - API 문서: http://127.0.0.1:8000/docs
 - 헬스 체크: http://127.0.0.1:8000/api/v1/health
 - DB 헬스 체크: http://127.0.0.1:8000/api/v1/health/db
+
+## 프론트엔드 실행
+
+프론트엔드 코드는 프로젝트 루트의 `app/`, `next.config.ts`, `package.json`을 사용하며, 기본적으로 `npm` 명령으로 실행합니다.
+
+```powershell
+npm install
+npm run dev
+```
+
+실행 후 브라우저에서 다음 주소를 엽니다.
+
+- http://127.0.0.1:3000
+
+> 백엔드 API가 필요하면 먼저 `.\.venv\Scripts\uvicorn.exe backend.main:app --reload`로 서버를 실행하세요.
 
 ## User Flow Demo 사용법
 
