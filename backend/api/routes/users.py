@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from backend.api.deps import get_current_user
-from backend.core.auth import create_access_token, hash_password, verify_password
+from backend.core.auth import create_access_token, create_refresh_token, hash_password, verify_password
+from backend.core.config import settings
 from backend.db.session import get_db_session
 from backend.models.user import User
 from backend.schemas.users import LoginResponse, UserCreate, UserLogin, UserRead
@@ -17,12 +18,18 @@ def register_user(payload: UserCreate, session: Session = Depends(get_db_session
 
 
 @router.post("/login", response_model=LoginResponse)
-def login_user(payload: UserLogin, session: Session = Depends(get_db_session)) -> LoginResponse:
+def login_user(payload: UserLogin, response: Response, session: Session = Depends(get_db_session)) -> LoginResponse:
     user = session.scalar(select(User).where(User.email == payload.email))
     if not user or not verify_password(payload.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid email or password.")
 
     access_token = create_access_token(user.id)
+    # set refresh cookie for automatic refresh flow
+    refresh = create_refresh_token(user.id)
+    secure = settings.environment.lower() in ("prod", "production")
+    max_age = settings.refresh_token_expire_days * 24 * 60 * 60
+    response.set_cookie("refresh_token", refresh, httponly=True, secure=secure, samesite="lax", max_age=max_age)
+
     return LoginResponse(access_token=access_token, token_type="bearer", user=user)
 
 

@@ -44,34 +44,60 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   useEffect(() => {
     const savedToken = getStoredAccessToken();
-    if (!savedToken) {
-      window.localStorage.removeItem(USER_STORAGE_KEY);
-      setIsLoading(false);
-      return;
-    }
 
-    const savedUser = window.localStorage.getItem(USER_STORAGE_KEY);
-    if (savedUser) {
+    const finalize = () => {
+      setIsLoading(false);
+    };
+
+    const clearInvalidAuth = () => {
+      logout();
+      finalize();
+    };
+
+    const tryRefresh = async () => {
       try {
-        setUser(JSON.parse(savedUser) as User);
+        const resp = await authAPI.refresh();
+        const access = resp.data.access_token;
+        setApiAccessToken(access);
+        const me = await authAPI.me();
+        setUser(me.data);
+        window.localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(me.data));
       } catch {
+        setUser(null);
         window.localStorage.removeItem(USER_STORAGE_KEY);
+      } finally {
+        finalize();
       }
-    }
+    };
 
     const loadCurrentUser = async () => {
+      setApiAccessToken(savedToken);
+
       try {
         const response = await authAPI.me();
         setUser(response.data);
         window.localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(response.data));
       } catch {
-        logout();
-      } finally {
-        setIsLoading(false);
+        try {
+          await tryRefresh();
+          return;
+        } catch {
+          // noop; clearInvalidAuth will run below
+        }
+        clearInvalidAuth();
+        return;
       }
+
+      finalize();
     };
 
-    loadCurrentUser();
+    if (!savedToken) {
+      window.localStorage.removeItem(USER_STORAGE_KEY);
+      void tryRefresh();
+      return;
+    }
+
+    void loadCurrentUser();
   }, []);
 
   return (

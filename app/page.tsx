@@ -1,60 +1,74 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import {
-  formatDeadline,
-  getDeadlineDiffText,
-  getEffectiveVariableStatus,
-  getFailReasonLabel,
-  getFixedScheduleSeries,
-  getLevelLabel,
-  getScheduleColorsByKey,
-  getScheduleOccurrencesForDate,
-  getStatusLabel,
-  getVariableSchedules,
-  type FixedScheduleSeries,
-  type VariableSchedule,
-} from "@/lib/mockSchedules";
+import { useAuth } from "@/app/contexts/AuthContext";
+import { calendarAPI, handleApiError, type CalendarEvent } from "@/lib/api";
 
 export default function DashboardPage() {
-  const [fixedSeriesList, setFixedSeriesList] = useState<FixedScheduleSeries[]>([]);
-  const [variableList, setVariableList] = useState<VariableSchedule[]>([]);
+  const { user, isLoading } = useAuth();
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [isLoadingEvents, setIsLoadingEvents] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    const syncData = () => {
-      setFixedSeriesList(getFixedScheduleSeries());
-      setVariableList(getVariableSchedules());
+    if (!user) {
+      setEvents([]);
+      setError("");
+      return;
+    }
+
+    const loadCalendar = async () => {
+      setIsLoadingEvents(true);
+      setError("");
+
+      const start = new Date();
+      const end = new Date(start);
+      end.setDate(end.getDate() + 7);
+
+      try {
+        const response = await calendarAPI.get({
+          start: start.toISOString(),
+          end: end.toISOString(),
+        });
+        setEvents(response.data.events);
+      } catch (error) {
+        setError(handleApiError(error));
+      } finally {
+        setIsLoadingEvents(false);
+      }
     };
 
-    syncData();
+    loadCalendar();
+  }, [user]);
 
-    window.addEventListener("storage", syncData);
-    window.addEventListener("focus", syncData);
+  const summary = useMemo(() => {
+    const countBySource = events.reduce<Record<string, number>>((acc, event) => {
+      acc[event.source_type] = (acc[event.source_type] ?? 0) + 1;
+      return acc;
+    }, {});
 
-    return () => {
-      window.removeEventListener("storage", syncData);
-      window.removeEventListener("focus", syncData);
+    return {
+      total: events.length,
+      countBySource,
     };
-  }, []);
+  }, [events]);
 
-  const todaySchedules = useMemo(() => {
-    const today = new Date();
-    return getScheduleOccurrencesForDate(today, fixedSeriesList);
-  }, [fixedSeriesList]);
+  if (isLoading) {
+    return <div>로딩 중...</div>;
+  }
 
-  const pendingTasks = useMemo(() => {
-    return [...variableList]
-      .filter((task) => getEffectiveVariableStatus(task) === "pending")
-      .sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime())
-      .slice(0, 5);
-  }, [variableList]);
-
-  const failedTasks = useMemo(() => {
-    return [...variableList]
-      .filter((task) => getEffectiveVariableStatus(task) === "failed")
-      .sort((a, b) => new Date(b.updated_at ?? b.deadline).getTime() - new Date(a.updated_at ?? a.deadline).getTime())
-      .slice(0, 3);
-  }, [variableList]);
+  if (!user) {
+    return (
+      <div>
+        <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--app-text)" }}>
+          대시보드
+        </h1>
+        <p style={{ color: "var(--app-text-muted)" }}>
+          로그인 후 실시간 캘린더 데이터를 확인할 수 있습니다.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -63,187 +77,78 @@ export default function DashboardPage() {
       </h1>
 
       <p className="mb-6" style={{ color: "var(--app-text-muted)" }}>
-        오늘 일정과 처리해야 할 변동 일정을 한눈에 확인하세요.
+        다음 7일간의 캘린더 이벤트를 백엔드에서 불러옵니다.
       </p>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <section
-          className="rounded-2xl border p-5 shadow-sm"
-          style={{
-            background: "var(--app-surface)",
-            borderColor: "var(--app-border)",
-          }}
-        >
-          <h2 className="text-xl font-bold mb-4" style={{ color: "var(--app-text)" }}>
-            오늘의 일정
-          </h2>
-
-          {todaySchedules.length === 0 ? (
-            <Empty>오늘 일정이 없습니다.</Empty>
-          ) : (
-            <div className="space-y-3">
-              {todaySchedules.map((item) => {
-                const colors = getScheduleColorsByKey(item.color_key);
-
-                return (
-                  <div
-                    key={item.id}
-                    className="rounded-xl border p-3"
-                    style={{
-                      background: colors.bg,
-                      color: colors.text,
-                      borderColor: colors.border,
-                    }}
-                  >
-                    <div className="font-bold">{item.title}</div>
-
-                    <div className="text-sm mt-1">
-                      {item.start_time.slice(0, 5)} ~ {item.end_time.slice(0, 5)}
-                    </div>
-
-                    <div className="text-sm mt-1">
-                      피로도 {item.level} · {getLevelLabel(item.level)}
-                    </div>
-                  </div>
-                );
-              })}
+      <section className="rounded-2xl border p-5 shadow-sm mb-6" style={{ background: "var(--app-surface)", borderColor: "var(--app-border)" }}>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="text-sm text-slate-500" style={{ color: "var(--app-text-muted)" }}>
+              이벤트 개수
             </div>
-          )}
-        </section>
-
-        <section
-          className="rounded-2xl border p-5 shadow-sm"
-          style={{
-            background: "var(--app-surface)",
-            borderColor: "var(--app-border)",
-          }}
-        >
-          <h2 className="text-xl font-bold mb-4" style={{ color: "var(--app-text)" }}>
-            해야 할 변동 일정
-          </h2>
-
-          {pendingTasks.length === 0 ? (
-            <Empty>현재 미완료 변동 일정이 없습니다.</Empty>
-          ) : (
-            <div className="space-y-3">
-              {pendingTasks.map((task) => {
-                const colors = getScheduleColorsByKey(task.color_key);
-                const status = getEffectiveVariableStatus(task);
-
-                return (
-                  <div
-                    key={task.id}
-                    className="rounded-xl border p-3"
-                    style={{
-                      background: colors.bg,
-                      color: colors.text,
-                      borderColor: colors.border,
-                    }}
-                  >
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <div className="font-bold">{task.title}</div>
-                      <span
-                        className="text-xs px-2 py-1 rounded-full font-bold"
-                        style={{
-                          background: "var(--app-surface)",
-                          color: colors.text,
-                        }}
-                      >
-                        {getStatusLabel(status)}
-                      </span>
-                    </div>
-
-                    <div className="text-sm mt-1">
-                      마감: {formatDeadline(task.deadline)} ({getDeadlineDiffText(task.deadline)})
-                    </div>
-
-                    <div className="text-sm mt-1">
-                      예상 {task.estimated_time}분 · 피로도 {task.level} ({getLevelLabel(task.level)})
-                    </div>
-                  </div>
-                );
-              })}
+            <div className="text-3xl font-bold" style={{ color: "var(--app-text)" }}>
+              {summary.total}
             </div>
-          )}
-        </section>
-      </div>
-
-      <section
-        className="rounded-2xl border p-5 shadow-sm mt-6"
-        style={{
-          background: "var(--app-surface)",
-          borderColor: "var(--app-border)",
-        }}
-      >
-        <h2 className="text-xl font-bold mb-4" style={{ color: "var(--app-text)" }}>
-          실패 기록
-        </h2>
-
-        {failedTasks.length === 0 ? (
-          <Empty>최근 실패한 일정이 없습니다.</Empty>
-        ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-            {failedTasks.map((task) => {
-              const colors = getScheduleColorsByKey(task.color_key);
-              const failLabel = getFailReasonLabel(task.fail_reason);
-
-              return (
-                <div
-                  key={task.id}
-                  className="rounded-xl border p-3"
-                  style={{
-                    background: colors.bg,
-                    color: colors.text,
-                    borderColor: colors.border,
-                  }}
-                >
-                  <div className="font-bold">{task.title}</div>
-
-                  <div className="text-sm mt-1">
-                    마감: {formatDeadline(task.deadline)}
-                  </div>
-
-                  <div className="text-sm mt-1">
-                    실패 이유: {failLabel ?? "마감 초과"}
-                    {task.fail_reason_text ? ` / ${task.fail_reason_text}` : ""}
-                  </div>
-                </div>
-              );
-            })}
           </div>
-        )}
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {Object.entries(summary.countBySource).map(([source, count]) => (
+              <div key={source} className="rounded-xl border p-4" style={{ background: "var(--app-bg)", borderColor: "var(--app-border)" }}>
+                <div className="text-xs uppercase tracking-wide" style={{ color: "var(--app-text-muted)" }}>
+                  {source}
+                </div>
+                <div className="text-xl font-bold mt-2" style={{ color: "var(--app-text)" }}>
+                  {count}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </section>
 
-      <section
-        className="rounded-2xl border p-5 shadow-sm mt-6"
-        style={{
-          background: "var(--app-surface)",
-          borderColor: "var(--app-border)",
-        }}
-      >
-        <h2 className="text-xl font-bold mb-3" style={{ color: "var(--app-text)" }}>
-          AI 추천
+      <section className="rounded-2xl border p-5 shadow-sm" style={{ background: "var(--app-surface)", borderColor: "var(--app-border)" }}>
+        <h2 className="text-xl font-bold mb-4" style={{ color: "var(--app-text)" }}>
+          캘린더 이벤트
         </h2>
 
-        <p style={{ color: "var(--app-text-muted)" }}>
-          완료·실패 기록과 피로도를 기반으로 한 추천 기능은 추후 추가 예정입니다.
-        </p>
+        {isLoadingEvents ? (
+          <div style={{ color: "var(--app-text-muted)" }}>데이터를 불러오는 중입니다...</div>
+        ) : error ? (
+          <div className="rounded-xl border p-4" style={{ background: "var(--app-bg)", borderColor: "var(--app-border)", color: "var(--app-text)" }}>
+            {error}
+          </div>
+        ) : events.length === 0 ? (
+          <div className="rounded-xl border p-4" style={{ background: "var(--app-bg)", borderColor: "var(--app-border)", color: "var(--app-text-muted)" }}>
+            다음 7일간 등록된 일정이 없습니다.
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {events.map((event) => (
+              <div key={`${event.source_type}-${event.source_id}-${event.id}`} className="rounded-xl border p-4" style={{ background: "var(--app-bg)", borderColor: "var(--app-border)" }}>
+                <div className="font-bold" style={{ color: "var(--app-text)" }}>
+                  {event.title}
+                </div>
+                <div className="text-sm mt-2" style={{ color: "var(--app-text-muted)" }}>
+                  {formatDateTime(event.start_at)} ~ {formatDateTime(event.end_at)}
+                </div>
+                <div className="text-sm mt-1" style={{ color: "var(--app-text-muted)" }}>
+                  {event.source_type} · 상태: {event.status}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
     </div>
   );
 }
 
-function Empty({ children }: { children: React.ReactNode }) {
-  return (
-    <div
-      className="rounded-xl border p-4 text-center"
-      style={{
-        background: "var(--app-bg)",
-        borderColor: "var(--app-border)",
-        color: "var(--app-text-muted)",
-      }}
-    >
-      {children}
-    </div>
-  );
+function formatDateTime(value: string) {
+  return new Date(value).toLocaleString("ko-KR", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }

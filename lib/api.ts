@@ -3,11 +3,10 @@ import axios, { type AxiosInstance } from "axios";
 const normalizeUrl = (url: string) => url.replace(/\/+$/, "");
 
 const rawApiUrl = process.env.NEXT_PUBLIC_API_URL?.trim() || "";
-const defaultApiUrl =
+const API_BASE_URL =
   typeof window !== "undefined"
-    ? `${window.location.protocol}//${window.location.hostname}:8000`
-    : "http://localhost:8000";
-const API_BASE_URL = normalizeUrl(rawApiUrl || defaultApiUrl);
+    ? ""
+    : normalizeUrl(rawApiUrl || "http://localhost:8000");
 const API_V1_PREFIX = "/api/v1";
 const ACCESS_TOKEN_STORAGE_KEY = "now_what_access_token";
 
@@ -16,6 +15,7 @@ export const apiClient: AxiosInstance = axios.create({
   headers: {
     "Content-Type": "application/json",
   },
+  withCredentials: true,
 });
 
 export const getStoredAccessToken = () => {
@@ -46,6 +46,36 @@ apiClient.interceptors.request.use((config) => {
   return config;
 });
 
+apiClient.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+    if (
+      error.response?.status === 401 &&
+      originalRequest &&
+      !originalRequest._retry &&
+      !originalRequest.url?.endsWith("/auth/refresh")
+    ) {
+      originalRequest._retry = true;
+      try {
+        const refreshResponse = await apiClient.post<Token>("/auth/refresh");
+        const accessToken = refreshResponse.data.access_token;
+        setApiAccessToken(accessToken);
+        originalRequest.headers = originalRequest.headers || {};
+        originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+        return apiClient(originalRequest);
+      } catch {
+        setApiAccessToken(null);
+        if (typeof window !== "undefined") {
+          window.localStorage.removeItem(ACCESS_TOKEN_STORAGE_KEY);
+          window.localStorage.removeItem("now_what_user");
+        }
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
 export interface User {
   id: number;
   email: string;
@@ -66,6 +96,11 @@ export interface LoginResponse {
   access_token: string;
   token_type: "bearer";
   user: User;
+}
+
+export interface Token {
+  access_token: string;
+  token_type: "bearer";
 }
 
 export interface FixedSchedule {
@@ -122,6 +157,22 @@ export interface FlexibleTask {
   updated_at: string;
 }
 
+export interface VariableSchedule {
+  id: number;
+  user_id: number;
+  title: string;
+  description: string | null;
+  start_at: string;
+  end_at: string;
+  is_all_day: boolean;
+  color_key: number;
+  fatigue: number;
+  status: string;
+  details_json: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface CreateFlexibleTaskRequest {
   title: string;
   description?: string;
@@ -146,6 +197,29 @@ export interface Goal {
   answers_json: Record<string, unknown>;
   created_at: string;
   updated_at: string;
+}
+
+export interface GoalQuestion {
+  key: string;
+  prompt: string;
+  answer_type: string;
+  required: boolean;
+  help_text?: string | null;
+  options: string[];
+}
+
+export interface GoalDraftSuggestion {
+  title: string;
+  description?: string | null;
+  category: Goal["category"];
+  details_json: Record<string, unknown>;
+  answers_json: Record<string, unknown>;
+}
+
+export interface GoalIntakeResponse {
+  goal: GoalDraftSuggestion;
+  reasoning: string;
+  questions: GoalQuestion[];
 }
 
 export interface CreateGoalRequest {
@@ -190,12 +264,16 @@ export interface CalendarResponse {
 
 export const authAPI = {
   me: () => apiClient.get<User>("/auth/me"),
+  login: (data: { email: string; password: string }) =>
+    apiClient.post<LoginResponse>("/users/login", data),
   loginWithGoogle: (credential: string) =>
     apiClient.post<LoginResponse>("/auth/google", { credential }),
+  refresh: () => apiClient.post<Token>("/auth/refresh"),
 };
 
 export const userAPI = {
   create: (data: CreateUserRequest) => apiClient.post<User>("/users", data),
+  register: (data: CreateUserRequest) => apiClient.post<User>("/users/register", data),
   list: () => apiClient.get<User[]>("/users"),
   get: (userId: number) => apiClient.get<User>(`/users/${userId}`),
 };
@@ -221,6 +299,34 @@ export const flexibleTaskAPI = {
   delete: (taskId: number) => apiClient.delete(`/tasks/flexible/${taskId}`),
 };
 
+export const variableScheduleAPI = {
+  create: (data: {
+    title: string;
+    description?: string;
+    start_at: string;
+    end_at: string;
+    is_all_day?: boolean;
+    color_key?: number;
+    fatigue?: number;
+    status?: string;
+    details_json?: Record<string, unknown>;
+  }) => apiClient.post<VariableSchedule>("/schedules/variable", data),
+  list: () => apiClient.get<VariableSchedule[]>("/schedules/variable"),
+  get: (scheduleId: number) => apiClient.get<VariableSchedule>(`/schedules/variable/${scheduleId}`),
+  update: (scheduleId: number, data: Partial<{
+    title: string;
+    description?: string;
+    start_at: string;
+    end_at: string;
+    is_all_day?: boolean;
+    color_key?: number;
+    fatigue?: number;
+    status?: string;
+    details_json?: Record<string, unknown>;
+  }>) => apiClient.patch<VariableSchedule>(`/schedules/variable/${scheduleId}`, data),
+  delete: (scheduleId: number) => apiClient.delete(`/schedules/variable/${scheduleId}`),
+};
+
 export const goalAPI = {
   create: (data: CreateGoalRequest) => apiClient.post<Goal>("/goals", data),
   list: () => apiClient.get<Goal[]>("/goals"),
@@ -228,7 +334,7 @@ export const goalAPI = {
   update: (goalId: number, data: Partial<CreateGoalRequest>) =>
     apiClient.patch<Goal>(`/goals/${goalId}`, data),
   intake: (data: { text: string; category?: Goal["category"] }) =>
-    apiClient.post("/goals/intake", data),
+    apiClient.post<GoalIntakeResponse>("/goals/intake", data),
   complete: (data: {
     text: string;
     category?: Goal["category"];

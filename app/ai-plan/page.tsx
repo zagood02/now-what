@@ -15,6 +15,7 @@ import {
   saveAiDrafts,
   saveTodos,
 } from "@/lib/thirdStageStorage";
+import { goalAPI, handleApiError } from "@/lib/api";
 
 import {
   type VariableSchedule,
@@ -23,15 +24,6 @@ import {
   saveVariableSchedules,
 } from "@/lib/mockSchedules";
 
-const defaultQuestions = [
-  "목표 이름은 무엇인가요?",
-  "시험일이나 목표 완료일은 언제인가요?",
-  "목표 점수나 원하는 성과는 무엇인가요?",
-  "하루에 확보 가능한 시간은 어느 정도인가요?",
-  "현재 진도는 어느 정도인가요?",
-  "평일과 주말 공부 가능 시간이 다른가요?",
-  "피로도가 높은 활동인가요?",
-];
 
 function pad(value: number) {
   return String(value).padStart(2, "0");
@@ -303,8 +295,20 @@ export default function AiPlanPage() {
   const [prompt, setPrompt] =
     useState("");
 
+  type QuestionItem = AiQuestion & {
+    key?: string;
+    answerType?: string;
+    required?: boolean;
+    helpText?: string | null;
+    options?: string[];
+  };
+
   const [questions, setQuestions] =
-    useState<AiQuestion[]>([]);
+    useState<QuestionItem[]>([]);
+  const [isLoadingQuestions, setIsLoadingQuestions] =
+    useState(false);
+  const [errorMessage, setErrorMessage] =
+    useState<string | null>(null);
 
   const [
     generatedTodos,
@@ -331,47 +335,41 @@ export default function AiPlanPage() {
     );
 
   const handleCreateQuestions =
-    () => {
-      const lower =
-        prompt.toLowerCase();
+    async () => {
+      if (!prompt.trim()) {
+        setErrorMessage("프롬프트를 입력해주세요.");
+        return;
+      }
 
-      const extra =
-        lower.includes("시험") ||
-        lower.includes("기사") ||
-        lower.includes(
-          "자격증"
-        )
-          ? [
-              "과목은 몇 개인가요?",
-              "약한 과목은 무엇인가요?",
-              "기출 문제 풀이가 필요한가요?",
-            ]
-          : [
-              "목표를 달성하기 위해 필요한 활동은 무엇인가요?",
-              "반드시 피해야 하는 시간대가 있나요?",
-            ];
+      setErrorMessage(null);
+      setIsLoadingQuestions(true);
+      setMessage("");
 
-      setQuestions(
-        [
-          ...defaultQuestions,
-          ...extra,
-        ].map((question) => ({
-          id: createId(
-            "question"
-          ),
-          question,
-          answer: "",
-        }))
-      );
+      try {
+        const response = await goalAPI.intake({
+          text: prompt,
+        });
 
-      setGeneratedTodos([]);
-      setGeneratedVariables(
-        []
-      );
-
-      setMessage(
-        "질문 리스트를 만들었습니다."
-      );
+        setQuestions(
+          response.data.questions.map((question) => ({
+            id: createId("question"),
+            key: question.key,
+            question: question.prompt,
+            answer: "",
+            answerType: question.answer_type,
+            required: question.required,
+            helpText: question.help_text,
+            options: question.options,
+          }))
+        );
+        setGeneratedTodos([]);
+        setGeneratedVariables([]);
+        setMessage("AI가 생성한 질문을 불러왔습니다.");
+      } catch (error) {
+        setErrorMessage(handleApiError(error));
+      } finally {
+        setIsLoadingQuestions(false);
+      }
     };
 
   const handleAnswerChange = (
@@ -863,20 +861,35 @@ export default function AiPlanPage() {
           placeholder="예: 정보처리기사 시험 준비 계획 짜줘"
         />
 
+        {errorMessage ? (
+          <p
+            className="mt-3 text-sm"
+            style={{ color: "#d9534f" }}
+          >
+            {errorMessage}
+          </p>
+        ) : null}
+
         <button
           type="button"
           onClick={
             handleCreateQuestions
           }
+          disabled={isLoadingQuestions}
           className="mt-4 rounded-xl px-4 py-3 font-bold"
           style={{
             background:
               "var(--primary-button-bg)",
             color:
               "var(--primary-button-text)",
+            opacity: isLoadingQuestions
+              ? 0.7
+              : 1,
           }}
         >
-          질문 리스트 만들기
+          {isLoadingQuestions
+            ? "질문 생성 중..."
+            : "AI 질문 생성"}
         </button>
       </section>
 
@@ -945,21 +958,68 @@ export default function AiPlanPage() {
                     }
                   </div>
 
-                  <input
-                    value={
-                      item.answer
-                    }
-                    onChange={(
-                      e
-                    ) =>
-                      handleAnswerChange(
-                        item.id,
-                        e.target
-                          .value
-                      )
-                    }
-                    className="form-input"
-                  />
+                  {item.options && item.options.length > 0 ? (
+                    <select
+                      value={item.answer}
+                      onChange={(e) =>
+                        handleAnswerChange(item.id, e.target.value)
+                      }
+                      className="form-input"
+                    >
+                      <option value="">선택해주세요</option>
+                      {item.options.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                  ) : item.answerType === "date" ? (
+                    <input
+                      type="date"
+                      value={item.answer}
+                      onChange={(e) =>
+                        handleAnswerChange(item.id, e.target.value)
+                      }
+                      className="form-input"
+                    />
+                  ) : item.answerType === "number" ? (
+                    <input
+                      type="number"
+                      value={item.answer}
+                      onChange={(e) =>
+                        handleAnswerChange(item.id, e.target.value)
+                      }
+                      className="form-input"
+                    />
+                  ) : item.answerType === "boolean" ? (
+                    <select
+                      value={item.answer}
+                      onChange={(e) =>
+                        handleAnswerChange(item.id, e.target.value)
+                      }
+                      className="form-input"
+                    >
+                      <option value="">선택해주세요</option>
+                      <option value="예">예</option>
+                      <option value="아니오">아니오</option>
+                    </select>
+                  ) : (
+                    <input
+                      value={item.answer}
+                      onChange={(e) =>
+                        handleAnswerChange(item.id, e.target.value)
+                      }
+                      className="form-input"
+                    />
+                  )}
+                  {item.helpText && (
+                    <div
+                      className="text-xs mt-1"
+                      style={{ color: "var(--app-text-muted)" }}
+                    >
+                      {item.helpText}
+                    </div>
+                  )}
                 </label>
               )
             )}

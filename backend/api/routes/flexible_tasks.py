@@ -70,7 +70,10 @@ def list_flexible_tasks(
     query = (
         select(FlexibleTask)
         .options(selectinload(FlexibleTask.allocations))
-        .where(FlexibleTask.user_id == current_user.id)
+        .where(
+            FlexibleTask.user_id == current_user.id,
+            FlexibleTask.status != FlexibleTaskStatus.cancelled,
+        )
         .order_by(FlexibleTask.priority.desc(), FlexibleTask.id.asc())
     )
     return session.scalars(query).all()

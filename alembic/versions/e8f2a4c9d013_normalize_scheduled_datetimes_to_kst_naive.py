@@ -24,6 +24,9 @@ def upgrade() -> None:
         existing_nullable=True,
         postgresql_using="due_at AT TIME ZONE 'Asia/Seoul'",
     )
+    op.execute(
+        "ALTER TABLE allocated_tasks DROP CONSTRAINT ck_allocated_tasks_allocated_task_window"
+    )
     op.alter_column(
         "allocated_tasks",
         "scheduled_start",
@@ -39,6 +42,9 @@ def upgrade() -> None:
         type_=sa.DateTime(),
         existing_nullable=False,
         postgresql_using="scheduled_end AT TIME ZONE 'Asia/Seoul'",
+    )
+    op.execute(
+        "ALTER TABLE allocated_tasks ADD CONSTRAINT ck_allocated_tasks_allocated_task_window CHECK (scheduled_end > scheduled_start)"
     )
     op.alter_column(
         "ai_plan_items",

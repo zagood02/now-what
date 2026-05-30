@@ -7,12 +7,14 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from backend.api.deps import get_current_user
-from backend.core.auth import create_access_token, hash_password
+from backend.core.auth import create_access_token, create_refresh_token, decode_token, hash_password
 from backend.core.config import settings
 from backend.db.session import get_db_session
 from backend.models.auth_account import AuthAccount
 from backend.models.user import User
 from backend.schemas.users import GoogleLoginRequest, LoginResponse, UserRead
+from fastapi import Response, Request
+from backend.schemas.users import Token
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -28,6 +30,7 @@ def get_me(current_user: User = Depends(get_current_user)) -> User:
 @router.post("/google", response_model=LoginResponse)
 def login_with_google(
     payload: GoogleLoginRequest,
+    response: Response,
     session: Session = Depends(get_db_session),
 ) -> LoginResponse:
     claims = _verify_google_credential(payload.credential)
@@ -45,7 +48,7 @@ def login_with_google(
         email=email,
         name=claims.get("name") or email or "Google User",
     )
-    return _build_login_response(user)
+    return _build_login_response(user, response)
 
 
 def _verify_google_credential(credential: str) -> dict:
@@ -116,9 +119,43 @@ def _get_or_create_social_user(
     return user
 
 
-def _build_login_response(user: User) -> LoginResponse:
+def _build_login_response(user: User, response: Response | None = None) -> LoginResponse:
+    access = create_access_token(user.id)
+    # set refresh cookie if response provided
+    if response is not None:
+        refresh = create_refresh_token(user.id)
+        secure = settings.environment.lower() in ("prod", "production")
+        # max_age in seconds
+        max_age = settings.refresh_token_expire_days * 24 * 60 * 60
+        response.set_cookie("refresh_token", refresh, httponly=True, secure=secure, samesite="lax", max_age=max_age)
+
     return LoginResponse(
-        access_token=create_access_token(user.id),
+        access_token=access,
         token_type="bearer",
         user=UserRead.model_validate(user),
     )
+
+
+@router.post("/refresh", response_model=Token)
+def refresh_token(request: Request, response: Response, session: Session = Depends(get_db_session)) -> Token:
+    token = request.cookies.get("refresh_token")
+    if not token:
+        raise HTTPException(status_code=401, detail="Missing refresh token")
+    try:
+        payload = decode_token(token)
+        user_id = int(payload.get("sub"))
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid refresh token")
+
+    user = session.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
+
+    access = create_access_token(user.id)
+    # rotate refresh token
+    refresh = create_refresh_token(user.id)
+    secure = settings.environment.lower() in ("prod", "production")
+    max_age = settings.refresh_token_expire_days * 24 * 60 * 60
+    response.set_cookie("refresh_token", refresh, httponly=True, secure=secure, samesite="lax", max_age=max_age)
+
+    return Token(access_token=access)

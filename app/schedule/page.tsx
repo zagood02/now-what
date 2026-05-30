@@ -16,6 +16,7 @@ export default function CalendarPage() {
   const { user, isLoading: isAuthLoading } = useAuth();
   const [currentDate, setCurrentDate] = useState(() => new Date(2026, 4, 1));  // 2026년 5월로 초기화
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
+  const [calendarError, setCalendarError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const year = currentDate.getFullYear();
@@ -35,6 +36,7 @@ export default function CalendarPage() {
 
       try {
         setLoading(true);
+        setCalendarError(null);
         const startDate = new Date(year, month, 1);
         const endDate = new Date(year, month + 1, 0);
         endDate.setHours(23, 59, 59, 999);
@@ -48,6 +50,12 @@ export default function CalendarPage() {
       } catch (error) {
         console.error("Failed to fetch calendar data:", error);
         setCalendarEvents([]);
+        if (error && typeof error === "object" && "response" in error) {
+          const axiosError = error as any;
+          setCalendarError(axiosError.response?.data?.detail ?? "일정 데이터를 불러오는 중 오류가 발생했습니다.");
+        } else {
+          setCalendarError("일정 데이터를 불러오는 중 오류가 발생했습니다.");
+        }
       } finally {
         setLoading(false);
       }
@@ -186,6 +194,31 @@ export default function CalendarPage() {
         ))}
       </div>
 
+      {!loading && calendarError ? (
+        <div
+          className="mb-4 rounded-xl border p-4 text-center"
+          style={{
+            background: "#ffeeee",
+            borderColor: "#ffcccc",
+            color: "#a20000",
+          }}
+        >
+          {calendarError}
+        </div>
+      ) : null}
+      {!loading && !calendarError && calendarEvents.length === 0 && (
+        <div
+          className="mb-4 rounded-xl border p-4 text-center"
+          style={{
+            background: "var(--app-surface-soft)",
+            borderColor: "var(--app-border)",
+            color: "var(--app-text-muted)",
+          }}
+        >
+          이번 달에는 등록된 일정이 없습니다. 일정이 있으면 달력에 표시됩니다.
+        </div>
+      )}
+
       <div className="grid grid-cols-7 gap-2">
         {calendarCells.map((cell, index) => (
           <div
@@ -220,6 +253,8 @@ export default function CalendarPage() {
                   dotColor = "bg-green-400";
                 } else if (event.source_type === "ai_plan_item") {
                   dotColor = "bg-yellow-400";
+                } else if (event.source_type === "flexible_task") {
+                  dotColor = "bg-purple-400";
                 }
                 return (
                   <div key={eventIndex} className={`w-2 h-2 rounded-full ${dotColor}`}></div>
@@ -238,15 +273,21 @@ export default function CalendarPage() {
                     className="text-xs truncate rounded px-1 py-0.5"
                     style={{
                       background: event.source_type === "fixed_schedule"
-                        ? "var(--card-blue-bg)"
+                        ? "#DCEEFF"
                         : event.source_type === "allocated_task"
-                        ? "var(--card-green-bg)"
-                        : "var(--card-yellow-bg)",
+                        ? "#DCF7E0"
+                        : event.source_type === "ai_plan_item"
+                        ? "#FFF4C3"
+                        : "#F3E8FF",
                       color: event.source_type === "fixed_schedule"
-                        ? "var(--card-blue-text)"
+                        ? "#1C3D6D"
                         : event.source_type === "allocated_task"
-                        ? "var(--card-green-text)"
-                        : "var(--card-yellow-text)",
+                        ? "#1F5E24"
+                        : event.source_type === "ai_plan_item"
+                        ? "#7A5A00"
+                        : "#7C3AED",
+                      border: "1px solid rgba(0,0,0,0.05)",
+                      fontWeight: 600,
                     }}
                     title={event.title}
                   >

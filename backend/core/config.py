@@ -35,6 +35,7 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     secret_key: str | None = None
     access_token_expire_minutes: int = 30
+    refresh_token_expire_days: int = 7
     max_calendar_range_days: int = 370
     max_allocation_range_days: int = 120
 

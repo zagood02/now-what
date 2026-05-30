@@ -14,6 +14,7 @@ class User(Base, TimestampMixin):
     timezone: Mapped[str] = mapped_column(String(64), default="Asia/Seoul", nullable=False)
 
     fixed_schedules = relationship("FixedSchedule", back_populates="user", cascade="all, delete-orphan")
+    variable_schedules = relationship("VariableSchedule", back_populates="user", cascade="all, delete-orphan")
     flexible_tasks = relationship("FlexibleTask", back_populates="user", cascade="all, delete-orphan")
     allocated_tasks = relationship("AllocatedTask", back_populates="user", cascade="all, delete-orphan")
     goals = relationship("Goal", back_populates="user", cascade="all, delete-orphan")

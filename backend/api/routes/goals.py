@@ -218,10 +218,24 @@ def complete_goal(
             answers_json=payload.answers_json,
             replace_existing=payload.replace_existing,
         )
+        # Auto-allocate schedule after plan generation
+        allocation_service.allocate(
+            session,
+            user_id=current_user.id,
+            range_start=goal.target_date or datetime.now().date(),
+            range_end=(goal.target_date or datetime.now().date()) + timedelta(days=1),
+            day_start=_parse_default_time(settings.default_day_start),
+            day_end=_parse_default_time(settings.default_day_end),
+            buffer_minutes=settings.default_buffer_minutes,
+            max_auto_minutes_per_day=settings.default_max_auto_minutes_per_day,
+            clear_existing=False,
+            goal_id=goal.id,
+            include_flexible_tasks=False,
+        )
         session.commit()
         session.refresh(goal)
         session.refresh(plan)
-    except HTTPException:
+
         session.rollback()
         raise
     except Exception as exc:

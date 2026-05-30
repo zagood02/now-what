@@ -42,6 +42,46 @@ class FixedScheduleRead(ORMModel):
     updated_at: datetime
 
 
+class VariableScheduleCreate(BaseModel):
+    title: str = Field(min_length=1, max_length=200)
+    description: str | None = None
+    start_at: datetime
+    end_at: datetime
+    is_all_day: bool = False
+    color_key: int = 0
+    fatigue: int = 0
+    status: str = "pending"
+    details_json: dict = Field(default_factory=dict)
+
+
+class VariableScheduleUpdate(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=200)
+    description: str | None = None
+    start_at: datetime | None = None
+    end_at: datetime | None = None
+    is_all_day: bool | None = None
+    color_key: int | None = None
+    fatigue: int | None = None
+    status: str | None = None
+    details_json: dict | None = None
+
+
+class VariableScheduleRead(ORMModel):
+    id: int
+    user_id: int
+    title: str
+    description: str | None
+    start_at: datetime
+    end_at: datetime
+    is_all_day: bool
+    color_key: int
+    fatigue: int
+    status: str
+    details_json: dict
+    created_at: datetime
+    updated_at: datetime
+
+
 class AllocatedTaskRead(ORMModel):
     id: int
     user_id: int

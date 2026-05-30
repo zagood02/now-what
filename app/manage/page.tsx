@@ -1,15 +1,25 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useAuth } from "@/app/contexts/AuthContext";
+import {
+  fixedScheduleAPI,
+  variableScheduleAPI,
+  handleApiError,
+  type FixedSchedule,
+  type VariableSchedule as ApiVariableSchedule,
+} from "@/lib/api";
 import {
   type DayCode,
   type FailReason,
   type FixedScheduleSeries,
+  type FixedScheduleRule,
   type MonthRule,
   type RepeatType,
   type VariableSchedule,
   colorOptions,
   dayOptions,
+  dayMap,
   expandRuleToDetailItems,
   failReasonOptions,
   formatRuleSummary,
@@ -135,6 +145,182 @@ function createVariableFormFromItem(
   };
 }
 
+function mergeDateAndTime(date: Date, time: string) {
+  const [hour, minute] = time.split(":").map(Number);
+  const result = new Date(date);
+  result.setHours(hour, minute, 0, 0);
+  return result;
+}
+
+function getDayCodeFromNumber(dayOfWeek: number): DayCode {
+  const entry = Object.entries(dayMap).find(([, value]) => value === dayOfWeek);
+  return (entry?.[0] ?? "MON") as DayCode;
+}
+
+function getNextWeeklyAnchor(dayCode: DayCode, startTime: string) {
+  const now = new Date();
+  const targetWeekday = dayMap[dayCode];
+  const candidate = new Date(now);
+  candidate.setHours(0, 0, 0, 0);
+
+  const currentWeekday = candidate.getDay();
+  let daysUntil = (targetWeekday - currentWeekday + 7) % 7;
+  candidate.setDate(candidate.getDate() + daysUntil);
+
+  const candidateStart = mergeDateAndTime(candidate, startTime);
+  if (candidateStart <= now) {
+    candidate.setDate(candidate.getDate() + 7);
+  }
+
+  return mergeDateAndTime(candidate, startTime);
+}
+
+function getNextMonthlyAnchor(rule: FixedScheduleRule) {
+  const now = new Date();
+  const year = now.getFullYear();
+  let month = now.getMonth();
+  let dayOfMonth = 1;
+
+  if (rule.month_rule === "START") {
+    dayOfMonth = 1;
+  } else if (rule.month_rule === "MID") {
+    dayOfMonth = 15;
+  } else if (rule.month_rule === "END") {
+    dayOfMonth = new Date(year, month + 1, 0).getDate();
+  } else if (rule.month_days.length > 0) {
+    dayOfMonth = rule.month_days[0];
+  }
+
+  const maxDay = new Date(year, month + 1, 0).getDate();
+  const day = Math.min(dayOfMonth, maxDay);
+  let candidate = new Date(year, month, day, 0, 0, 0, 0);
+  if (candidate <= now) {
+    month += 1;
+    const nextMonthMaxDay = new Date(year, month + 1, 0).getDate();
+    candidate = new Date(year, month, Math.min(day, nextMonthMaxDay), 0, 0, 0, 0);
+  }
+
+  return mergeDateAndTime(candidate, rule.start_time);
+}
+
+function getNextAnchorDateForRule(rule: FixedScheduleRule) {
+  if (rule.freq_type === "WEEKLY" || rule.freq_type === "BIWEEKLY") {
+    const targetDay = rule.days.length > 0 ? rule.days[0] : "MON";
+    return getNextWeeklyAnchor(targetDay, rule.start_time);
+  }
+
+  if (rule.freq_type === "MONTHLY") {
+    return getNextMonthlyAnchor(rule);
+  }
+
+  return mergeDateAndTime(new Date(), rule.start_time);
+}
+
+function buildFixedSchedulePayload(
+  rule: FixedScheduleRule,
+  title: string
+) {
+  const anchor = getNextAnchorDateForRule(rule);
+  const startAt = mergeDateAndTime(anchor, rule.start_time);
+  const endAt = mergeDateAndTime(anchor, rule.end_time);
+
+  const payload: {
+    title: string;
+    description?: string;
+    location?: string;
+    start_at: string;
+    end_at: string;
+    is_all_day: boolean;
+    recurrence_rule?: string;
+    day_of_week?: number;
+  } = {
+    title,
+    start_at: startAt.toISOString(),
+    end_at: endAt.toISOString(),
+    is_all_day: false,
+  };
+
+  if (rule.freq_type === "WEEKLY") {
+    payload.recurrence_rule = "weekly";
+  }
+  if (rule.freq_type === "BIWEEKLY") {
+    payload.recurrence_rule = "biweekly";
+  }
+  if (rule.freq_type === "MONTHLY") {
+    payload.recurrence_rule = "monthly";
+  }
+
+  if ((rule.freq_type === "WEEKLY" || rule.freq_type === "BIWEEKLY") && rule.days.length > 0) {
+    payload.day_of_week = dayMap[rule.days[0]];
+  }
+
+  return payload;
+}
+
+function mapBackendScheduleToSeries(
+  schedule: FixedSchedule
+): FixedScheduleSeries {
+  const start = new Date(schedule.start_at);
+  const end = new Date(schedule.end_at);
+  const recurrence = schedule.recurrence_rule ?? "weekly";
+  const freq_type = recurrence.toUpperCase() as RepeatType;
+  const dayCode = schedule.day_of_week !== null ? getDayCodeFromNumber(schedule.day_of_week) : "MON";
+
+  return {
+    id: String(schedule.id),
+    series_id: String(schedule.id),
+    user_id: String(schedule.user_id),
+    title: schedule.title,
+    color_key: 0,
+    level: 5,
+    created_at: schedule.created_at ? new Date(schedule.created_at).toISOString() : null,
+    updated_at: schedule.updated_at ? new Date(schedule.updated_at).toISOString() : null,
+    rules: [
+      {
+        id: String(schedule.id),
+        rule_id: String(schedule.id),
+        freq_type,
+        days: [dayCode],
+        month_rule: "START",
+        month_days: recurrence === "monthly" ? [start.getDate()] : [1],
+        biweekly_start_date: "",
+        start_time: `${String(start.getHours()).padStart(2, "0")}:${String(start.getMinutes()).padStart(2, "0")}`,
+        end_time: `${String(end.getHours()).padStart(2, "0")}:${String(end.getMinutes()).padStart(2, "0")}`,
+        created_at: schedule.created_at ? new Date(schedule.created_at).toISOString() : null,
+        updated_at: schedule.updated_at ? new Date(schedule.updated_at).toISOString() : null,
+      },
+    ],
+  };
+}
+
+function mapBackendVariableScheduleToVariableSchedule(schedule: ApiVariableSchedule): VariableSchedule {
+  return {
+    id: String(schedule.id),
+    user_id: String(schedule.user_id),
+    title: schedule.title,
+    estimated_time: Math.round(
+      (new Date(schedule.end_at).getTime() - new Date(schedule.start_at).getTime()) / 60000
+    ),
+    is_done: schedule.status === "completed",
+    status: schedule.status === "completed" ? "done" : schedule.status === "failed" ? "failed" : "pending",
+    level: typeof schedule.details_json.level === "number" ? schedule.details_json.level : 5,
+    color_key: schedule.color_key,
+    deadline: hiddenDeadline,
+    scheduled_start: schedule.start_at,
+    scheduled_end: schedule.end_at,
+    fail_reason:
+      typeof schedule.details_json.fail_reason === "string"
+        ? (schedule.details_json.fail_reason as FailReason)
+        : null,
+    fail_reason_text:
+      typeof schedule.details_json.fail_reason_text === "string" ? schedule.details_json.fail_reason_text : null,
+    priority:
+      typeof schedule.details_json.priority === "number" ? schedule.details_json.priority : null,
+    created_at: schedule.created_at ? new Date(schedule.created_at).toISOString() : null,
+    updated_at: schedule.updated_at ? new Date(schedule.updated_at).toISOString() : null,
+  };
+}
+
 function removeFixedDetailFromSeries(
   series: FixedScheduleSeries,
   target: EditingFixedDetailState
@@ -189,6 +375,11 @@ export default function ManagePage() {
   const [fixedSeriesList, setFixedSeriesList] = useState<FixedScheduleSeries[]>([]);
   const [variableList, setVariableList] = useState<VariableSchedule[]>([]);
 
+  const [backendLoading, setBackendLoading] = useState(false);
+  const [backendError, setBackendError] = useState("");
+  const [isSavingFixed, setIsSavingFixed] = useState(false);
+  const [isSavingVariable, setIsSavingVariable] = useState(false);
+
   const [expandedSeriesId, setExpandedSeriesId] = useState<string | null>(null);
   const [editingSeriesId, setEditingSeriesId] = useState<string | null>(null);
   const [editingFixedDetail, setEditingFixedDetail] = useState<EditingFixedDetailState | null>(null);
@@ -198,26 +389,63 @@ export default function ManagePage() {
   const [selectedFailReason, setSelectedFailReason] = useState<FailReason>("TIME_SHORTAGE");
   const [failReasonText, setFailReasonText] = useState("");
 
+  const { user, isLoading: authLoading } = useAuth();
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
-    const fixedData = getFixedScheduleSeries();
-    const variableData = getVariableSchedules();
+    if (authLoading) return;
 
-    setFixedSeriesList(fixedData);
-    setVariableList(variableData);
-    setFixedForm((prev) => ({ ...prev, color_key: getNextColorKey(fixedData) }));
-    setVariableForm((prev) => ({ ...prev, color_key: getNextColorKey(variableData) }));
-    setIsLoaded(true);
-  }, []);
+    const loadFromLocalStorage = () => {
+      const fixedData = getFixedScheduleSeries();
+      const variableData = getVariableSchedules();
+
+      setFixedSeriesList(fixedData);
+      setVariableList(variableData);
+      setFixedForm((prev) => ({ ...prev, color_key: getNextColorKey(fixedData) }));
+      setVariableForm((prev) => ({ ...prev, color_key: getNextColorKey(variableData) }));
+      setIsLoaded(true);
+    };
+
+    const loadFromBackend = async () => {
+      setBackendLoading(true);
+      setBackendError("");
+
+      try {
+        const [fixedResponse, variableResponse] = await Promise.all([
+          fixedScheduleAPI.list(),
+          variableScheduleAPI.list(),
+        ]);
+
+        const fixedItems = fixedResponse.data.map(mapBackendScheduleToSeries);
+        const variableItems = variableResponse.data.map(mapBackendVariableScheduleToVariableSchedule);
+
+        setFixedSeriesList(fixedItems);
+        setVariableList(variableItems);
+        setFixedForm((prev) => ({ ...prev, color_key: getNextColorKey(fixedItems) }));
+        setVariableForm((prev) => ({ ...prev, color_key: getNextColorKey(variableItems) }));
+      } catch (error) {
+        setBackendError(handleApiError(error));
+        loadFromLocalStorage();
+      } finally {
+        setBackendLoading(false);
+        setIsLoaded(true);
+      }
+    };
+
+    if (user) {
+      void loadFromBackend();
+    } else {
+      loadFromLocalStorage();
+    }
+  }, [authLoading, user]);
 
   useEffect(() => {
-    if (isLoaded) saveFixedScheduleSeries(fixedSeriesList);
-  }, [fixedSeriesList, isLoaded]);
+    if (isLoaded && !user) saveFixedScheduleSeries(fixedSeriesList);
+  }, [fixedSeriesList, isLoaded, user]);
 
   useEffect(() => {
-    if (isLoaded) saveVariableSchedules(variableList);
-  }, [variableList, isLoaded]);
+    if (isLoaded && !user) saveVariableSchedules(variableList);
+  }, [variableList, isLoaded, user]);
 
   const sortedFixedSeriesList = useMemo(
     () => [...fixedSeriesList].sort((a, b) => a.title.localeCompare(b.title)),
@@ -273,7 +501,7 @@ export default function ManagePage() {
     };
   };
 
-  const handleFixedSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleFixedSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     if (!fixedForm.title.trim() || !fixedForm.start_time || !fixedForm.end_time) return;
@@ -318,6 +546,42 @@ export default function ManagePage() {
       setExpandedSeriesId(editingFixedDetail.series_id);
       resetFixedForm();
       return;
+    }
+
+    const createPayloads = [] as ReturnType<typeof buildFixedSchedulePayload>[];
+    const baseRule = {
+      ...fixedForm,
+      month_days: fixedForm.selected_month_days,
+    } as unknown as FixedScheduleRule;
+
+    if (fixedForm.freq_type === "WEEKLY" || fixedForm.freq_type === "BIWEEKLY") {
+      fixedForm.selected_days.forEach((day) => {
+        createPayloads.push(
+          buildFixedSchedulePayload({ ...baseRule, days: [day] }, fixedForm.title.trim())
+        );
+      });
+    } else {
+      createPayloads.push(buildFixedSchedulePayload(baseRule, fixedForm.title.trim()));
+    }
+
+    if (user) {
+      setIsSavingFixed(true);
+      setBackendError("");
+      try {
+        const responses = await Promise.all(
+          createPayloads.map((payload) => fixedScheduleAPI.create(payload))
+        );
+        const createdSeries = responses.map((response) => mapBackendScheduleToSeries(response.data));
+
+        setFixedSeriesList((prev) => [...prev, ...createdSeries]);
+        setExpandedSeriesId(createdSeries[0]?.series_id ?? `series-${Date.now()}`);
+        resetFixedForm();
+        return;
+      } catch (error) {
+        setBackendError(handleApiError(error));
+      } finally {
+        setIsSavingFixed(false);
+      }
     }
 
     const seriesId = editingSeriesId ?? `series-${Date.now()}`;
@@ -426,13 +690,21 @@ export default function ManagePage() {
     }
   };
 
-  const handleDeleteSeries = (seriesId: string) => {
+  const handleDeleteSeries = async (seriesId: string) => {
+    if (user && !Number.isNaN(Number(seriesId))) {
+      try {
+        await fixedScheduleAPI.delete(Number(seriesId));
+      } catch (error) {
+        setBackendError(handleApiError(error));
+      }
+    }
+
     setFixedSeriesList((prev) => prev.filter((series) => series.series_id !== seriesId));
     if (expandedSeriesId === seriesId) setExpandedSeriesId(null);
     if (editingSeriesId === seriesId || editingFixedDetail?.series_id === seriesId) resetFixedForm();
   };
 
-  const handleVariableSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleVariableSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     if (!variableForm.title.trim() || !variableForm.scheduled_date) return;
@@ -452,7 +724,7 @@ export default function ManagePage() {
 
     const nextItem: VariableSchedule = {
       id: existing?.id ?? `variable-${Date.now()}`,
-      user_id: "test_user",
+      user_id: String((user as any)?.id ?? "test_user"),
       title: variableForm.title.trim(),
       estimated_time: estimatedMinutes,
       is_done: existing?.is_done ?? false,
@@ -469,6 +741,55 @@ export default function ManagePage() {
       updated_at: now,
     };
 
+    if (user) {
+      setIsSavingVariable(true);
+      setBackendError("");
+      try {
+        const payload = {
+          title: nextItem.title,
+          start_at: nextItem.scheduled_start as string,
+          end_at: nextItem.scheduled_end as string,
+          is_all_day: false,
+          color_key: nextItem.color_key,
+          fatigue: 0,
+          status: nextItem.status === "done" ? "completed" : nextItem.status === "failed" ? "failed" : "pending",
+          details_json: {
+            level: nextItem.level,
+            priority: nextItem.priority,
+            fail_reason: nextItem.fail_reason,
+            fail_reason_text: nextItem.fail_reason_text,
+          },
+        };
+
+        const response = editingVariableId
+          ? await variableScheduleAPI.update(Number(editingVariableId), payload)
+          : await variableScheduleAPI.create(payload);
+
+        const createdSchedule = response.data;
+
+        const savedItem: VariableSchedule = {
+          ...nextItem,
+          id: String(createdSchedule.id),
+          user_id: String(createdSchedule.user_id),
+          created_at: createdSchedule.created_at,
+          updated_at: createdSchedule.updated_at,
+        };
+
+        setVariableList((prev) =>
+          editingVariableId
+            ? prev.map((item) => (item.id === editingVariableId ? savedItem : item))
+            : [...prev, savedItem]
+        );
+        resetVariableForm();
+      } catch (error) {
+        setBackendError(handleApiError(error));
+      } finally {
+        setIsSavingVariable(false);
+      }
+
+      return;
+    }
+
     setVariableList((prev) =>
       editingVariableId ? prev.map((item) => (item.id === editingVariableId ? nextItem : item)) : [...prev, nextItem]
     );
@@ -480,6 +801,18 @@ export default function ManagePage() {
     setActiveTab("variable");
     setEditingVariableId(item.id);
     setVariableForm(createVariableFormFromItem(item));
+  };
+
+  const handleDeleteVariable = async (id: string) => {
+    if (user && !Number.isNaN(Number(id))) {
+      try {
+        await variableScheduleAPI.delete(Number(id));
+      } catch (error) {
+        setBackendError(handleApiError(error));
+      }
+    }
+    setVariableList((prev) => prev.filter((item) => item.id !== id));
+    if (editingVariableId === id) resetVariableForm();
   };
 
   const handleMarkDone = (id: string) => {
@@ -542,6 +875,26 @@ export default function ManagePage() {
       <p className="mb-6" style={{ color: "var(--app-text-muted)" }}>
         고정 일정과 변동 일정을 등록하고, 색상·피로도·완료·실패 상태를 함께 관리합니다.
       </p>
+
+      {authLoading ? (
+        <p className="mb-4" style={{ color: "var(--app-text-muted)" }}>
+          로그인 상태를 확인 중입니다...
+        </p>
+      ) : !user ? (
+        <p className="mb-4 text-sm text-red-600">
+          일정을 저장하려면 로그인이 필요합니다. 로그인 후 다시 시도해 주세요.
+        </p>
+      ) : null}
+
+      {backendError ? (
+        <p className="mb-4 text-sm text-red-600">{backendError}</p>
+      ) : null}
+
+      {backendLoading ? (
+        <p className="mb-4 text-sm" style={{ color: "var(--app-text-muted)" }}>
+          고정 일정 데이터를 불러오는 중입니다...
+        </p>
+      ) : null}
 
       <div className="flex gap-2 mb-6">
         {[
@@ -735,6 +1088,7 @@ export default function ManagePage() {
 
               <button
                 type="submit"
+                disabled={isSavingFixed}
                 className="w-full rounded-xl py-3 font-semibold hover:opacity-90"
                 style={{ background: "var(--primary-button-bg)", color: "var(--primary-button-text)" }}
               >
@@ -959,6 +1313,7 @@ export default function ManagePage() {
 
               <button
                 type="submit"
+                disabled={isSavingVariable}
                 className="w-full rounded-xl py-3 font-semibold hover:opacity-90"
                 style={{ background: "var(--primary-button-bg)", color: "var(--primary-button-text)" }}
               >
@@ -1060,7 +1415,7 @@ export default function ManagePage() {
 
                           <button
                             type="button"
-                            onClick={() => setVariableList((prev) => prev.filter((item) => item.id !== schedule.id))}
+                            onClick={() => handleDeleteVariable(schedule.id)}
                             className="small-red"
                           >
                             삭제
