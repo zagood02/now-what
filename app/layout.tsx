@@ -7,7 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { applyThemeClass } from "@/components/ThemeInitializer";
 import { AuthProvider, useAuth } from "@/app/contexts/AuthContext";
 
-const protectedRoutes = ["/", "/schedule", "/manage", "/todo", "/ai-plan", "/settings"];
+const protectedRoutes = ["/", "/schedule", "/manage", "/todo", "/ai-plan", "/ai-plan/list", "/settings"];
 
 export default function RootLayout({
   children,
@@ -101,6 +101,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
           <NavItem href="/manage" label="일정관리" onClick={() => setOpen(false)} onProtectedMove={handleProtectedMove} />
           <NavItem href="/todo" label="할일" onClick={() => setOpen(false)} onProtectedMove={handleProtectedMove} />
           <NavItem href="/ai-plan" label="AI 계획 생성" onClick={() => setOpen(false)} onProtectedMove={handleProtectedMove} />
+          <NavItem href="/ai-plan/list" label="AI 계획 관리" onClick={() => setOpen(false)} onProtectedMove={handleProtectedMove} />
           <NavItem href="/settings" label="설정" onClick={() => setOpen(false)} onProtectedMove={handleProtectedMove} />
           <NavItem href="/login" label={isLoggedIn ? "마이페이지" : "로그인"} onClick={() => setOpen(false)} />
         </nav>

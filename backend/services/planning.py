@@ -291,19 +291,20 @@ class PlanningService:
                 "단어와 짧은 듣기 노출은 장시간 블록보다 반복 루틴으로 설계합니다.",
             ],
             "plan_items": [
-                {"title": "토익 진단 세트와 목표 점수 갭 분석", "description": "LC/RC 미니 테스트나 최근 점수를 기준으로 파트별 약점과 목표 점수까지의 차이를 정리합니다.", "item_type": "diagnostic", "estimated_minutes": 100, "priority": 3, "phase": "diagnosis", "offset_ratio": 0.0, "section": "overall"},
-                {"title": "단어장 루틴과 오답노트 구조 만들기", "description": "매일 반복할 단어 범위, 복습 주기, 틀린 문제 기록 형식을 먼저 고정합니다.", "item_type": "vocabulary", "estimated_minutes": 40, "priority": 3, "phase": "setup", "offset_ratio": 0.08, "section": "vocabulary"},
-                {"title": "LC Part 1-2 짧은 듣기와 shadowing", "description": "짧은 문장/응답 패턴을 듣고 따라 말한 뒤 헷갈린 표현을 오답노트에 남깁니다.", "item_type": "lc_practice", "estimated_minutes": 50, "priority": 3, "phase": "foundation", "offset_ratio": 0.18, "section": "LC"},
-                {"title": "RC 문법 핵심 유형 정리", "description": "품사, 동사, 접속사, 전치사처럼 점수 효율이 높은 문법 유형을 문제와 함께 정리합니다.", "item_type": "rc_practice", "estimated_minutes": 60, "priority": 3, "phase": "foundation", "offset_ratio": 0.28, "section": "RC"},
-                {"title": "LC Part 3-4 timed set", "description": "대화/담화 문제를 제한 시간 안에 풀고, 놓친 근거 문장과 paraphrasing 표현을 복습합니다.", "item_type": "lc_practice", "estimated_minutes": 70, "priority": 3, "phase": "practice", "offset_ratio": 0.42, "section": "LC"},
-                {"title": "RC Part 7 독해 timed practice", "description": "단일/복수 지문을 시간 제한으로 풀고 지문 유형별 시간 사용량을 기록합니다.", "item_type": "rc_practice", "estimated_minutes": 75, "priority": 3, "phase": "practice", "offset_ratio": 0.52, "section": "RC"},
-                {"title": "주간 오답노트 압축 리뷰", "description": "반복해서 틀린 어휘, 문법, LC 함정 표현을 묶어 다음 주 우선순위를 정합니다.", "item_type": "mistake_review", "estimated_minutes": 50, "priority": 2, "phase": "review", "offset_ratio": 0.62, "section": "overall"},
-                {"title": "실전 모의고사 1회", "description": "가능하면 실제 시험과 같은 순서와 제한 시간으로 풀어 집중력과 시간 배분을 점검합니다.", "item_type": "mock_test", "estimated_minutes": 130, "priority": 3, "phase": "simulation", "offset_ratio": 0.74, "section": "overall"},
-                {"title": "모의고사 오답 분석과 파트별 재훈련", "description": "모의고사 직후 틀린 이유를 유형화하고 LC/RC 각각 다음 훈련 블록에 반영합니다.", "item_type": "mistake_review", "estimated_minutes": 90, "priority": 3, "phase": "simulation_review", "offset_ratio": 0.80, "section": "overall"},
-                {"title": "시험 직전 약점 보정 스프린트", "description": "새 자료를 늘리기보다 누적 오답, 빈출 단어, 시간 배분 실수를 중심으로 마무리합니다.", "item_type": "final_review", "estimated_minutes": 75, "priority": 3, "phase": "final", "offset_ratio": 0.92, "section": "overall"},
+                {"title": "진단/분석 (1/4)", "description": "약점 파악 및 목표 설정", "item_type": "diagnostic", "estimated_minutes": 100, "priority": 3, "phase": "diagnosis", "offset_ratio": 0.0, "section": "overall"},
+                {"title": "어휘 학습 (1/4)", "description": "매일 반복할 단어 범위와 틀린 문제 기록 형식을 고정합니다.", "item_type": "vocabulary", "estimated_minutes": 40, "priority": 3, "phase": "setup", "offset_ratio": 0.08, "section": "vocabulary"},
+                {"title": "듣기 훈련 (1/4)", "description": "짧은 문장과 응답 패턴을 듣고 따라 말합니다.", "item_type": "lc_practice", "estimated_minutes": 50, "priority": 3, "phase": "foundation", "offset_ratio": 0.18, "section": "LC"},
+                {"title": "독해 훈련 (1/4)", "description": "품사, 동사, 접속사 등 빈출 문법 유형을 정리합니다.", "item_type": "rc_practice", "estimated_minutes": 60, "priority": 3, "phase": "foundation", "offset_ratio": 0.28, "section": "RC"},
+                {"title": "듣기 훈련 (2/4)", "description": "제한 시간 내 듣기 문제를 풀고 표현을 복습합니다.", "item_type": "lc_practice", "estimated_minutes": 70, "priority": 3, "phase": "practice", "offset_ratio": 0.42, "section": "LC"},
+                {"title": "독해 훈련 (2/4)", "description": "제한 시간 내 독해 문제를 풀고 시간 사용량을 기록합니다.", "item_type": "rc_practice", "estimated_minutes": 75, "priority": 3, "phase": "practice", "offset_ratio": 0.52, "section": "RC"},
+                {"title": "오답 복습 (1/4)", "description": "반복되는 오답을 모아 우선순위를 정합니다.", "item_type": "mistake_review", "estimated_minutes": 50, "priority": 2, "phase": "review", "offset_ratio": 0.62, "section": "overall"},
+                {"title": "실전 연습 (1/4)", "description": "실제 시험처럼 제한 시간에 맞춰 풀어봅니다.", "item_type": "mock_test", "estimated_minutes": 130, "priority": 3, "phase": "simulation", "offset_ratio": 0.74, "section": "overall"},
+                {"title": "오답 복습 (2/4)", "description": "유형별 오답 이유를 분석하고 훈련에 반영합니다.", "item_type": "mistake_review", "estimated_minutes": 90, "priority": 3, "phase": "simulation_review", "offset_ratio": 0.80, "section": "overall"},
+                {"title": "최종 복습 (1/4)", "description": "누적 오답과 빈출 유형을 중심으로 마무리합니다.", "item_type": "final_review", "estimated_minutes": 75, "priority": 3, "phase": "final", "offset_ratio": 0.92, "section": "overall"},
             ],
         },
         STUDY_SUBTYPE_INFORMATION_PROCESSING_ENGINEER: {
+
             "label": "정보처리기사",
             "focus_areas": ["시험 범위 확정", "과목별 개념 회독", "기출 반복", "오답/빈출 키워드 압축", "실기 답안 표현 훈련"],
             "routines": ["주 1회 기출 세트", "과목별 개념 블록", "오답노트 재풀이", "빈출 키워드 암기", "실기 SQL/약술형 훈련"],
@@ -370,14 +371,14 @@ class PlanningService:
         study_subtype = self._study_subtype_for_goal(goal, answers)
         if (goal.category or GoalCategory.general) == GoalCategory.study and study_subtype in self.STUDY_SUBTYPE_BLUEPRINTS:
             return self._build_plan_with_template(goal, answers)
-        if self._can_use_gemini():
-            try:
-                return self._build_plan_with_gemini(goal, answers)
-            except Exception as exc:  # pragma: no cover
-                logger.warning("Gemini plan generation failed; falling back to templates: %s", exc)
         return self._build_plan_with_template(goal, answers)
 
     def _can_use_gemini(self) -> bool:
+        # Debugging: check if settings has the attribute
+        has_llm_model = hasattr(self.settings, 'llm_model')
+        if not has_llm_model:
+            logger.error("Settings object missing 'llm_model'! Current attributes: %s", dir(self.settings))
+            return False
         if self.settings.llm_model == "template-fallback":
             return False
         return bool(self.settings.gemini_api_key and genai is not None)
@@ -557,9 +558,21 @@ class PlanningService:
         label = blueprint["label"]
         user_materials = self._user_materials(answers)
         summary = f"{goal.title} 목표는 {label} 전용 템플릿으로 구성했습니다. 주당 약 {weekly_hours}시간을 기준으로 진단, 핵심 훈련, 실전 점검, 오답 복습이 끊기지 않게 배치합니다."
+        
+        # 제목 한글 요약
+        for item in items:
+            match = re.search(r"\((\d+/\d+)\)", item.title)
+            suffix = f" ({match.group(1)})" if match else ""
+            if "진단" in item.title: item.title = "진단/분석" + suffix
+            elif "단어" in item.title: item.title = "어휘 학습" + suffix
+            elif "듣기" in item.title: item.title = "듣기 훈련" + suffix
+            elif "문법" in item.title or "독해" in item.title: item.title = "독해 훈련" + suffix
+            elif "오답" in item.title: item.title = "오답 복습" + suffix
+            elif "모의고사" in item.title: item.title = "실전 연습" + suffix
+            elif "총정리" in item.title: item.title = "최종 복습" + suffix
+
         strategy_json = {
-            "category": GoalCategory.study.value,
-            "study_subtype": study_subtype,
+
             "template_label": label,
             "weekly_hours": weekly_hours,
             "target_date": target_date.isoformat() if target_date else None,
@@ -767,22 +780,27 @@ class PlanningService:
 
     def _scale_items_to_planning_horizon(
         self,
-        items: list[PlanDraftItem],
+        items: list[PlanDraftItem] | None,
         weekly_hours: int,
         target_date: date | None,
         *,
         target_total_minutes: int | None = None,
     ) -> list[PlanDraftItem]:
+        if not items:
+            return []
         schedulable_items = [
             item for item in items if item.is_schedulable and item.estimated_minutes > 0
         ]
         if not schedulable_items:
             return items
+
         repeatable_items = self._repeatable_plan_items(schedulable_items)
 
         if target_total_minutes is None:
             target_total_minutes = self._target_total_minutes_for_items(weekly_hours, target_date, items)
+        
         current_total_minutes = sum(item.estimated_minutes for item in schedulable_items)
+        
         expanded = list(items)
         repeat_counts = {
             self._repeat_key(item): 1 for item in repeatable_items
@@ -867,11 +885,13 @@ class PlanningService:
             return items
 
         start_date = date.today()
-        horizon_end = self._planning_horizon_end(target_date)
+        # 타겟 날짜를 무시하고 30일 전체 기간으로 span 확장
+        horizon_end = start_date + timedelta(days=30)
         span_days = max((horizon_end - start_date).days, 0)
-        denominator = max(len(schedulable_items) - 1, 1)
+        
+        # 아이템들을 기간 전체에 균등하게 분배
         for index, item in enumerate(schedulable_items):
-            item.target_date = start_date + timedelta(days=round(span_days * index / denominator))
+            item.target_date = start_date + timedelta(days=round(span_days * index / max(len(schedulable_items), 1)))
         return items
 
     def _split_plan_item_for_scheduling(self, item: PlanDraftItem) -> list[PlanDraftItem]:
@@ -1087,9 +1107,11 @@ class PlanningService:
         self,
         weekly_hours: int,
         target_date: date | None,
-        items: list[PlanDraftItem],
+        items: list[PlanDraftItem] | None,
     ) -> int:
         requested_total_minutes = self._target_total_minutes(weekly_hours, target_date)
+        if not items:
+            return requested_total_minutes
         schedulable_items = [
             item for item in items if item.is_schedulable and item.estimated_minutes > 0
         ]
@@ -1448,7 +1470,7 @@ class PlanningService:
                 scheduled_for = target_date
             items.append(
                 PlanDraftItem(
-                    title=f"{goal.title} - {title}",
+                    title=title,
                     description=description,
                     item_type=item_type,
                     estimated_minutes=minutes,
@@ -1457,4 +1479,4 @@ class PlanningService:
                     metadata_json={"goal_category": goal.category.value, "source": "template-fallback"},
                 )
             )
-        return items
+

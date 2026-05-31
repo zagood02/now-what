@@ -3,10 +3,7 @@ import axios, { type AxiosInstance } from "axios";
 const normalizeUrl = (url: string) => url.replace(/\/+$/, "");
 
 const rawApiUrl = process.env.NEXT_PUBLIC_API_URL?.trim() || "";
-const API_BASE_URL =
-  typeof window !== "undefined"
-    ? ""
-    : normalizeUrl(rawApiUrl || "http://localhost:8000");
+const API_BASE_URL = "http://localhost:8000";
 const API_V1_PREFIX = "/api/v1";
 const ACCESS_TOKEN_STORAGE_KEY = "now_what_access_token";
 
@@ -333,6 +330,7 @@ export const goalAPI = {
   get: (goalId: number) => apiClient.get<Goal>(`/goals/${goalId}`),
   update: (goalId: number, data: Partial<CreateGoalRequest>) =>
     apiClient.patch<Goal>(`/goals/${goalId}`, data),
+  delete: (goalId: number) => apiClient.delete(`/goals/${goalId}`),
   intake: (data: { text: string; category?: Goal["category"] }) =>
     apiClient.post<GoalIntakeResponse>("/goals/intake", data),
   complete: (data: {

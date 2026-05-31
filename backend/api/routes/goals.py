@@ -219,27 +219,37 @@ def complete_goal(
             replace_existing=payload.replace_existing,
         )
         # Auto-allocate schedule after plan generation
-        allocation_service.allocate(
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"DEBUG: Starting auto-allocation for goal {goal.id}")
+        
+        # 오늘부터 목표 날짜까지 할당 범위 설정
+        start_dt = datetime.combine(datetime.now().date(), datetime.min.time())
+        end_dt = datetime.combine(goal.target_date or (datetime.now().date() + timedelta(days=30)), datetime.max.time())
+        
+        result = allocation_service.allocate(
             session,
             user_id=current_user.id,
-            range_start=goal.target_date or datetime.now().date(),
-            range_end=(goal.target_date or datetime.now().date()) + timedelta(days=1),
+            range_start=start_dt,
+            range_end=end_dt,
             day_start=_parse_default_time(settings.default_day_start),
             day_end=_parse_default_time(settings.default_day_end),
             buffer_minutes=settings.default_buffer_minutes,
-            max_auto_minutes_per_day=settings.default_max_auto_minutes_per_day,
-            clear_existing=False,
+            max_auto_minutes_per_day=1440,
+            clear_existing=True,
             goal_id=goal.id,
             include_flexible_tasks=False,
         )
+        logger.error(f"DEBUG: Allocation result: {len(result.scheduled_plan_items)} items scheduled")
         session.commit()
         session.refresh(goal)
         session.refresh(plan)
 
-        session.rollback()
-        raise
     except Exception as exc:
-        session.rollback()
+        import traceback
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Goal generation failed: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail="Goal plan generation failed.") from exc
 
     return GoalCompleteResponse(

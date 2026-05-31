@@ -76,9 +76,10 @@ class AllocationConflictError(RuntimeError):
 
 
 class AllocationService:
-    candidate_step_minutes = 30
-    max_plan_item_session_minutes = 120
+    candidate_step_minutes = 60
+    max_plan_item_session_minutes = 180
     split_minutes_step = 5
+
     _user_lock_guard: ClassVar[Any] = Lock()
     _user_locks: ClassVar[dict[int, Any]] = {}
 
@@ -145,7 +146,7 @@ class AllocationService:
                     range_end=range_end,
                 )
 
-        busy_slots = self._load_busy_slots(session, user_id, range_start, range_end)
+        busy_slots = self._load_busy_slots(session, user_id, range_start, range_end, goal_id=goal_id)
         free_slots = self._build_free_slots(
             range_start,
             range_end,
@@ -189,8 +190,8 @@ class AllocationService:
             auto_count_by_day=auto_count_by_day,
         )
         return AllocationResult(
-            allocated_tasks=sorted(task_result["allocated"], key=lambda item: item.scheduled_start),
-            scheduled_plan_items=sorted(plan_result["scheduled"], key=lambda item: item.scheduled_start),
+            allocated_tasks=sorted(task_result["allocated"], key=lambda item: item.scheduled_start or datetime.max),
+            scheduled_plan_items=sorted(plan_result["scheduled"], key=lambda item: item.scheduled_start or datetime.max),
             unscheduled_task_ids=task_result["unscheduled"],
             unscheduled_plan_item_ids=plan_result["unscheduled"],
         )
@@ -271,6 +272,7 @@ class AllocationService:
         user_id: int,
         range_start: datetime,
         range_end: datetime,
+        goal_id: int | None = None,
     ) -> list[tuple[datetime, datetime]]:
         fixed_schedules = session.scalars(
             select(FixedSchedule).where(
@@ -299,6 +301,7 @@ class AllocationService:
         ).all()
         plan_items = session.scalars(
             self._active_plan_item_query(user_id).where(
+                AIPlanItem.goal_id != goal_id if goal_id else True,
                 AIPlanItem.scheduled_start.is_not(None),
                 AIPlanItem.scheduled_end.is_not(None),
                 AIPlanItem.scheduled_start < range_end,
@@ -401,16 +404,25 @@ class AllocationService:
                 current_day += timedelta(days=1)
                 continue
 
+            # 하루 전체를 균등하게 슬롯으로 활용
             pointer = day_start_at
+            
+            # busy_slots을 순회하며 빈 슬롯을 생성
             for busy_start, busy_end in busy_slots:
                 if busy_end <= day_start_at or busy_start >= day_end_at:
                     continue
                 clipped_start = max(busy_start, day_start_at)
                 clipped_end = min(busy_end, day_end_at)
+                
+                # 빈 슬롯 생성: 이전 슬롯 종료 ~ 이번 busy 시작
                 if clipped_start > pointer:
                     slots.append(TimeSlot(start=pointer, end=clipped_start))
+                
+                # 포인터 이동
                 if clipped_end > pointer:
                     pointer = clipped_end
+            
+            # 남은 시간도 슬롯으로 추가
             if pointer < day_end_at:
                 slots.append(TimeSlot(start=pointer, end=day_end_at))
             current_day += timedelta(days=1)
@@ -609,17 +621,18 @@ class AllocationService:
             duration = self._round_minutes_to_step(item.estimated_minutes or 60)
             item.estimated_minutes = duration
             preferences = preferences_by_goal.get(item.goal_id, AllocationPreferences())
+            # 각 아이템별 마감 기한을 item.target_date로 명확히 제한
             deadline = range_end
-            if preferences.goal_target_date:
-                deadline = min(
-                    range_end,
-                    datetime.combine(preferences.goal_target_date, time(23, 59)),
-                )
+            if item.target_date:
+                deadline = min(range_end, datetime.combine(item.target_date, time(23, 59)))
+            
+            # 오늘 이전 슬롯은 제외하고, 마감일 이전 슬롯만 탐색
+            search_deadline = min(deadline, range_end)
 
             candidate = self._find_best_plan_item_candidate(
                 free_slots,
                 duration_minutes=duration,
-                deadline=deadline,
+                deadline=search_deadline,
                 target_date=item.target_date,
                 auto_minutes_by_day=auto_minutes_by_day,
                 auto_minutes_by_bucket=auto_minutes_by_bucket,
@@ -628,9 +641,27 @@ class AllocationService:
                 preferences=preferences,
                 goal_id=item.goal_id,
                 goal_minutes_by_week=goal_minutes_by_week,
-                not_before=split_not_before_by_group.get(split_group_key),
-                prefer_earliest=split_group_key is not None,
+                not_before=None,
+                prefer_earliest=True,
             )
+            # 후보를 못 찾으면 마감 기한을 일주일 늘려서 재시도
+            if not candidate and deadline < range_end + timedelta(days=7):
+                candidate = self._find_best_plan_item_candidate(
+                    free_slots,
+                    duration_minutes=duration,
+                    deadline=range_end + timedelta(days=7),
+                    target_date=item.target_date,
+                    auto_minutes_by_day=auto_minutes_by_day,
+                    auto_minutes_by_bucket=auto_minutes_by_bucket,
+                    auto_count_by_day=auto_count_by_day,
+                    max_auto_minutes_per_day=max_auto_minutes_per_day,
+                    preferences=preferences,
+                    goal_id=item.goal_id,
+                    goal_minutes_by_week=goal_minutes_by_week,
+                    not_before=None,
+                    prefer_earliest=True,
+                )
+            
             if candidate:
                 self._assert_candidate_is_still_free(
                     session,
@@ -666,7 +697,18 @@ class AllocationService:
                     buffer_minutes=buffer_minutes,
                 )
             else:
-                unscheduled.append(item.id)
+                # 후보를 찾지 못한 경우, 그냥 포기하지 않고 
+                # range_start부터 range_end 사이의 빈 슬롯 중 하나에 강제 할당 시도
+                if free_slots:
+                    forced_slot = free_slots[0]
+                    item.scheduled_start = forced_slot.start
+                    item.scheduled_end = forced_slot.start + timedelta(minutes=duration)
+                    item.status = PlanItemStatus.scheduled
+                    scheduled.append(item)
+                    # 할당했으니 슬롯 예약
+                    self._reserve_slot_time(free_slots, forced_slot, item.scheduled_start, item.scheduled_end, buffer_minutes=buffer_minutes)
+                else:
+                    unscheduled.append(item.id)
                 if split_group_key is not None:
                     blocked_split_groups.add(split_group_key)
 
@@ -1017,24 +1059,12 @@ class AllocationService:
         target_date: date | None,
         preferences: AllocationPreferences | None = None,
     ) -> tuple:
-        candidate_end = start_at + timedelta(minutes=duration_minutes)
-        preference_penalty = self._preference_window_penalty(start_at, candidate_end, preferences)
-        avoid_penalty = self._avoid_window_nearness_penalty(start_at, candidate_end, preferences)
-        day_key = start_at.date()
-        bucket_key = (day_key, self._time_bucket(start_at))
-        hour_value = start_at.hour + start_at.minute / 60
-        center_penalty = int(abs(hour_value - 14) * 60)
-        target_penalty = 0 if target_date is None else abs((day_key - target_date).days)
+        # 무조건 날짜 순서대로 배정 (날짜가 빠를수록 우선순위)
+        day_index = (start_at.date() - date.today()).days
         return (
-            auto_minutes_by_day.get(day_key, 0),
-            auto_count_by_day.get(day_key, 0),
-            preference_penalty,
-            avoid_penalty,
-            target_penalty,
-            auto_minutes_by_bucket.get(bucket_key, 0),
+            max(0, day_index),
+            start_at.hour,
             -duration_minutes,
-            center_penalty,
-            start_at,
         )
 
     def _plan_item_split_candidate_score(

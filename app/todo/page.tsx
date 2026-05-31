@@ -12,7 +12,7 @@ import {
   saveTodos,
 } from "@/lib/thirdStageStorage";
 import { useAuth } from "@/app/contexts/AuthContext";
-import { flexibleTaskAPI, type FlexibleTask } from "@/lib/api";
+import { flexibleTaskAPI, type FlexibleTask, plannerAPI } from "@/lib/api";
 
 type TodoForm = {
   title: string;
@@ -128,6 +128,9 @@ export default function TodoPage() {
         title: form.title.trim(),
         description: form.memo.trim() || undefined,
         estimated_minutes: Math.round((Number(form.target_hours) || 0) * 60),
+        min_session_minutes: 120, // 최소 2시간
+        preferred_session_minutes: 180, // 선호 3시간
+        max_minutes_per_day: 180,
         priority: Number(form.importance) || 2,
         due_at: form.due_at || undefined,
         details_json: { importance: Number(form.importance) || 5, fatigue: Number(form.fatigue) || 5 },
@@ -178,23 +181,57 @@ export default function TodoPage() {
     setForm({ title: item.title, due_at: item.exam_date, target_hours: String(item.target_hours), importance: String(item.importance), fatigue: String(item.fatigue), memo: item.memo });
   };
 
+  const handleAllocate = async (item: TodoItem) => {
+    if (!item.exam_date) return;
+    try {
+      const today = new Date();
+      // 배치 전 기존 할당된 일정이 있다면 정리하는 로직이 필요한 경우
+      // 현재 완료/삭제 로직은 백엔드에서 처리되므로, 배치 요청 시 clear_existing을 false로 유지
+      await plannerAPI.allocate({
+        range_start: today.toISOString(),
+        range_end: new Date(item.exam_date).toISOString(),
+        clear_existing: false,
+      });
+      alert("배치가 완료되었습니다.");
+    } catch (err) {
+      alert("배치 중 오류가 발생했습니다.");
+    }
+  };
+
   const toggleDone = (id: string) => {
     if (id.startsWith("flex-") && user) {
       const idNum = Number(id.replace("flex-", ""));
       const target = items.find((it) => it.id === id);
-      const nextStatus = target && !target.is_done ? "completed" : "pending";
+      if (!target) return;
+      const nextStatus = target.is_done ? "pending" : "completed";
+
+      // 낙관적 업데이트
+      setItems((prev) => prev.map((it) => (it.id === id ? { ...it, is_done: !it.is_done } : it)));
+
       (async () => {
         try {
-          const resp = await flexibleTaskAPI.update(idNum, { status: nextStatus } as any);
-          const mapped = mapFlexibleTaskToTodoItem(resp.data as FlexibleTask);
-          setItems((prev) => prev.map((it) => (it.id === id ? mapped : it)));
+          await flexibleTaskAPI.update(idNum, { status: nextStatus } as any);
+
+          // 스케줄 재계산하여 완료된 일정 제거
+          const today = new Date();
+          const endDate = new Date();
+          endDate.setMonth(endDate.getMonth() + 1); 
+          await plannerAPI.allocate({
+            range_start: today.toISOString(),
+            range_end: endDate.toISOString(),
+            clear_existing: true,
+          });
+
+          const resp = await flexibleTaskAPI.list();
+          const tasks = resp.data as FlexibleTask[];
+          setItems(tasks.map(mapFlexibleTaskToTodoItem));
         } catch {
-          // ignore
+          // 실패 시 복구
+          setItems((prev) => prev.map((it) => (it.id === id ? { ...it, is_done: target.is_done } : it)));
         }
       })();
       return;
     }
-
     setItems((prev) => prev.map((it) => (it.id === id ? { ...it, is_done: !it.is_done } : it)));
   };
 
@@ -204,14 +241,15 @@ export default function TodoPage() {
       (async () => {
         try {
           await flexibleTaskAPI.delete(idNum);
-          setItems((prev) => prev.filter((it) => it.id !== id));
+          const resp = await flexibleTaskAPI.list();
+          const tasks = resp.data as FlexibleTask[];
+          setItems(tasks.map(mapFlexibleTaskToTodoItem));
         } catch {
           // ignore
         }
       })();
       return;
     }
-
     setItems((prev) => prev.filter((it) => it.id !== id));
   };
 
@@ -309,6 +347,7 @@ export default function TodoPage() {
 
                     <div className="flex gap-2 flex-wrap">
                       <SmallButton onClick={() => toggleDone(item.id)} type="green">완료 전환</SmallButton>
+                      <SmallButton onClick={() => handleAllocate(item)} type="blue">배치</SmallButton>
                       <SmallButton onClick={() => handleEdit(item)} type="blue">수정</SmallButton>
                       <SmallButton onClick={() => deleteItem(item.id)} type="red">삭제</SmallButton>
                     </div>

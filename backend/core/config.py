@@ -24,9 +24,10 @@ class Settings(BaseSettings):
     default_day_end: str = "22:00"
     default_buffer_minutes: int = 30
     default_max_auto_minutes_per_day: int = 360
-    gemini_api_key: str | None = None
+    gemini_api_key: str = Field(default="AQ.Ab8RN6I2HIZdnwU9VO3vWJ8TLMwhKtIGzBs", env="GEMINI_API_KEY")
     google_client_id: str | None = None
-    llm_model: str = "gemini-2.5-flash-lite"
+    llm_model: str = Field(default="gemini-3.1-flash-lite", env="LLM_MODEL")
+
     llm_reasoning_effort: str = "none"
     llm_enable_web_search: bool = False
     llm_web_search_domains: list[str] = Field(default_factory=list)
