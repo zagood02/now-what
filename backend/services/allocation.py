@@ -17,6 +17,7 @@ from backend.models.fixed_schedule import FixedSchedule
 from backend.models.flexible_task import FlexibleTask
 from backend.models.goal import Goal
 from backend.models.user import User
+from backend.models.variable_schedule import VariableSchedule
 from backend.services.recurrence import expand_fixed_schedule
 
 
@@ -308,6 +309,14 @@ class AllocationService:
                 AIPlanItem.scheduled_end > range_start,
             )
         ).all()
+        
+        variable_schedules = session.scalars(
+            select(VariableSchedule).where(
+                VariableSchedule.user_id == user_id,
+                VariableSchedule.start_at < range_end,
+                VariableSchedule.end_at > range_start,
+            )
+        ).all()
 
         intervals: list[tuple[datetime, datetime]] = []
         for item in fixed_schedules:
@@ -336,6 +345,13 @@ class AllocationService:
             )
             for item in plan_items
             if item.scheduled_start and item.scheduled_end
+        )
+        intervals.extend(
+            (
+                normalize_to_kst_naive(item.start_at),
+                normalize_to_kst_naive(item.end_at),
+            )
+            for item in variable_schedules
         )
         return self._merge_intervals(intervals)
 
@@ -498,7 +514,15 @@ class AllocationService:
             if remaining <= 0:
                 continue
 
-            task_deadline = min(task.due_at, range_end) if task.due_at else range_end
+            # If `due_at` was provided as a date (parsed as midnight),
+            # treat it as inclusive end-of-day deadline so same-day tasks can be scheduled.
+            if task.due_at:
+                due = task.due_at
+                if due.time() == time.min:
+                    due = datetime.combine(due.date(), time(23, 59, 59))
+                task_deadline = min(due, range_end)
+            else:
+                task_deadline = range_end
             task_was_allocated = False
 
             while remaining > 0:

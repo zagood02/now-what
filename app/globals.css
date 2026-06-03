@@ -102,3 +102,30 @@ body {
   background: var(--app-bg);
   color: var(--app-text);
 }
+
+button {
+  transition: transform 0.15s ease, filter 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+  will-change: transform, filter, box-shadow;
+}
+
+button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  filter: brightness(1.05);
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.08);
+}
+
+button:active:not(:disabled) {
+  transform: translateY(0) scale(0.98);
+  filter: brightness(0.92);
+  box-shadow: 0 4px 8px rgba(15, 23, 42, 0.12);
+}
+
+button:focus-visible {
+  outline: 3px solid rgba(59, 130, 246, 0.35);
+  outline-offset: 3px;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}

@@ -13,6 +13,21 @@ import {
 } from "@/lib/thirdStageStorage";
 import { useAuth } from "@/app/contexts/AuthContext";
 import { flexibleTaskAPI, type FlexibleTask, plannerAPI } from "@/lib/api";
+import HelpButton from "@/components/HelpButton";
+
+const formatKstDate = (date: Date) => date.toLocaleString("sv", { timeZone: "Asia/Seoul" }).split(" ")[0];
+const toKstNaiveDateTime = (date: Date) => {
+  const [datePart, timePart] = date.toLocaleString("sv", { timeZone: "Asia/Seoul" }).split(" ");
+  return `${datePart}T${timePart}`;
+};
+const toKstEndOfDay = (dateString: string) => `${dateString.slice(0, 10)}T23:59:59`;
+const parseTodoDueDate = (value: string) => {
+  if (!value) return "";
+  if (/Z|[+-]\d{2}:\d{2}$/.test(value)) {
+    return new Date(value).toLocaleString("sv", { timeZone: "Asia/Seoul" }).split(" ")[0];
+  }
+  return value.slice(0, 10);
+};
 
 type TodoForm = {
   title: string;
@@ -45,12 +60,15 @@ export default function TodoPage() {
 
   function mapFlexibleTaskToTodoItem(task: FlexibleTask): TodoItem {
     const details = (task.details_json as any) ?? {};
+    const dueAtString = task.due_at ? String(task.due_at) : "";
+    const examDate = dueAtString ? parseTodoDueDate(dueAtString) : "";
+
     return {
       id: `flex-${task.id}`,
       user_id: String(task.user_id),
       title: task.title,
       goal_score: "",
-      exam_date: task.due_at ? new Date(task.due_at).toISOString().slice(0, 10) : "",
+      exam_date: examDate,
       target_hours: Math.round((task.estimated_minutes || 0) / 60),
       importance: Number(details.importance ?? 5),
       fatigue: Number(details.fatigue ?? 5),
@@ -184,16 +202,26 @@ export default function TodoPage() {
   const handleAllocate = async (item: TodoItem) => {
     if (!item.exam_date) return;
     try {
-      const today = new Date();
-      // 배치 전 기존 할당된 일정이 있다면 정리하는 로직이 필요한 경우
-      // 현재 완료/삭제 로직은 백엔드에서 처리되므로, 배치 요청 시 clear_existing을 false로 유지
+      const rangeStart = `${formatKstDate(new Date())}T00:00:00`;
+      const rangeEnd = toKstEndOfDay(item.exam_date);
+
+      console.log("투두 배치 요청:", {
+        시작: rangeStart,
+        끝: rangeEnd,
+      });
+
       await plannerAPI.allocate({
-        range_start: today.toISOString(),
-        range_end: new Date(item.exam_date).toISOString(),
+        range_start: rangeStart,
+        range_end: rangeEnd,
         clear_existing: false,
       });
+      const resp = await flexibleTaskAPI.list();
+      const tasks = resp.data as FlexibleTask[];
+      setItems(tasks.map(mapFlexibleTaskToTodoItem));
+      window.dispatchEvent(new Event("todo-state-changed"));
       alert("배치가 완료되었습니다.");
     } catch (err) {
+      console.error("배치 에러:", err);
       alert("배치 중 오류가 발생했습니다.");
     }
   };
@@ -213,12 +241,14 @@ export default function TodoPage() {
           await flexibleTaskAPI.update(idNum, { status: nextStatus } as any);
 
           // 스케줄 재계산하여 완료된 일정 제거
-          const today = new Date();
+          const rangeStart = `${formatKstDate(new Date())}T00:00:00`;
           const endDate = new Date();
-          endDate.setMonth(endDate.getMonth() + 1); 
+          endDate.setMonth(endDate.getMonth() + 1);
+          const rangeEnd = `${formatKstDate(endDate)}T23:59:59`;
+          
           await plannerAPI.allocate({
-            range_start: today.toISOString(),
-            range_end: endDate.toISOString(),
+            range_start: rangeStart,
+            range_end: rangeEnd,
             clear_existing: true,
           });
 
@@ -273,13 +303,19 @@ export default function TodoPage() {
 
   return (
     <div>
-      <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--app-text)" }}>
-        할일 관리
-      </h1>
-
-      <p className="mb-6" style={{ color: "var(--app-text-muted)" }}>
-        마감일자와 예상 소요 시간으로 관리하는 페이지입니다.
-      </p>
+      <div className="flex items-start justify-between gap-4 mb-2">
+        <div>
+          <h1 className="text-3xl font-bold" style={{ color: "var(--app-text)" }}>할일 관리</h1>
+          <p className="text-sm mt-2" style={{ color: "var(--app-text-muted)" }}>마감일자와 예상 소요 시간으로 관리하는 페이지입니다.</p>
+        </div>
+        <HelpButton title="할일 페이지 도움말">
+          <ul className="list-disc list-inside space-y-2">
+            <li><strong>할일 추가</strong>: 제목과 마감일, 예상 시간을 입력해 작업을 등록합니다.</li>
+            <li><strong>배치</strong>: 마감일까지 자동으로 일정을 찾아 배치합니다.</li>
+            <li><strong>완료 전환</strong>: 완료 시 연결된 일정이 제거되며 상태가 갱신됩니다.</li>
+          </ul>
+        </HelpButton>
+      </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-[420px_1fr] gap-6">
         <section className="rounded-2xl border p-5 shadow-sm" style={{ background: "var(--app-surface)", borderColor: "var(--app-border)" }}>

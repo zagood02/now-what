@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { AppSettings, readSettings, saveSettings } from "@/lib/settings";
 import { applyThemeClass } from "@/components/ThemeInitializer";
+import HelpButton from "@/components/HelpButton";
 
 function ToggleSwitch({
   checked,
@@ -58,9 +59,14 @@ export default function SettingsPage() {
 
   return (
     <div>
-      <h1 className="text-3xl font-bold mb-6" style={{ color: "var(--app-text)" }}>
-        설정
-      </h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-3xl font-bold" style={{ color: "var(--app-text)" }}>
+          설정
+        </h1>
+        <HelpButton title="설정 도움말">
+          <p>시간대, 시간 표시 형식, 테마(다크모드) 등 앱의 기본 설정을 변경할 수 있습니다.</p>
+        </HelpButton>
+      </div>
 
       <div
         className="rounded-2xl border shadow-sm"

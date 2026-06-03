@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/app/contexts/AuthContext";
 import { calendarAPI, type CalendarEvent } from "@/lib/api";
+import HelpButton from "@/components/HelpButton";
 
 type CalendarCell = {
   date: number;
@@ -14,7 +15,7 @@ type CalendarCell = {
 export default function CalendarPage() {
   const router = useRouter();
   const { user, isLoading: isAuthLoading } = useAuth();
-  const [currentDate, setCurrentDate] = useState(() => new Date(2026, 4, 1));  // 2026년 5월로 초기화
+  const [currentDate, setCurrentDate] = useState(() => new Date());
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
   const [calendarError, setCalendarError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -150,37 +151,45 @@ export default function CalendarPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <button
-          onClick={handlePrevMonth}
-          className="flex items-center justify-center w-10 h-10 rounded-xl border text-lg font-bold hover:opacity-90"
-          style={{
-            background: "var(--sky-button-bg)",
-            color: "var(--sky-button-text)",
-            borderColor: "var(--sky-button-border)",
-          }}
-        >
-          ◀
-        </button>
+      <div className="relative flex items-center justify-center mb-6">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handlePrevMonth}
+            className="flex items-center justify-center w-10 h-10 rounded-xl border text-lg font-bold hover:opacity-90"
+            style={{
+              background: "var(--sky-button-bg)",
+              color: "var(--sky-button-text)",
+              borderColor: "var(--sky-button-border)",
+            }}
+          >
+            ◀
+          </button>
 
-        <h1
-          className="text-3xl font-bold"
-          style={{ color: "var(--app-text)" }}
-        >
-          {year}년 {month + 1}월
-        </h1>
+          <h1
+            className="text-3xl font-bold text-center w-48"
+            style={{ color: "var(--app-text)" }}
+          >
+            {year}년 {month + 1}월
+          </h1>
 
-        <button
-          onClick={handleNextMonth}
-          className="flex items-center justify-center w-10 h-10 rounded-xl border text-lg font-bold hover:opacity-90"
-          style={{
-            background: "var(--sky-button-bg)",
-            color: "var(--sky-button-text)",
-            borderColor: "var(--sky-button-border)",
-          }}
-        >
-          ▶
-        </button>
+          <button
+            onClick={handleNextMonth}
+            className="flex items-center justify-center w-10 h-10 rounded-xl border text-lg font-bold hover:opacity-90"
+            style={{
+              background: "var(--sky-button-bg)",
+              color: "var(--sky-button-text)",
+              borderColor: "var(--sky-button-border)",
+            }}
+          >
+            ▶
+          </button>
+        </div>
+
+        <div className="absolute right-0">
+          <HelpButton title="달력 도움말">
+            <p>월간 일정을 확인하고, 특정 주를 클릭하여 상세 일정을 관리할 수 있습니다.</p>
+          </HelpButton>
+        </div>
       </div>
 
       <div
@@ -224,7 +233,7 @@ export default function CalendarPage() {
           <div
             key={index}
             onClick={() => handleWeekClick(index)}
-            className="h-24 rounded-xl border p-3 transition cursor-pointer hover:opacity-90"
+            className="h-34 rounded-xl border p-3 transition cursor-pointer hover:opacity-90"
             style={{
               background: cell.isCurrentMonth
                 ? "var(--app-surface)"

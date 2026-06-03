@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { createId } from "@/lib/thirdStageStorage";
 import { goalAPI, flexibleTaskAPI, plannerAPI, handleApiError } from "@/lib/api";
 import { useAuth } from "@/app/contexts/AuthContext";
+import HelpButton from "@/components/HelpButton";
 
 export default function AiPlanPage() {
   const { user } = useAuth();
@@ -64,7 +65,18 @@ export default function AiPlanPage() {
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
-      <h1 className="text-3xl font-bold mb-4" style={{ color: "var(--app-text)" }}>AI 계획 생성</h1>
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-3xl font-bold" style={{ color: "var(--app-text)" }}>AI 계획 생성</h1>
+        <HelpButton title="AI 계획 생성 도움말">
+          <p className="mb-2">AI를 활용하여 목표에 맞는 계획을 생성하고 관리할 수 있습니다.</p>
+          <ul className="list-disc list-inside space-y-1 text-xs">
+            <li><strong>프롬프트 입력</strong>: 원하는 목표를 구체적으로 입력하세요.</li>
+            <li><strong>질문 생성</strong>: AI가 계획 수립을 위해 필요한 질문을 생성합니다.</li>
+            <li><strong>계획 초안 생성</strong>: 답변을 바탕으로 계획을 생성합니다.</li>
+            <li><strong>저장</strong>: 생성된 계획을 시스템에 저장합니다.</li>
+          </ul>
+        </HelpButton>
+      </div>
       
       <section className="rounded-2xl border p-6 shadow-sm mb-6" style={{ background: "var(--app-surface)", borderColor: "var(--app-border)" }}>
         <h2 className="text-xl font-bold mb-4" style={{ color: "var(--app-text)" }}>1. 프롬프트 입력</h2>

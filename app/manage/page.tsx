@@ -9,6 +9,7 @@ import {
   type FixedSchedule,
   type VariableSchedule as ApiVariableSchedule,
 } from "@/lib/api";
+import HelpButton from "@/components/HelpButton";
 import {
   type DayCode,
   type FailReason,
@@ -815,7 +816,16 @@ export default function ManagePage() {
     if (editingVariableId === id) resetVariableForm();
   };
 
-  const handleMarkDone = (id: string) => {
+  const handleMarkDone = async (id: string) => {
+    if (user) {
+      try {
+        await variableScheduleAPI.update(Number(id), { status: "completed" });
+      } catch (error) {
+        setBackendError(handleApiError(error));
+        return;
+      }
+    }
+
     setVariableList((prev) =>
       prev.map((item) =>
         item.id === id
@@ -844,8 +854,23 @@ export default function ManagePage() {
     setFailReasonText("");
   };
 
-  const handleConfirmFail = () => {
+  const handleConfirmFail = async () => {
     if (!failModalTargetId) return;
+
+    if (user) {
+      try {
+        await variableScheduleAPI.update(Number(failModalTargetId), {
+          status: "failed",
+          details_json: {
+            fail_reason: selectedFailReason,
+            fail_reason_text: failReasonText.trim() || null,
+          },
+        });
+      } catch (error) {
+        setBackendError(handleApiError(error));
+        return;
+      }
+    }
 
     setVariableList((prev) =>
       prev.map((item) =>
@@ -868,9 +893,14 @@ export default function ManagePage() {
 
   return (
     <div>
-      <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--app-text)" }}>
-        일정 관리
-      </h1>
+      <div className="flex items-center justify-between mb-2">
+        <h1 className="text-3xl font-bold" style={{ color: "var(--app-text)" }}>
+          일정 관리
+        </h1>
+        <HelpButton title="일정 관리 도움말">
+          <p>고정 일정과 변동 일정을 등록하고, 색상·피로도·완료·실패 상태를 함께 관리할 수 있습니다.</p>
+        </HelpButton>
+      </div>
 
       <p className="mb-6" style={{ color: "var(--app-text-muted)" }}>
         고정 일정과 변동 일정을 등록하고, 색상·피로도·완료·실패 상태를 함께 관리합니다.
@@ -1116,14 +1146,22 @@ export default function ManagePage() {
                   return (
                     <div
                       key={series.series_id}
-                      className="rounded-xl border p-4"
+                      className="rounded-xl border p-4 transition duration-150 hover:shadow-lg hover:border-slate-400 hover:bg-slate-50"
                       style={{ background: "var(--app-bg)", borderColor: "var(--app-border)" }}
                     >
                       <div className="flex items-start justify-between gap-3">
-                        <button
-                          type="button"
+                        <div
+                          role="button"
+                          tabIndex={0}
                           onClick={() => setExpandedSeriesId(expanded ? null : series.series_id)}
-                          className="text-left min-w-0 flex-1"
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault();
+                              setExpandedSeriesId(expanded ? null : series.series_id);
+                            }
+                          }}
+                          className="text-left min-w-0 flex-1 w-full"
+                          style={{ cursor: "pointer" }}
                         >
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="w-3 h-3 rounded-full" style={{ background: colors.bg }} />
@@ -1140,7 +1178,7 @@ export default function ManagePage() {
                               </div>
                             ))}
                           </div>
-                        </button>
+                        </div>
 
                         <div className="flex flex-col gap-2 shrink-0">
                           <button type="button" onClick={() => handleEditSeries(series)} className="small-blue">

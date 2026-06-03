@@ -134,6 +134,28 @@ def skip_plan_item(
     return item
 
 
+@router.post("/plan-items/{item_id}/complete", response_model=AIPlanItemRead)
+def complete_plan_item(
+    item_id: int,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_db_session),
+) -> AIPlanItem:
+    item = require_owned_resource(
+        session,
+        AIPlanItem,
+        item_id,
+        current_user.id,
+        detail="Plan item not found.",
+    )
+    if item.status == PlanItemStatus.completed:
+        return item
+
+    item.status = PlanItemStatus.completed
+    session.commit()
+    session.refresh(item)
+    return item
+
+
 @router.delete("/plan-items/{item_id}", response_model=Message)
 def delete_plan_item(
     item_id: int,

@@ -59,9 +59,30 @@ export default function WeekPageClient() {
   const params = useSearchParams();
   const { user, isLoading: isAuthLoading } = useAuth();
 
-  const week = Number(params.get("week") ?? 0);
-  const year = Number(params.get("year") ?? 2026);  // 기본값을 2026으로
-  const month = Number(params.get("month") ?? 4);   // 기본값을 4로 (5월)
+  const today = new Date();
+  const defaultYear = today.getFullYear();
+  const defaultMonth = today.getMonth();
+
+  const yearParam = params.get("year");
+  const monthParam = params.get("month");
+  const weekParam = params.get("week");
+
+  const year = yearParam !== null && !Number.isNaN(Number(yearParam))
+    ? Number(yearParam)
+    : defaultYear;
+  const month = monthParam !== null && !Number.isNaN(Number(monthParam))
+    ? Number(monthParam)
+    : defaultMonth;
+
+  const defaultWeek = (() => {
+    if (today.getFullYear() !== year || today.getMonth() !== month) return 0;
+    const firstDayOfMonth = new Date(year, month, 1).getDay();
+    return Math.floor((today.getDate() + firstDayOfMonth - 1) / 7);
+  })();
+
+  const week = weekParam !== null && !Number.isNaN(Number(weekParam))
+    ? Number(weekParam)
+    : defaultWeek;
 
   const [settings] = useState<AppSettings>(() => readSettings());
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);

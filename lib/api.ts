@@ -40,12 +40,37 @@ apiClient.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+  
+  // 배치 요청 디버깅
+  if (config.url?.includes("/planner/allocate")) {
+    console.log("🚀 배치 요청 발송:", {
+      url: config.url,
+      method: config.method,
+      data: config.data,
+    });
+  }
+  
   return config;
 });
 
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // 배치 응답 디버깅
+    if (response.config.url?.includes("/planner/allocate")) {
+      console.log("✅ 배치 응답 수신:", response.data);
+    }
+    return response;
+  },
   async (error) => {
+    // 배치 에러 디버깅
+    if (error.config?.url?.includes("/planner/allocate")) {
+      console.error("❌ 배치 에러:", {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+      });
+    }
+    
     const originalRequest = error.config;
     if (
       error.response?.status === 401 &&
@@ -194,6 +219,46 @@ export interface Goal {
   answers_json: Record<string, unknown>;
   created_at: string;
   updated_at: string;
+  plans?: AIPlan[];
+}
+
+export interface AIPlanItem {
+  id: number;
+  ai_plan_id: number;
+  goal_id: number;
+  user_id: number;
+  title: string;
+  description: string | null;
+  item_type: string;
+  estimated_minutes: number;
+  priority: number;
+  target_date: string | null;
+  is_schedulable: boolean;
+  scheduled_start: string | null;
+  scheduled_end: string | null;
+  status: "suggested" | "scheduled" | "completed" | "skipped";
+  metadata_json: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AIPlan {
+  id: number;
+  user_id: number;
+  goal_id: number;
+  summary: string;
+  strategy_json: Record<string, unknown>;
+  recommendations_json: Record<string, unknown>;
+  raw_plan_json: Record<string, unknown>;
+  llm_mode: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  items: AIPlanItem[];
+}
+
+export interface GoalDetail extends Goal {
+  plans?: AIPlan[];
 }
 
 export interface GoalQuestion {
@@ -327,7 +392,7 @@ export const variableScheduleAPI = {
 export const goalAPI = {
   create: (data: CreateGoalRequest) => apiClient.post<Goal>("/goals", data),
   list: () => apiClient.get<Goal[]>("/goals"),
-  get: (goalId: number) => apiClient.get<Goal>(`/goals/${goalId}`),
+  get: (goalId: number) => apiClient.get<GoalDetail>(`/goals/${goalId}`),
   update: (goalId: number, data: Partial<CreateGoalRequest>) =>
     apiClient.patch<Goal>(`/goals/${goalId}`, data),
   delete: (goalId: number) => apiClient.delete(`/goals/${goalId}`),
@@ -341,11 +406,6 @@ export const goalAPI = {
   }) => apiClient.post("/goals/complete", data),
 };
 
-export const calendarAPI = {
-  get: (params: { start: string; end: string }) =>
-    apiClient.get<CalendarResponse>("/calendar", { params }),
-};
-
 export const plannerAPI = {
   allocate: (data: {
     range_start: string;
@@ -354,6 +414,15 @@ export const plannerAPI = {
     day_end?: string;
     clear_existing?: boolean;
   }) => apiClient.post("/planner/allocate", data),
+  unschedulePlanItem: (itemId: number) => apiClient.delete<AIPlanItem>(`/planner/plan-items/${itemId}/schedule`),
+  skipPlanItem: (itemId: number) => apiClient.post<AIPlanItem>(`/planner/plan-items/${itemId}/skip`),
+  completePlanItem: (itemId: number) => apiClient.post<AIPlanItem>(`/planner/plan-items/${itemId}/complete`),
+  deletePlanItem: (itemId: number) => apiClient.delete(`/planner/plan-items/${itemId}`),
+};
+
+export const calendarAPI = {
+  get: (params: { start: string; end: string }) =>
+    apiClient.get<CalendarResponse>("/calendar", { params }),
 };
 
 export const healthAPI = {
