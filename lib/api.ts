@@ -2,8 +2,7 @@ import axios, { type AxiosInstance } from "axios";
 
 const normalizeUrl = (url: string) => url.replace(/\/+$/, "");
 
-const rawApiUrl = process.env.NEXT_PUBLIC_API_URL?.trim() || "";
-const API_BASE_URL = "http://localhost:8000";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL?.trim() || "http://localhost:8000";
 const API_V1_PREFIX = "/api/v1";
 const ACCESS_TOKEN_STORAGE_KEY = "now_what_access_token";
 
