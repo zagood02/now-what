@@ -274,6 +274,8 @@ class AllocationService:
         range_start: datetime,
         range_end: datetime,
         goal_id: int | None = None,
+        exclude_task_id: int | None = None,
+        exclude_plan_item_id: int | None = None,
     ) -> list[tuple[datetime, datetime]]:
         fixed_schedules = session.scalars(
             select(FixedSchedule).where(
@@ -292,23 +294,26 @@ class AllocationService:
                 ),
             )
         ).all()
-        allocated_tasks = session.scalars(
-            select(AllocatedTask).join(FlexibleTask, AllocatedTask.flexible_task_id == FlexibleTask.id).where(
-                AllocatedTask.user_id == user_id,
-                FlexibleTask.status != FlexibleTaskStatus.cancelled,
-                AllocatedTask.scheduled_start < range_end,
-                AllocatedTask.scheduled_end > range_start,
-            )
-        ).all()
-        plan_items = session.scalars(
-            self._active_plan_item_query(user_id).where(
-                AIPlanItem.goal_id != goal_id if goal_id else True,
-                AIPlanItem.scheduled_start.is_not(None),
-                AIPlanItem.scheduled_end.is_not(None),
-                AIPlanItem.scheduled_start < range_end,
-                AIPlanItem.scheduled_end > range_start,
-            )
-        ).all()
+        query = select(AllocatedTask).join(FlexibleTask, AllocatedTask.flexible_task_id == FlexibleTask.id).where(
+            AllocatedTask.user_id == user_id,
+            FlexibleTask.status != FlexibleTaskStatus.cancelled,
+            AllocatedTask.scheduled_start < range_end,
+            AllocatedTask.scheduled_end > range_start,
+        )
+        if exclude_task_id:
+            query = query.where(AllocatedTask.id != exclude_task_id)
+        allocated_tasks = session.scalars(query).all()
+        
+        plan_query = self._active_plan_item_query(user_id).where(
+            AIPlanItem.goal_id != goal_id if goal_id else True,
+            AIPlanItem.scheduled_start.is_not(None),
+            AIPlanItem.scheduled_end.is_not(None),
+            AIPlanItem.scheduled_start < range_end,
+            AIPlanItem.scheduled_end > range_start,
+        )
+        if exclude_plan_item_id:
+            plan_query = plan_query.where(AIPlanItem.id != exclude_plan_item_id)
+        plan_items = session.scalars(plan_query).all()
         
         variable_schedules = session.scalars(
             select(VariableSchedule).where(
@@ -545,6 +550,7 @@ class AllocationService:
                     user_id=user_id,
                     start_at=candidate.start,
                     end_at=candidate.end,
+                    exclude_task_id=task.id,
                 )
                 record = AllocatedTask(
                     user_id=user_id,
@@ -692,6 +698,7 @@ class AllocationService:
                     user_id=user_id,
                     start_at=candidate.start,
                     end_at=candidate.end,
+                    exclude_plan_item_id=item.id,
                 )
                 item.scheduled_start = candidate.start
                 item.scheduled_end = candidate.end
@@ -1196,8 +1203,17 @@ class AllocationService:
         user_id: int,
         start_at: datetime,
         end_at: datetime,
+        exclude_task_id: int | None = None,
+        exclude_plan_item_id: int | None = None,
     ) -> None:
-        conflicts = self._load_busy_slots(session, user_id, start_at, end_at)
+        conflicts = self._load_busy_slots(
+            session,
+            user_id,
+            start_at,
+            end_at,
+            exclude_task_id=exclude_task_id,
+            exclude_plan_item_id=exclude_plan_item_id,
+        )
         if any(start_at < busy_end and end_at > busy_start for busy_start, busy_end in conflicts):
             raise AllocationConflictError("Schedule changed during allocation. Please retry.")
 

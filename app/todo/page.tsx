@@ -55,6 +55,7 @@ export default function TodoPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"active" | "done">("active");
   const [isLoaded, setIsLoaded] = useState(false);
+  const [isAllocating, setIsAllocating] = useState(false);
 
   const userId = user?.id ? String(user.id) : "guest";
 
@@ -201,6 +202,7 @@ export default function TodoPage() {
 
   const handleAllocate = async (item: TodoItem) => {
     if (!item.exam_date) return;
+    setIsAllocating(true);
     try {
       const rangeStart = `${formatKstDate(new Date())}T00:00:00`;
       const rangeEnd = toKstEndOfDay(item.exam_date);
@@ -223,6 +225,8 @@ export default function TodoPage() {
     } catch (err) {
       console.error("배치 에러:", err);
       alert("배치 중 오류가 발생했습니다.");
+    } finally {
+      setIsAllocating(false);
     }
   };
 
@@ -383,7 +387,9 @@ export default function TodoPage() {
 
                     <div className="flex gap-2 flex-wrap">
                       <SmallButton onClick={() => toggleDone(item.id)} type="green">완료 전환</SmallButton>
-                      <SmallButton onClick={() => handleAllocate(item)} type="blue">배치</SmallButton>
+                      <SmallButton onClick={() => handleAllocate(item)} type="blue" disabled={isAllocating}>
+                        {isAllocating ? "배치 중..." : "배치"}
+                      </SmallButton>
                       <SmallButton onClick={() => handleEdit(item)} type="blue">수정</SmallButton>
                       <SmallButton onClick={() => deleteItem(item.id)} type="red">삭제</SmallButton>
                     </div>
@@ -419,16 +425,16 @@ function InputLabel({ label, children }: { label: string; children: React.ReactN
   );
 }
 
-function SmallButton({ children, onClick, type }: { children: React.ReactNode; onClick: () => void; type: "blue" | "green" | "red"; }) {
+function SmallButton({ children, onClick, type, disabled }: { children: React.ReactNode; onClick: () => void; type: "blue" | "green" | "red"; disabled?: boolean }) {
   const style =
     type === "blue"
-      ? { background: "var(--card-blue-bg)", color: "var(--card-blue-text)" }
+      ? { background: "var(--card-blue-bg)", color: "var(--card-blue-text)", opacity: disabled ? 0.5 : 1 }
       : type === "green"
-      ? { background: "var(--card-green-bg)", color: "var(--card-green-text)" }
-      : { background: "var(--card-red-bg)", color: "var(--card-red-text)" };
+      ? { background: "var(--card-green-bg)", color: "var(--card-green-text)", opacity: disabled ? 0.5 : 1 }
+      : { background: "var(--card-red-bg)", color: "var(--card-red-text)", opacity: disabled ? 0.5 : 1 };
 
   return (
-    <button onClick={onClick} className="px-3 py-2 rounded-md font-bold" style={style}>
+    <button onClick={onClick} className="px-3 py-2 rounded-md font-bold" style={style} disabled={disabled}>
       {children}
     </button>
   );
