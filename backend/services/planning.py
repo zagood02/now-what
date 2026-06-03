@@ -368,9 +368,8 @@ class PlanningService:
         return self._parse_goal_input_with_template(payload)
 
     def build_plan(self, goal: Goal, answers: dict[str, Any]) -> PlanDraft:
-        study_subtype = self._study_subtype_for_goal(goal, answers)
-        if (goal.category or GoalCategory.general) == GoalCategory.study and study_subtype in self.STUDY_SUBTYPE_BLUEPRINTS:
-            return self._build_plan_with_template(goal, answers)
+        if self._can_use_gemini():
+            return self._build_plan_with_gemini(goal, answers)
         return self._build_plan_with_template(goal, answers)
 
     def _can_use_gemini(self) -> bool:
@@ -1479,4 +1478,5 @@ class PlanningService:
                     metadata_json={"goal_category": goal.category.value, "source": "template-fallback"},
                 )
             )
+
 
