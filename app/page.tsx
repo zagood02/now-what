@@ -127,9 +127,9 @@ export default function DashboardPage() {
       if (event.source_type === "ai_plan_item") {
         await plannerAPI.completePlanItem(event.source_id);
       } else if (event.source_type === "allocated_task") {
-        await flexibleTaskAPI.update(event.source_id, { status: "completed" });
+        await flexibleTaskAPI.update(event.source_id, { status: "completed" }as any);
       } else if (event.source_type === "variable_schedule") {
-        await variableScheduleAPI.update(event.source_id, { status: "completed" });
+        await variableScheduleAPI.update(event.source_id, { status: "completed" }as any);
       }
 
       setEvents((prev) => prev.filter((e) => !(e.id === event.id && e.source_type === event.source_type)));
