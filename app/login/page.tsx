@@ -84,9 +84,9 @@ export default function LoginPage() {
         로그인
       </h1>
 
-      <p className="mb-6" style={{ color: "var(--app-text-muted)" }}>
-        실제 백엔드 인증을 사용합니다.
-      </p>
+      {/* <p className="mb-6" style={{ color: "var(--app-text-muted)" }}>
+        {/* 실제 백엔드 인증을 사용합니다. */}
+      {/* </p> */} 
 
       <form
         onSubmit={handleLogin}
